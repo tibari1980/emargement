@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-atkinson), Verdana, Arial, Helvetica, sans-serif;
+}
+
+/* Larger base size for low-vision users; text stays zoomable (rem units). */
+html {
+  font-size: 112.5%;
+}
+
+body {
+  font-family: var(--font-sans);
+  line-height: 1.5;
+}
+
+/* Visible focus for any focusable element not styled explicitly. */
+:focus-visible {
+  outline: 3px solid #b45309;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Windows high contrast mode: keep borders and focus indicators visible. */
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 3px solid CanvasText;
+  }
+}
