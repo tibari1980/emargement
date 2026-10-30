@@ -7,13 +7,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { useAuth } from "@/components/AuthProvider";
-import { FirebaseNotConfigured } from "@/components/RoleGuard";
+import { FirebaseNotConfigured } from "@/components/ProtectedPage";
 import { Alert } from "@/components/ui/Alert";
 import { Button, focusRing } from "@/components/ui/Button";
-import { TextField } from "@/components/ui/Field";
-import { PageHeader } from "@/components/ui/PageHeader";
-import { isAppInitialised } from "@/lib/accounts";
-import { getFirebaseAuth } from "@/lib/firebase";
+import { PasswordField, TextField } from "@/components/ui/Field";
+import { isAppInitialised } from "@/lib/data/accounts";
+import { getFirebaseAuth } from "@/lib/core/firebase";
 
 function authErrorMessage(error: unknown): string {
   const code = error instanceof FirebaseError ? error.code : "";
@@ -51,7 +50,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!configured) return;
     isAppInitialised()
-      .then((done) => setNeedsSetup(!done))
+      .then((done: boolean) => setNeedsSetup(!done))
       .catch(() => {});
   }, [configured]);
 
@@ -89,8 +88,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="mx-auto max-w-md">
-      <PageHeader title="Connexion" description="Connectez-vous avec votre adresse email professionnelle." />
+    <div className="mx-auto max-w-md py-6 sm:py-12">
+      <div className="mb-6 flex flex-col items-center text-center">
+        <div
+          className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container text-white shadow-sm font-bold text-xl tracking-wider"
+          aria-hidden="true"
+        >
+          VH
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
+          ESRP / CFRP Valentin Haüy
+        </h1>
+        <p className="mt-1 text-sm text-on-surface-variant">
+          Plateforme d&apos;Émargement &amp; Suivi Pédagogique
+        </p>
+      </div>
+
       {needsSetup && (
         <div className="mb-5">
           <Alert tone="info">
@@ -102,9 +115,22 @@ export default function LoginPage() {
           </Alert>
         </div>
       )}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5 rounded-lg border-2 border-gray-300 bg-white p-6" noValidate>
+
+      <form
+        onSubmit={handleSubmit}
+        className="flex flex-col gap-5 rounded-2xl border border-border-subtle bg-surface-container-lowest p-6 sm:p-8 shadow-xs"
+        noValidate
+      >
+        <div className="border-b border-border-subtle pb-3">
+          <h2 className="text-xl font-bold text-primary">Connexion à votre espace</h2>
+          <p className="text-xs text-on-surface-variant mt-0.5">
+            Identifiez-vous avec votre adresse email professionnelle.
+          </p>
+        </div>
+
         {error && <Alert tone="error">{error}</Alert>}
         {info && <Alert tone="success">{info}</Alert>}
+
         <TextField
           label="Adresse email"
           type="email"
@@ -112,21 +138,24 @@ export default function LoginPage() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          placeholder="nom.prenom@avh.asso.fr"
         />
-        <TextField
+        <PasswordField
           label="Mot de passe"
-          type="password"
           autoComplete="current-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <Button type="submit" disabled={busy}>
-          {busy ? "Connexion en cours…" : "Se connecter"}
-        </Button>
-        <Button variant="secondary" onClick={handleReset}>
-          Mot de passe oublié
-        </Button>
+
+        <div className="flex flex-col gap-3 pt-2">
+          <Button type="submit" disabled={busy} className="w-full">
+            {busy ? "Connexion en cours…" : "Se connecter"}
+          </Button>
+          <Button variant="secondary" onClick={handleReset} className="w-full">
+            Mot de passe oublié
+          </Button>
+        </div>
       </form>
     </div>
   );

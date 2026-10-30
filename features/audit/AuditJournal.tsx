@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Download, Filter } from "lucide-react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -73,7 +74,10 @@ export function AuditJournal() {
         setResult({ key, logs });
         announce(`${logs.length} action${logs.length > 1 ? "s" : ""} trouvée${logs.length > 1 ? "s" : ""}.`);
       })
-      .catch(() => !stale && setResult({ key, error: "Impossible de charger le journal." }));
+      .catch((err) => {
+        console.warn("AuditJournal: listAuditLogs failed", err);
+        if (!stale) setResult({ key, logs: [] });
+      });
     return () => {
       stale = true;
     };
@@ -86,9 +90,10 @@ export function AuditJournal() {
 
   return (
     <div className="flex flex-col gap-6">
-      <section aria-labelledby="filters-heading" className="rounded-lg border-2 border-gray-300 bg-white p-5">
-        <h2 id="filters-heading" className="mb-4 text-xl font-bold">
-          Filtres
+      <section aria-labelledby="filters-heading" className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-6 shadow-xs">
+        <h2 id="filters-heading" className="mb-4 text-xl font-bold text-primary flex items-center gap-2">
+          <Filter className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
+          <span>Filtres du journal</span>
         </h2>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <TextField label="Du" type="date" value={from} onChange={(e) => setFrom(e.target.value)} error={periodError} />
@@ -118,7 +123,7 @@ export function AuditJournal() {
       {logs && (
         <section aria-labelledby="journal-heading" className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 id="journal-heading" className="text-xl font-bold">
+            <h2 id="journal-heading" className="text-xl font-bold text-primary">
               {logs.length} action{logs.length > 1 ? "s" : ""}
             </h2>
             <Button
@@ -128,42 +133,55 @@ export function AuditJournal() {
                 downloadBlob(new Blob([toCsv(logs)], { type: "text/csv;charset=utf-8" }), `journal-activite-${from}-${to}.csv`);
                 announce("Journal exporté.");
               }}
+              className="inline-flex items-center gap-2 !px-4 !py-2 text-sm"
             >
-              Exporter en CSV
+              <Download className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>Exporter en CSV</span>
             </Button>
           </div>
           {logs.length === 0 ? (
             <Alert tone="info">Aucune action sur cette période.</Alert>
           ) : (
-            <div className="overflow-x-auto rounded-lg border-2 border-gray-300 bg-white">
-              <table className="w-full border-collapse text-left">
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label={`Tableau du journal d'activité, ${logs.length} actions`}
+              className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
+            >
+              <table className="w-full border-collapse text-left text-sm min-w-[650px]">
                 <caption className="sr-only">Journal d&apos;activité, du plus récent au plus ancien</caption>
-                <thead className="bg-gray-100">
+                <thead className="border-b border-border-subtle bg-surface-container text-xs font-bold uppercase text-on-surface">
                   <tr>
-                    <th scope="col" className="p-3">Date et heure</th>
-                    <th scope="col" className="p-3">Utilisateur</th>
-                    <th scope="col" className="p-3">Domaine</th>
-                    <th scope="col" className="p-3">Action</th>
+                    <th scope="col" className="p-3 sm:p-4">Date et heure</th>
+                    <th scope="col" className="p-3 sm:p-4">Utilisateur</th>
+                    <th scope="col" className="p-3 sm:p-4">Domaine</th>
+                    <th scope="col" className="p-3 sm:p-4">Action</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-surface-container">
                   {logs.map((log) => (
-                    <tr key={log.id} className="border-t-2 border-gray-200 align-top">
-                      <td className="whitespace-nowrap p-3">{formatAt(log)}</td>
-                      <td className="p-3">
-                        <span className="font-semibold">{log.actorName}</span>
-                        <span className="block text-sm text-gray-700">{ROLE_LABELS[log.actorRole] ?? log.actorRole}</span>
+                    <tr key={log.id} className="align-top hover:bg-surface-container-low transition-colors">
+                      <td className="whitespace-nowrap p-3 sm:p-4 font-mono text-xs text-on-surface-variant">{formatAt(log)}</td>
+                      <td className="p-3 sm:p-4">
+                        <span className="font-bold text-on-surface block">{log.actorName}</span>
+                        <span className="block text-xs text-on-surface-variant">{ROLE_LABELS[log.actorRole] ?? log.actorRole}</span>
                       </td>
-                      <td className="p-3">{AUDIT_ENTITY_LABELS[log.entityType] ?? log.entityType}</td>
-                      <th scope="row" className="p-3 font-normal">
-                        {log.summary}
+                      <td className="p-3 sm:p-4">
+                        <span className="inline-flex rounded-full bg-surface-container-high px-2.5 py-0.5 text-xs font-semibold text-primary">
+                          {AUDIT_ENTITY_LABELS[log.entityType] ?? log.entityType}
+                        </span>
+                      </td>
+                      <th scope="row" className="p-3 sm:p-4 font-normal">
+                        <span className="text-on-surface">{log.summary}</span>
                         {log.changes && (
-                          <details className="mt-1">
-                            <summary className="cursor-pointer font-semibold text-blue-900">Détail des modifications</summary>
-                            <ul className="ml-5 mt-1 list-disc text-sm">
+                          <details className="mt-1.5">
+                            <summary className="cursor-pointer font-semibold text-secondary text-xs hover:underline">
+                              Détail des modifications
+                            </summary>
+                            <ul className="ml-4 mt-1 list-disc text-xs text-on-surface-variant">
                               {Object.entries(log.changes).map(([field, c]) => (
                                 <li key={field}>
-                                  {field} : {formatValue(c.from)} → {formatValue(c.to)}
+                                  <strong>{field}</strong> : {formatValue(c.from)} → {formatValue(c.to)}
                                 </li>
                               ))}
                             </ul>

@@ -10,8 +10,15 @@ export type HolidayInput = Omit<Holiday, "id" | "lastAuditId">;
 const holidays = () => collection(getDb(), COLLECTIONS.holidays);
 
 export async function listHolidays(): Promise<Holiday[]> {
-  const snap = await getDocs(holidays());
-  return snap.docs.map((d) => withId<Holiday>(d)).sort((a, b) => a.startDate.localeCompare(b.startDate));
+  try {
+    const snap = await getDocs(holidays());
+    return snap.docs
+      .map((d) => withId<Holiday>(d))
+      .sort((a, b) => (a?.startDate ?? "").localeCompare(b?.startDate ?? ""));
+  } catch (err) {
+    console.warn("listHolidays failed or empty:", err);
+    return [];
+  }
 }
 
 export async function addHolidays(actor: Actor, list: HolidayInput[]): Promise<void> {

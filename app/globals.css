@@ -1,23 +1,322 @@
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200");
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-atkinson), Verdana, Arial, Helvetica, sans-serif;
+  --font-sans: var(--font-atkinson), "Atkinson Hyperlegible", Verdana, Arial, Helvetica, sans-serif;
+
+  /* Stitch Design Tokens (ESRP / CFRP Valentin Haüy) */
+  --color-primary: #001033;
+  --color-primary-container: #0d2552;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #798dc0;
+  --color-inverse-primary: #b1c6fc;
+
+  --color-secondary: #0d50d5;
+  --color-secondary-container: #386bef;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #fefcff;
+
+  --color-tertiary: #1e0f00;
+  --color-tertiary-container: #3a2200;
+  --color-on-tertiary-container: #c77e00;
+
+  --color-surface: #faf8ff;
+  --color-surface-bg: #f8fafc;
+  --color-surface-card: #ffffff;
+  --color-surface-dim: #d2d9f4;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f2f3ff;
+  --color-surface-container: #eaedff;
+  --color-surface-container-high: #e2e7ff;
+  --color-surface-container-highest: #dae2fd;
+  --color-surface-variant: #dae2fd;
+
+  --color-on-surface: #131b2e;
+  --color-on-surface-variant: #44464f;
+
+  --color-border-subtle: #cbd5e1;
+  --color-border-strong: #475569;
+  --color-outline: #757780;
+  --color-outline-variant: #c5c6d0;
+
+  --color-navy-deep: #081838;
+  --color-focus-outer: #f59e0b;
+  --color-focus-inner: #0d2552;
+
+  --color-status-present: #057a55;
+  --color-status-present-bg: #ecfdf5;
+  --color-status-present-border: #10b981;
+
+  --color-status-absent: #c81e1e;
+  --color-status-absent-bg: #fef2f2;
+  --color-status-absent-border: #ef4444;
+
+  --color-status-late: #c05621;
+  --color-status-late-bg: #fffbeb;
+  --color-status-late-border: #f59e0b;
+
+  --color-status-excused: #6b21a8;
+  --color-status-excused-bg: #faf5ff;
+  --color-status-excused-border: #a855f7;
 }
 
-/* Larger base size for low-vision users; text stays zoomable (rem units). */
+/* Base font-size for low-vision readers, customizable via AccessibilityProvider */
 html {
   font-size: 112.5%;
+}
+
+html.text-size-normal {
+  font-size: 112.5%;
+}
+
+html.text-size-large {
+  font-size: 125%;
+}
+
+html.text-size-xlarge {
+  font-size: 140%;
+}
+
+/* Spacing variations */
+html.spacing-relaxed body {
+  line-height: 1.8;
+  letter-spacing: 0.04em;
+  word-spacing: 0.08em;
 }
 
 body {
   font-family: var(--font-sans);
   line-height: 1.5;
+  background-color: var(--color-surface);
+  color: var(--color-on-surface);
 }
 
-/* Visible focus for any focusable element not styled explicitly. */
+/* Material Symbols Outlined Icon Styling */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 1.35rem;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  vertical-align: middle;
+  user-select: none;
+}
+
+/* Visible, dual-contrast focus indicator for any focusable element (WCAG 2.1 AAA) */
 :focus-visible {
-  outline: 3px solid #b45309;
+  outline: 3px solid #002b66;
   outline-offset: 2px;
+  box-shadow: 0 0 0 5px #f59e0b;
+}
+
+/* High-contrast themes (Jaune sur fond noir - RGAA 4.1 AAA) */
+html.contrast-high {
+  --color-primary: #ffff00 !important;
+  --color-primary-container: #ffff00 !important;
+  --color-on-primary: #000000 !important;
+  --color-secondary: #ffff00 !important;
+  --color-on-secondary: #000000 !important;
+  --color-surface: #000000 !important;
+  --color-surface-container: #000000 !important;
+  --color-surface-container-low: #000000 !important;
+  --color-surface-container-lowest: #000000 !important;
+  --color-surface-container-high: #000000 !important;
+  --color-surface-container-highest: #000000 !important;
+  --color-on-surface: #ffff00 !important;
+  --color-on-surface-variant: #ffff00 !important;
+  --color-border-subtle: #ffff00 !important;
+  --color-border-strong: #ffff00 !important;
+  --color-outline: #ffff00 !important;
+  --color-outline-variant: #ffff00 !important;
+
+  --color-status-present: #ffff00 !important;
+  --color-status-present-bg: #000000 !important;
+  --color-status-present-border: #ffff00 !important;
+
+  --color-status-absent: #ffff00 !important;
+  --color-status-absent-bg: #000000 !important;
+  --color-status-absent-border: #ffff00 !important;
+
+  --color-status-late: #ffff00 !important;
+  --color-status-late-bg: #000000 !important;
+  --color-status-late-border: #ffff00 !important;
+
+  --color-status-excused: #ffff00 !important;
+  --color-status-excused-bg: #000000 !important;
+  --color-status-excused-border: #ffff00 !important;
+}
+
+html.contrast-high,
+html.contrast-high body,
+html.contrast-high header,
+html.contrast-high main,
+html.contrast-high footer,
+html.contrast-high nav,
+html.contrast-high section,
+html.contrast-high fieldset,
+html.contrast-high table,
+html.contrast-high dialog,
+html.contrast-high [role="dialog"],
+html.contrast-high div {
+  background-color: #000000 !important;
+  border-color: #ffff00 !important;
+}
+
+/* Badges et pilules de statut en contraste élevé (Actif, Désactivé, Session active, Active, etc.) */
+html.contrast-high [class*="bg-status-"],
+html.contrast-high span[class*="rounded-full"][class*="bg-"],
+html.contrast-high span[class*="rounded"][class*="bg-"] {
+  background-color: #000000 !important;
+  border: 1.5px solid #ffff00 !important;
+  color: #ffff00 !important;
+}
+
+html.contrast-high [class*="bg-status-"] *,
+html.contrast-high span[class*="rounded-full"][class*="bg-"] *,
+html.contrast-high span[class*="rounded"][class*="bg-"] * {
+  color: #ffff00 !important;
+}
+
+/* Points indicateurs de statut (dots) */
+html.contrast-high [class*="bg-status-"] span[class*="rounded-full"],
+html.contrast-high span[class*="rounded-full"][class*="bg-"] span[class*="rounded-full"] {
+  background-color: #ffff00 !important;
+  border-color: #ffff00 !important;
+}
+
+html.contrast-high span,
+html.contrast-high p,
+html.contrast-high h1,
+html.contrast-high h2,
+html.contrast-high h3,
+html.contrast-high h4,
+html.contrast-high h5,
+html.contrast-high h6,
+html.contrast-high a,
+html.contrast-high button,
+html.contrast-high input,
+html.contrast-high select,
+html.contrast-high textarea,
+html.contrast-high label,
+html.contrast-high td,
+html.contrast-high th,
+html.contrast-high svg {
+  color: #ffff00 !important;
+}
+
+/* Active buttons, badges and selected pills in high contrast: Yellow background with Black text */
+html.contrast-high [aria-current="page"],
+html.contrast-high [aria-pressed="true"],
+html.contrast-high [class*="bg-primary-container"],
+html.contrast-high button:hover,
+html.contrast-high a:hover {
+  background-color: #ffff00 !important;
+  color: #000000 !important;
+  border-color: #ffff00 !important;
+}
+
+/* All children inside active, pressed or hovered buttons and links MUST have transparent background and black text (eliminates black-on-black hidden text glitch) */
+html.contrast-high [aria-current="page"] *,
+html.contrast-high [aria-pressed="true"] *,
+html.contrast-high [class*="bg-primary-container"] *,
+html.contrast-high button:hover *,
+html.contrast-high a:hover * {
+  background-color: transparent !important;
+  color: #000000 !important;
+}
+
+/* Institutional header brand & user identity links: maintain crisp yellow-on-black with visible outline on hover/focus */
+html.contrast-high header a[href="/"]:hover,
+html.contrast-high header a[href="/"]:focus,
+html.contrast-high header a[href="/profile"]:hover,
+html.contrast-high header a[href="/profile"]:focus {
+  background-color: #000000 !important;
+  color: #ffff00 !important;
+  border-color: #ffff00 !important;
+  outline: 2px solid #ffff00 !important;
+  outline-offset: 2px !important;
+}
+
+html.contrast-high header a[href="/"]:hover *,
+html.contrast-high header a[href="/"]:focus *,
+html.contrast-high header a[href="/profile"]:hover *,
+html.contrast-high header a[href="/profile"]:focus * {
+  background-color: transparent !important;
+  color: #ffff00 !important;
+}
+
+html.contrast-high header a[href="/"]:hover [class*="bg-primary-container"],
+html.contrast-high header a[href="/"]:focus [class*="bg-primary-container"],
+html.contrast-high header a[href="/profile"]:hover [class*="bg-primary-container"],
+html.contrast-high header a[href="/profile"]:focus [class*="bg-primary-container"] {
+  background-color: #ffff00 !important;
+  color: #000000 !important;
+}
+
+html.contrast-dark body {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+}
+
+html.contrast-dark header,
+html.contrast-dark section,
+html.contrast-dark fieldset,
+html.contrast-dark table,
+html.contrast-dark div[class*="bg-white"] {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+
+html.contrast-dark td,
+html.contrast-dark th {
+  border-color: #334155 !important;
+}
+
+html.contrast-dark [class*="bg-status-present-bg"] {
+  background-color: #064e3b !important;
+  color: #6ee7b7 !important;
+  border: 1px solid #059669 !important;
+}
+html.contrast-dark [class*="bg-status-present-bg"] * {
+  color: #6ee7b7 !important;
+}
+
+html.contrast-dark [class*="bg-status-absent-bg"] {
+  background-color: #7f1d1d !important;
+  color: #fca5a5 !important;
+  border: 1px solid #dc2626 !important;
+}
+html.contrast-dark [class*="bg-status-absent-bg"] * {
+  color: #fca5a5 !important;
+}
+
+html.contrast-dark [class*="bg-status-late-bg"] {
+  background-color: #78350f !important;
+  color: #fcd34d !important;
+  border: 1px solid #d97706 !important;
+}
+html.contrast-dark [class*="bg-status-late-bg"] * {
+  color: #fcd34d !important;
+}
+
+html.contrast-dark [class*="bg-status-excused-bg"] {
+  background-color: #581c87 !important;
+  color: #d8b4fe !important;
+  border: 1px solid #9333ea !important;
+}
+html.contrast-dark [class*="bg-status-excused-bg"] * {
+  color: #d8b4fe !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -29,9 +328,19 @@ body {
   }
 }
 
-/* Windows high contrast mode: keep borders and focus indicators visible. */
+/* Windows / OS high contrast mode: keep borders and focus indicators visible. */
 @media (forced-colors: active) {
   :focus-visible {
-    outline: 3px solid CanvasText;
+    outline: 3px solid Highlight;
+    box-shadow: none;
   }
+}
+
+/* Touch friendly mobile scroll utilities */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

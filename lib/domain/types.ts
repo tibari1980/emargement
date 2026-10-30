@@ -35,6 +35,9 @@ export interface UserProfile extends Audited {
   fullName: string;
   email: string;
   role: Role;
+  phone?: string;
+  room?: string;
+  specialty?: string;
   /** Deactivated accounts keep their history but lose every access. */
   active?: boolean;
   createdAt?: unknown;
@@ -60,6 +63,14 @@ export interface Formation extends Audited {
   pedagogicalLeadId: string;
   traineeIds: string[];
   active: boolean;
+  /** Year level of this cohort (1 for 1ère année, 2 for 2ème année, etc., or null for single-year). */
+  yearLevel?: number | null;
+  /** Total duration in years of the curriculum (e.g. 1, 2, 4, 5). */
+  totalYears?: number | null;
+  /** Short acronym or code for display (e.g. "TIP 1", "TIP 2", "K1", "PREPA-INFO"). */
+  shortCode?: string;
+  /** Academic promotion year, e.g. "2025-2026", "2026-2027". */
+  academicYear?: string;
 }
 
 /** A subject (matière), shared by every formation that teaches it. */

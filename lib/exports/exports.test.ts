@@ -1,7 +1,7 @@
 import ExcelJS from "exceljs";
 import { PDFDocument } from "pdf-lib";
 import { describe, expect, it } from "vitest";
-import { computeMonthlyReport } from "@/lib/hoursCalculator";
+import { computeMonthlyReport } from "@/lib/domain/hoursCalculator";
 import { buildExcelReport } from "./excel";
 import { buildPdfReport } from "./pdf";
 

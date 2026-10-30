@@ -1,6 +1,6 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { formatHours, formatMonth, formatShortDate, todayIso } from "@/lib/dates";
-import type { MonthlyReport } from "@/lib/hoursCalculator";
+import { formatHours, formatMonth, formatShortDate, todayIso } from "@/lib/core/dates";
+import type { MonthlyReport } from "@/lib/domain/hoursCalculator";
 
 // A4 landscape, in PDF points.
 const PAGE_WIDTH = 842;
@@ -39,7 +39,8 @@ function truncate(text: string, font: PDFFont, size: number, maxWidth: number): 
 /** Official monthly attendance statement for funders (France Travail, Région, CPAM…). */
 export async function buildPdfReport(report: MonthlyReport): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
-  pdf.setTitle(`Relevé de présence — ${report.courseTitle} — ${formatMonth(report.month)}`);
+  const title = report.formationTitle ?? report.courseTitle ?? "Formation";
+  pdf.setTitle(`Relevé de présence — ${title} — ${formatMonth(report.month)}`);
   pdf.setAuthor("CFRP Valentin Haüy");
   pdf.setLanguage("fr-FR");
 
@@ -81,12 +82,15 @@ export async function buildPdfReport(report: MonthlyReport): Promise<Uint8Array>
     y = PAGE_HEIGHT - MARGIN;
     text("CFRP Valentin Haüy — Relevé mensuel de présence", MARGIN, 14, bold);
     y -= 20;
-    text(`Formation : ${report.courseTitle}`, MARGIN, 10);
+    text(`Formation : ${title}`, MARGIN, 10);
     text(`Mois : ${formatMonth(report.month)}`, 520, 10);
     y -= 14;
+    const scheduleInfo =
+      report.defaultStartTime && report.defaultEndTime
+        ? `Horaires : ${report.defaultStartTime} - ${report.defaultEndTime}${report.dailyHours ? ` (${report.dailyHours} h/jour)` : ""} — `
+        : `${report.sessionCount ?? report.workingDays.length} séances — `;
     text(
-      `Horaires : ${report.defaultStartTime} - ${report.defaultEndTime} (${report.dailyHours} h/jour) — ` +
-        `${report.workingDays.length} jours ouvrés — ${formatHours(report.theoreticalHours)} théoriques`,
+      `${scheduleInfo}${report.workingDays.length} jours ouvrés — ${formatHours(report.theoreticalHours)} théoriques`,
       MARGIN,
       9,
       font,
@@ -126,7 +130,7 @@ export async function buildPdfReport(report: MonthlyReport): Promise<Uint8Array>
         formatHours(t.excusedHours),
         formatHours(t.totalAbsenceHours),
         `${(t.attendanceRate * 100).toFixed(1)} %`,
-        String(t.unrecordedDays),
+        String(t.unrecordedDays ?? t.unrecordedSessions),
       ],
       font,
     );

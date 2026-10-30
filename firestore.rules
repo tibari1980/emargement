@@ -1,7 +1,5 @@
 rules_version = '2';
 
-// Access control of the ESRP Valentin Haüy attendance application.
-// The role of each staff member is read from users/{uid}.role.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -9,91 +7,97 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function role() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    function isAdmin() {
+      return signedIn() && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+        || (exists(/databases/$(database)/documents/settings/bootstrap)
+          && get(/databases/$(database)/documents/settings/bootstrap).data.adminId == request.auth.uid)
+      );
     }
 
     function hasRole(roles) {
-      return signedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && role() in roles;
+      return signedIn() && (
+        ('admin' in roles && isAdmin())
+        || (exists(/databases/$(database)/documents/users/$(request.auth.uid))
+            && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles)
+      );
     }
 
     function isStaff() {
-      return hasRole(['admin', 'secretary', 'pedagogical_lead', 'trainer']);
+      return isAdmin() || hasRole(['secretary', 'pedagogical_lead', 'trainer']);
     }
 
     function onlyChanges(fields) {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(fields);
     }
 
-    // Created once, together with the first administrator (page /installation).
     match /settings/bootstrap {
       allow read: if true;
       allow create: if signedIn()
-        && request.resource.data.adminId == request.auth.uid
-        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        && request.resource.data.adminId == request.auth.uid;
+      allow update, delete: if isAdmin();
     }
 
     match /users/{userId} {
       allow read: if isStaff() || (signedIn() && request.auth.uid == userId);
-      // Staff profiles are written by an administrator right after creating
-      // the authentication account (secondary Firebase app, see lib/staffAccounts.ts).
-      allow create: if hasRole(['admin'])
+      allow create: if isAdmin()
+        || hasRole(['pedagogical_lead'])
         || (hasRole(['secretary']) && request.resource.data.role == 'trainee')
-        // First administrator: only while the application is not initialised.
         || (signedIn() && request.auth.uid == userId
             && request.resource.data.role == 'admin'
-            && !exists(/databases/$(database)/documents/settings/bootstrap)
-            && existsAfter(/databases/$(database)/documents/settings/bootstrap));
-      allow update: if hasRole(['admin'])
+            && !exists(/databases/$(database)/documents/settings/bootstrap));
+      allow update: if isAdmin()
+        || hasRole(['pedagogical_lead'])
+        || (signedIn() && request.auth.uid == userId)
         || (hasRole(['secretary']) && resource.data.role == 'trainee'
             && request.resource.data.role == 'trainee');
-      allow delete: if hasRole(['admin']);
+      allow delete: if isAdmin()
+        || hasRole(['pedagogical_lead'])
+        || (hasRole(['secretary']) && resource.data.role == 'trainee');
+    }
+
+    match /formations/{formationId} {
+      allow read: if isStaff();
+      allow create, delete: if isAdmin() || hasRole(['pedagogical_lead']);
+      allow update: if isAdmin() || hasRole(['pedagogical_lead'])
+        || (hasRole(['secretary']) && onlyChanges(['traineeIds', 'lastAuditId']));
     }
 
     match /courses/{courseId} {
       allow read: if isStaff();
-      allow create, delete: if hasRole(['admin', 'pedagogical_lead']);
-      allow update: if hasRole(['admin', 'pedagogical_lead'])
-        // The secretary only enrols trainees (batch import).
-        || (hasRole(['secretary']) && onlyChanges(['traineeIds']));
+      allow create, delete: if isAdmin() || hasRole(['pedagogical_lead']);
+      allow update: if isAdmin() || hasRole(['pedagogical_lead'])
+        || (hasRole(['secretary']) && onlyChanges(['traineeIds', 'lastAuditId']));
+    }
+
+    match /subjects/{subjectId} {
+      allow read: if isStaff();
+      allow create, update, delete: if isAdmin() || hasRole(['pedagogical_lead']);
+    }
+
+    match /timetableSlots/{slotId} {
+      allow read: if isStaff();
+      allow create, update, delete: if isAdmin() || hasRole(['pedagogical_lead']);
     }
 
     match /holidays/{holidayId} {
       allow read: if isStaff();
-      allow write: if hasRole(['admin', 'secretary'])
+      allow write: if (isAdmin() || hasRole(['secretary']))
         && (request.resource == null || (
           request.resource.data.type in ['holiday', 'vacation']
           && request.resource.data.startDate <= request.resource.data.endDate));
     }
 
     match /attendances/{attendanceId} {
-      function course(courseId) {
-        return get(/databases/$(database)/documents/courses/$(courseId)).data;
-      }
-
-      function validAttendance() {
-        let d = request.resource.data;
-        return d.status in ['present', 'absent', 'late', 'excused']
-          && d.date is string
-          && d.month is string
-          && attendanceId == d.courseId + '_' + d.traineeId + '_' + d.date
-          && d.validatedByTrainerId == request.auth.uid;
-      }
-
-      function trainerOfCourse() {
-        return hasRole(['trainer'])
-          && request.auth.uid in course(request.resource.data.courseId).trainerIds;
-      }
-
       allow read: if isStaff();
-      allow create, update: if validAttendance() && (
-        hasRole(['admin', 'pedagogical_lead'])
-        // Justified absences are recorded by the secretary.
-        || (hasRole(['secretary']) && request.resource.data.status == 'excused')
-        || trainerOfCourse());
-      allow delete: if hasRole(['admin']);
+      allow create, update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isStaff();
     }
   }
 }

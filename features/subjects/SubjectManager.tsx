@@ -4,9 +4,10 @@ import { useRef, useState } from "react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { TextField } from "@/components/ui/Field";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { TextAreaField, TextField } from "@/components/ui/Field";
 import type { Actor } from "@/lib/data/audit";
-import { createSubject, updateSubject, type SubjectInput } from "@/lib/data/subjects";
+import { createSubject, deleteSubject, updateSubject, type SubjectInput } from "@/lib/data/subjects";
 import { isActive } from "@/lib/data/users";
 import { SUBJECT_CATALOG } from "@/lib/domain/catalog";
 import type { Subject, UserProfile } from "@/lib/domain/types";
@@ -19,13 +20,20 @@ export function SubjectManager({ actor }: { actor: Actor }) {
   const { data, lookups, error, reload } = useReferenceData();
   const [editing, setEditing] = useState<Subject | "new" | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [search, setSearch] = useState("");
   const listHeading = useRef<HTMLHeadingElement>(null);
 
   if (error) return <Alert tone="error">{error}</Alert>;
   if (!data || !lookups) return <Loading />;
 
+  const canDelete = actor.role === "admin" || actor.role === "pedagogical_lead";
   const trainers = data.staff.filter((u) => u.role === "trainer" && isActive(u));
-  const visible = data.subjects.filter((s) => showArchived || s.active !== false);
+  const visible = data.subjects.filter((s) => {
+    if (!showArchived && s.active === false) return false;
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return s.title.toLowerCase().includes(q) || (s.description && s.description.toLowerCase().includes(q));
+  });
   const missing = SUBJECT_CATALOG.filter((c) => !data.subjects.some((s) => s.title === c.title));
 
   const closeEditor = () => {
@@ -82,42 +90,69 @@ export function SubjectManager({ actor }: { actor: Actor }) {
         <h2 id="subjects-heading" ref={listHeading} tabIndex={-1} className="text-xl font-bold outline-none">
           {visible.length} matière{visible.length > 1 ? "s" : ""}
         </h2>
-        <label className="flex min-h-11 items-center gap-3">
-          <input type="checkbox" className="h-5 w-5" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-          Afficher les matières archivées
-        </label>
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="w-full max-w-sm">
+            <TextField
+              label="Rechercher une matière"
+              placeholder="Intitulé ou description..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              hint={search ? `${visible.length} matière(s) correspondante(s)` : undefined}
+            />
+          </div>
+          <label className="flex min-h-11 items-center gap-3">
+            <input type="checkbox" className="h-5 w-5 accent-blue-900" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            Afficher les matières archivées
+          </label>
+        </div>
         {visible.length === 0 ? (
           <Alert tone="info">Aucune matière pour le moment.</Alert>
         ) : (
-          <div className="overflow-x-auto rounded-lg border-2 border-gray-300 bg-white">
-            <table className="w-full border-collapse text-left">
+          <div
+            tabIndex={0}
+            role="region"
+            aria-label="Tableau de la liste des matières"
+            className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
+          >
+            <table className="w-full border-collapse text-left text-sm min-w-[550px]">
               <caption className="sr-only">Liste des matières</caption>
-              <thead className="bg-gray-100">
+              <thead className="border-b border-border-subtle bg-surface-container text-xs font-bold uppercase text-on-surface">
                 <tr>
-                  <th scope="col" className="p-3">Matière</th>
-                  <th scope="col" className="p-3">Formateurs habilités</th>
-                  <th scope="col" className="p-3">Statut</th>
-                  <th scope="col" className="p-3">Actions</th>
+                  <th scope="col" className="p-3 sm:p-4">Matière</th>
+                  <th scope="col" className="p-3 sm:p-4">Formateurs habilités</th>
+                  <th scope="col" className="p-3 sm:p-4">Statut</th>
+                  <th scope="col" className="p-3 sm:p-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-surface-container">
                 {visible.map((s) => (
-                  <tr key={s.id} className="border-t-2 border-gray-200 align-top">
-                    <th scope="row" className="p-3">
-                      <span className="font-semibold">{s.title}</span>
-                      {s.description && <span className="block font-normal text-gray-700">{s.description}</span>}
+                  <tr key={s.id} className="align-top hover:bg-surface-container-low transition-colors">
+                    <th scope="row" className="p-3 sm:p-4 font-normal">
+                      <span className="font-bold text-on-surface text-base block">{s.title}</span>
+                      {s.description && <span className="block text-xs text-on-surface-variant mt-0.5">{s.description}</span>}
                     </th>
-                    <td className="p-3">
+                    <td className="p-3 sm:p-4 text-on-surface-variant font-medium">
                       {s.trainerIds?.length ? s.trainerIds.map(lookups.personName).join(", ") : "Tous les formateurs"}
                     </td>
-                    <td className="p-3">{s.active === false ? "Archivée" : "Active"}</td>
-                    <td className="p-3">
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="secondary" onClick={() => setEditing(s)} aria-label={`Modifier ${s.title}`}>
+                    <td className="p-3 sm:p-4">
+                      {s.active === false ? (
+                        <span className="inline-flex rounded bg-status-late-bg px-2 py-0.5 text-xs font-bold text-status-late">
+                          Archivée
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded bg-status-present-bg px-2 py-0.5 text-xs font-bold text-status-present">
+                          Active
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 sm:p-4 text-right">
+                      <div className="flex flex-wrap gap-2 justify-end">
+                        <Button variant="secondary" className="!min-h-9 !px-3 text-xs rounded-xl" onClick={() => setEditing(s)} aria-label={`Modifier ${s.title}`}>
                           Modifier
                         </Button>
                         <Button
                           variant="secondary"
+                          className="!min-h-9 !px-3 text-xs rounded-xl"
                           aria-label={`${s.active === false ? "Réactiver" : "Archiver"} ${s.title}`}
                           onClick={() =>
                             run(
@@ -128,6 +163,22 @@ export function SubjectManager({ actor }: { actor: Actor }) {
                         >
                           {s.active === false ? "Réactiver" : "Archiver"}
                         </Button>
+                        {canDelete && (
+                          <ConfirmDialog
+                            triggerLabel="Supprimer"
+                            triggerAccessibleLabel={`Supprimer définitivement la matière ${s.title}`}
+                            triggerVariant="danger"
+                            title={`Supprimer définitivement « ${s.title} » ?`}
+                            description={`Attention : Cette action est irréversible. La matière « ${s.title} » sera définitivement supprimée de l'établissement ainsi que ses créneaux associés dans les emplois du temps.`}
+                            confirmLabel="Supprimer définitivement"
+                            onConfirm={async () => {
+                              await run(
+                                () => deleteSubject(actor, s),
+                                `Matière « ${s.title} » définitivement supprimée.`,
+                              );
+                            }}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -166,8 +217,8 @@ function SubjectForm({
   };
 
   return (
-    <section aria-labelledby="subject-form-heading" className="rounded-lg border-2 border-blue-800 bg-white p-5">
-      <h2 id="subject-form-heading" className="mb-4 text-2xl font-bold">
+    <section aria-labelledby="subject-form-heading" className="rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-6 shadow-sm">
+      <h2 id="subject-form-heading" className="mb-4 text-2xl font-bold text-primary">
         {subject ? `Modifier « ${subject.title} »` : "Nouvelle matière"}
       </h2>
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
@@ -179,10 +230,10 @@ function SubjectForm({
           autoFocus
           required
         />
-        <TextField label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-        <fieldset className="rounded-md border-2 border-gray-300 p-4">
-          <legend className="px-1 font-semibold">Formateurs habilités</legend>
-          <p className="mb-2 text-sm text-gray-700">Aucune case cochée : tous les formateurs peuvent enseigner la matière.</p>
+        <TextAreaField label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} />
+        <fieldset className="rounded-xl border border-border-subtle bg-surface-container-low p-4">
+          <legend className="px-1 text-sm font-bold text-primary">Formateurs habilités</legend>
+          <p className="mb-2 text-xs text-on-surface-variant">Aucune case cochée : tous les formateurs peuvent enseigner la matière.</p>
           {trainers.length === 0 ? (
             <p>Aucun compte formateur. Créez-en depuis la page Utilisateurs.</p>
           ) : (

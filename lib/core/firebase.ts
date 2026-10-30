@@ -12,6 +12,9 @@ import {
 import {
   connectFirestoreEmulator,
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   type Firestore,
 } from "firebase/firestore";
 
@@ -69,7 +72,19 @@ export function getSecondaryAuth(): Auth {
 
 export function getDb(): Firestore {
   if (!db) {
-    db = getFirestore(app());
+    if (typeof window !== "undefined") {
+      try {
+        db = initializeFirestore(app(), {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager(),
+          }),
+        });
+      } catch {
+        db = getFirestore(app());
+      }
+    } else {
+      db = getFirestore(app());
+    }
     if (useEmulators) connectFirestoreEmulator(db, "127.0.0.1", 8080);
   }
   return db;

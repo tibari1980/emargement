@@ -3,8 +3,11 @@
 import { FirebaseError } from "firebase/app";
 import {
   createUserWithEmailAndPassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
   signInWithEmailAndPassword,
   signOut,
+  updatePassword,
   updateProfile,
   type User,
 } from "firebase/auth";
@@ -25,7 +28,9 @@ export function accountErrorMessage(error: unknown): string {
       return "Mot de passe trop faible (8 caractères minimum).";
     case "auth/invalid-credential":
     case "auth/wrong-password":
-      return "Un compte existe déjà avec cet email, mais le mot de passe ne correspond pas.";
+      return "Le mot de passe saisi est incorrect.";
+    case "auth/requires-recent-login":
+      return "Votre session a expiré. Veuillez vous reconnecter pour effectuer cette modification de sécurité.";
     case "auth/operation-not-allowed":
       return "La connexion par email / mot de passe n'est pas activée dans la console Firebase.";
     case "auth/network-request-failed":
@@ -87,7 +92,23 @@ export async function createStaffAccount(
   input: { fullName: string; email: string; password: string; role: Role },
 ): Promise<string> {
   const secondary = getSecondaryAuth();
-  const { user } = await createUserWithEmailAndPassword(secondary, input.email, input.password);
+  let user: User;
+  try {
+    const cred = await createUserWithEmailAndPassword(secondary, input.email, input.password);
+    user = cred.user;
+  } catch (err) {
+    if (err instanceof FirebaseError && err.code === "auth/email-already-in-use") {
+      try {
+        const cred = await signInWithEmailAndPassword(secondary, input.email, input.password);
+        user = cred.user;
+      } catch {
+        throw err;
+      }
+    } else {
+      throw err;
+    }
+  }
+
   try {
     await updateProfile(user, { displayName: input.fullName }).catch(() => {});
     // Written with the administrator's session (main app), as required by the rules.
@@ -113,4 +134,19 @@ export async function createStaffAccount(
   } finally {
     await signOut(secondary);
   }
+}
+
+/**
+ * Changes the current authenticated user's password.
+ * Reauthenticates first with the current password to ensure freshness and prevent requires-recent-login errors.
+ */
+export async function changeUserPassword(currentPassword: string, newPassword: string): Promise<void> {
+  const auth = getFirebaseAuth();
+  const user = auth.currentUser;
+  if (!user || !user.email) {
+    throw new Error("Aucun utilisateur connecté.");
+  }
+  const credential = EmailAuthProvider.credential(user.email, currentPassword);
+  await reauthenticateWithCredential(user, credential);
+  await updatePassword(user, newPassword);
 }

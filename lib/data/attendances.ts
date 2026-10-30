@@ -16,18 +16,30 @@ const attendances = () => collection(getDb(), COLLECTIONS.attendances);
 
 /** Records of one session (slot × date). */
 export async function listForSession(slotId: string, date: string): Promise<Attendance[]> {
-  const snap = await getDocs(query(attendances(), where("slotId", "==", slotId), where("date", "==", date)));
-  return snap.docs.map((d) => withId<Attendance>(d));
+  try {
+    const snap = await getDocs(query(attendances(), where("slotId", "==", slotId), where("date", "==", date)));
+    return snap.docs.map((d) => withId<Attendance>(d));
+  } catch (err) {
+    console.warn("listForSession failed:", err);
+    return [];
+  }
 }
 
 /** Records of a formation over whole months ("YYYY-MM"). Equality filters only: no composite index. */
 export async function listForFormation(formationId: string, months: string[]): Promise<Attendance[]> {
-  const results = await Promise.all(
-    chunk([...new Set(months)], 30).map((part) =>
-      getDocs(query(attendances(), where("formationId", "==", formationId), where("month", "in", part))),
-    ),
-  );
-  return results.flatMap((s) => s.docs.map((d) => withId<Attendance>(d)));
+  const uniqueMonths = [...new Set(months)].filter(Boolean);
+  if (!uniqueMonths.length) return [];
+  try {
+    const results = await Promise.all(
+      chunk(uniqueMonths, 30).map((part) =>
+        getDocs(query(attendances(), where("formationId", "==", formationId), where("month", "in", part))),
+      ),
+    );
+    return results.flatMap((s) => s.docs.map((d) => withId<Attendance>(d)));
+  } catch (err) {
+    console.warn("listForFormation failed:", err);
+    return [];
+  }
 }
 
 export interface SessionRef {
@@ -119,4 +131,49 @@ export async function justifySessions(
       },
     );
   }
+}
+
+
+/** Revokes a justification, resetting the session to an unjustified absence. */
+export async function revokeJustification(
+  actor: Actor,
+  input: {
+    trainee: Pick<UserProfile, "id" | "fullName">;
+    slotId: string;
+    date: string;
+    formationId: string;
+    subjectId: string;
+    trainerId: string;
+  },
+): Promise<void> {
+  const { trainee, slotId, date, formationId, subjectId, trainerId } = input;
+  const virtualSlot: TimetableSlot = {
+    id: slotId,
+    formationId,
+    subjectId,
+    trainerId,
+    weekday: 1,
+    startTime: "09:00",
+    endTime: "17:00",
+    room: "",
+    validFrom: "1970-01-01",
+    validTo: null,
+  };
+
+  await auditedBatch(
+    actor,
+    {
+      action: "attendance.unjustify",
+      entityType: "attendance",
+      entityId: attendanceId(slotId, trainee.id, date),
+      summary: `Annulation du justificatif pour ${trainee.fullName} (séance du ${formatShortDate(date)})`,
+    },
+    (batch, lastAuditId) => {
+      const entry: AttendanceEntry = { trainee, status: "absent", excuseReason: null };
+      batch.set(
+        doc(attendances(), attendanceId(slotId, trainee.id, date)),
+        record(actor, { slot: virtualSlot, date, label: "" }, entry, lastAuditId),
+      );
+    },
+  );
 }

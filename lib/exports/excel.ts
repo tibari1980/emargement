@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
-import { formatMonth, formatShortDate } from "@/lib/dates";
-import type { MonthlyReport } from "@/lib/hoursCalculator";
+import { formatMonth, formatShortDate } from "@/lib/core/dates";
+import type { MonthlyReport } from "@/lib/domain/hoursCalculator";
 
 /** Monthly attendance workbook for HR / internal reporting. */
 export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
@@ -13,13 +13,19 @@ export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1 },
   });
 
+  const title = report.formationTitle ?? report.courseTitle ?? "Formation";
+
   sheet.addRow(["CFRP Valentin Haüy — Relevé mensuel de présence"]).font = { bold: true, size: 14 };
-  sheet.addRow(["Formation", report.courseTitle]);
+  sheet.addRow(["Formation", title]);
   sheet.addRow(["Mois", formatMonth(report.month)]);
-  sheet.addRow([
-    "Horaires",
-    `${report.defaultStartTime} - ${report.defaultEndTime} (${report.dailyHours} h/jour)`,
-  ]);
+  if (report.defaultStartTime && report.defaultEndTime) {
+    sheet.addRow([
+      "Horaires",
+      `${report.defaultStartTime} - ${report.defaultEndTime}${report.dailyHours ? ` (${report.dailyHours} h/jour)` : ""}`,
+    ]);
+  } else {
+    sheet.addRow(["Séances", report.sessionCount ?? report.workingDays.length]);
+  }
   sheet.addRow([
     "Jours ouvrés",
     report.workingDays.length,
@@ -54,16 +60,16 @@ export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
       t.fullName,
       t.theoreticalHours,
       t.effectivePresenceHours,
-      t.presentDays,
+      t.presentDays ?? "",
       t.lateCount,
       t.lateMinutes,
-      t.absentDays,
+      t.absentDays ?? t.absentSessions,
       t.absentHours,
-      t.excusedDays,
+      t.excusedDays ?? t.excusedSessions,
       t.excusedHours,
       t.totalAbsenceHours,
       t.attendanceRate,
-      t.unrecordedDays,
+      t.unrecordedDays ?? t.unrecordedSessions,
     ]);
   }
 

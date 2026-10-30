@@ -14,9 +14,11 @@ export const COLLECTIONS = {
 
 export const withId = <T>(snap: QueryDocumentSnapshot<DocumentData>) => ({ id: snap.id, ...snap.data() }) as T;
 
-export const byName = (a: { fullName: string }, b: { fullName: string }) => a.fullName.localeCompare(b.fullName, "fr");
+export const byName = (a: { fullName?: string }, b: { fullName?: string }) =>
+  (a?.fullName ?? "").localeCompare(b?.fullName ?? "", "fr");
 
-export const byTitle = (a: { title: string }, b: { title: string }) => a.title.localeCompare(b.title, "fr");
+export const byTitle = (a: { title?: string }, b: { title?: string }) =>
+  (a?.title ?? "").localeCompare(b?.title ?? "", "fr");
 
 /** Firestore limits "in" filters (30 values) and batches (500 writes): work in chunks. */
 export function chunk<T>(items: T[], size: number): T[][] {
@@ -26,9 +28,9 @@ export function chunk<T>(items: T[], size: number): T[][] {
 }
 
 /** Removes the id and audit fields before writing a document. */
-export function stripMeta<T extends { id?: string; lastAuditId?: string }>(data: T): Omit<T, "id" | "lastAuditId"> {
-  const { id: _id, lastAuditId: _audit, ...rest } = data;
-  void _id;
-  void _audit;
-  return rest;
+export function stripMeta<T extends object>(data: T): Omit<T, "id" | "lastAuditId"> {
+  const copy = { ...data } as T & { id?: string; lastAuditId?: string };
+  delete copy.id;
+  delete copy.lastAuditId;
+  return copy;
 }

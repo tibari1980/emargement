@@ -12,15 +12,21 @@ export async function listAuditLogs(filter: {
   actorId?: string;
   entityType?: AuditEntityType;
 }): Promise<AuditLog[]> {
-  const extra: QueryConstraint[] = [];
-  if (filter.actorId) extra.push(where("actorId", "==", filter.actorId));
-  if (filter.entityType) extra.push(where("entityType", "==", filter.entityType));
+  if (!filter.days || filter.days.length === 0) return [];
+  try {
+    const extra: QueryConstraint[] = [];
+    if (filter.actorId) extra.push(where("actorId", "==", filter.actorId));
+    if (filter.entityType) extra.push(where("entityType", "==", filter.entityType));
 
-  const results = await Promise.all(
-    chunk(filter.days, 30).map((days) =>
-      getDocs(query(collection(getDb(), COLLECTIONS.auditLogs), where("day", "in", days), ...extra)),
-    ),
-  );
-  const time = (log: AuditLog) => log.at?.toDate().getTime() ?? 0;
-  return results.flatMap((s) => s.docs.map((d) => withId<AuditLog>(d))).sort((a, b) => time(b) - time(a));
+    const results = await Promise.all(
+      chunk(filter.days, 30).map((days) =>
+        getDocs(query(collection(getDb(), COLLECTIONS.auditLogs), where("day", "in", days), ...extra)),
+      ),
+    );
+    const time = (log: AuditLog) => log.at?.toDate().getTime() ?? 0;
+    return results.flatMap((s) => s.docs.map((d) => withId<AuditLog>(d))).sort((a, b) => time(b) - time(a));
+  } catch (err) {
+    console.warn("listAuditLogs failed:", err);
+    return [];
+  }
 }

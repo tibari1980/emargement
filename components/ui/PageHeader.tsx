@@ -15,11 +15,11 @@ export function PageHeader({ title, description }: { title: string; description?
   }, [title]);
 
   return (
-    <div className="mb-6">
-      <h1 ref={ref} tabIndex={-1} className="text-3xl font-bold text-gray-950 outline-none">
+    <div className="mb-6 border-b border-border-subtle pb-4">
+      <h1 ref={ref} tabIndex={-1} className="text-2xl sm:text-3xl font-bold text-primary tracking-tight outline-none">
         {title}
       </h1>
-      {description && <p className="mt-2 max-w-3xl text-lg text-gray-800">{description}</p>}
+      {description && <p className="mt-1.5 max-w-3xl text-sm sm:text-base text-on-surface-variant">{description}</p>}
     </div>
   );
 }

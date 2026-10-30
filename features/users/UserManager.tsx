@@ -1,33 +1,85 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CheckCircle2, Info, KeyRound, Mail, Search, Shield, UserPlus, X } from "lucide-react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { SelectField, TextField } from "@/components/ui/Field";
+import { PasswordField, SelectField, TextField } from "@/components/ui/Field";
 import { accountErrorMessage, createStaffAccount } from "@/lib/data/accounts";
 import type { Actor } from "@/lib/data/audit";
-import { isActive, listUsers, setUserActive, updateUser } from "@/lib/data/users";
+import {
+  deleteUser,
+  isActive,
+  listUsers,
+  sendUserPasswordReset,
+  setUserActive,
+  subscribeUsers,
+  updateUser,
+} from "@/lib/data/users";
 import { ROLES, ROLE_LABELS, STAFF_ROLES, type Role, type UserProfile } from "@/lib/domain/types";
 
 export function UserManager({ actor }: { actor: Actor }) {
   const announce = useAnnounce();
   const [users, setUsers] = useState<UserProfile[] | null>(null);
   const [filter, setFilter] = useState<Role | "">("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Dynamic real-time subscription to Firestore
   useEffect(() => {
-    listUsers()
-      .then(setUsers)
-      .catch(() => setError("Impossible de charger les utilisateurs."));
+    let isSubscribed = true;
+    const unsubscribe = subscribeUsers(
+      (list) => {
+        if (isSubscribed) {
+          setUsers(list);
+          setError(null);
+        }
+      },
+      (err) => {
+        console.warn("UserManager: live subscription error, falling back to one-time fetch", err);
+        listUsers()
+          .then((res) => {
+            if (isSubscribed) {
+              setUsers(res);
+              setError(null);
+            }
+          })
+          .catch(() => {
+            if (isSubscribed) setUsers([]);
+          });
+      },
+    );
+    return () => {
+      isSubscribed = false;
+      unsubscribe();
+    };
   }, []);
 
   if (error) return <Alert tone="error">{error}</Alert>;
-  if (!users) return <Loading />;
+  if (!users) return <Loading label="Chargement des utilisateurs en temps réel…" />;
 
-  const reload = async () => setUsers(await listUsers());
-  const visible = filter ? users.filter((u) => u.role === filter) : users;
+  const reload = async () => {
+    try {
+      const fresh = await listUsers();
+      setUsers(fresh);
+    } catch {
+      // Ignored: real-time listener will eventually sync
+    }
+  };
+
+  const visible = users.filter((u) => {
+    if (filter && u.role !== filter) return false;
+    const active = isActive(u);
+    if (statusFilter === "active" && !active) return false;
+    if (statusFilter === "inactive" && active) return false;
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return u.fullName.toLowerCase().includes(q) || (u.email && u.email.toLowerCase().includes(q));
+  });
 
   const run = async (action: () => Promise<unknown>, success: string) => {
     try {
@@ -39,16 +91,87 @@ export function UserManager({ actor }: { actor: Actor }) {
     }
   };
 
+  const handlePasswordReset = async (u: UserProfile) => {
+    if (!u.email) return;
+    try {
+      await sendUserPasswordReset(u.email);
+      announce(`Email de réinitialisation envoyé à ${u.email}.`);
+    } catch (e) {
+      announce(`Échec d'envoi du lien de réinitialisation : ${accountErrorMessage(e)}`, "assertive");
+    }
+  };
+
+  const canDelete = actor.role === "admin" || actor.role === "pedagogical_lead";
+
+  const handleDeleteUser = async (u: UserProfile) => {
+    await run(
+      () => deleteUser(actor, u),
+      `Compte de ${u.fullName} (${ROLE_LABELS[u.role]}) définitivement supprimé.`,
+    );
+  };
+
   return (
     <div className="flex flex-col gap-8">
-      <CreateUserForm actor={actor} onCreated={async (name) => run(async () => {}, `Compte de ${name} créé.`)} />
+      {/* Formulaire de création de compte du personnel */}
+      <CreateUserForm
+        actor={actor}
+        onCreated={async (name) => {
+          await reload();
+          announce(`Compte de ${name} créé avec succès.`);
+        }}
+      />
 
+      {/* Raccourci vers l'import de stagiaires avec modèles */}
+      <div className="rounded-2xl border border-secondary/20 bg-surface-container-low p-4 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+        <div className="flex items-center gap-2.5">
+          <Info className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
+          <span className="text-on-surface">
+            Vous souhaitez ajouter des stagiaires ? Ils sont inscrits par lot de fichiers (<strong>.xlsx</strong> ou <strong>.csv</strong>) avec modèles téléchargeables.
+          </span>
+        </div>
+        <Link
+          href="/secretary/import"
+          className="inline-flex items-center gap-1.5 font-bold text-secondary hover:underline cursor-pointer ml-auto"
+        >
+          <span>Accéder à l&apos;import de stagiaires</span>
+          <span aria-hidden="true">&rarr;</span>
+        </Link>
+      </div>
+
+      {/* Section des comptes existants avec filtres dynamiques */}
       <section aria-labelledby="users-heading" className="flex flex-col gap-4">
-        <h2 id="users-heading" className="text-xl font-bold">
-          Comptes existants
-        </h2>
-        <div className="max-w-xs">
-          <SelectField label="Filtrer par rôle" value={filter} onChange={(e) => setFilter(e.target.value as Role | "")}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="users-heading" className="text-xl font-bold text-primary flex items-center gap-2">
+            <Shield className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
+            <span>Comptes existants</span>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-surface-container text-on-surface-variant">
+              {visible.length} / {users.length}
+            </span>
+          </h2>
+
+          {(filter || statusFilter !== "all" || search) && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilter("");
+                setStatusFilter("all");
+                setSearch("");
+              }}
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-secondary hover:underline cursor-pointer"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+              Réinitialiser les filtres
+            </button>
+          )}
+        </div>
+
+        {/* Filtres : Rôle, Statut, Recherche */}
+        <div className="grid gap-3 sm:grid-cols-3 max-w-3xl">
+          <SelectField
+            label="Filtrer par rôle"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as Role | "")}
+          >
             <option value="">Tous les rôles ({users.length})</option>
             {ROLES.map((r) => (
               <option key={r} value={r}>
@@ -56,36 +179,109 @@ export function UserManager({ actor }: { actor: Actor }) {
               </option>
             ))}
           </SelectField>
+
+          <SelectField
+            label="Statut du compte"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
+          >
+            <option value="all">Tous les statuts ({users.length})</option>
+            <option value="active">Actifs ({users.filter(isActive).length})</option>
+            <option value="inactive">Désactivés ({users.filter((u) => !isActive(u)).length})</option>
+          </SelectField>
+
+          <TextField
+            label="Rechercher"
+            placeholder="Nom ou email..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            hint={search ? `${visible.length} résultat(s)` : undefined}
+          />
         </div>
-        <div className="overflow-x-auto rounded-lg border-2 border-gray-300 bg-white">
-          <table className="w-full border-collapse text-left">
+
+        {/* Vue bureau (Tableau) */}
+        <div
+          tabIndex={0}
+          role="region"
+          aria-label={`Tableau des utilisateurs, ${visible.length} comptes`}
+          className="hidden md:block overflow-x-auto rounded-2xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
+        >
+          <table className="w-full border-collapse text-left text-sm min-w-[720px]">
             <caption className="sr-only">Liste des utilisateurs, {visible.length} résultats</caption>
-            <thead className="bg-gray-100">
+            <thead className="border-b border-border-subtle bg-surface-container text-xs font-bold uppercase text-on-surface">
               <tr>
-                <th scope="col" className="p-3">Nom</th>
-                <th scope="col" className="p-3">Email</th>
-                <th scope="col" className="p-3">Rôle</th>
-                <th scope="col" className="p-3">Statut</th>
-                <th scope="col" className="p-3">Actions</th>
+                <th scope="col" className="p-3 sm:p-4">Utilisateur</th>
+                <th scope="col" className="p-3 sm:p-4">Email</th>
+                <th scope="col" className="p-3 sm:p-4">Rôle</th>
+                <th scope="col" className="p-3 sm:p-4">Statut</th>
+                <th scope="col" className="p-3 sm:p-4 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {visible.map((u) => (
-                <UserRow
-                  key={u.id}
-                  user={u}
-                  isSelf={u.id === actor.id}
-                  onRoleChange={(role) => run(() => updateUser(actor, u, { role }), `${u.fullName} : rôle ${ROLE_LABELS[role]} enregistré.`)}
-                  onToggleActive={() =>
-                    run(
-                      () => setUserActive(actor, u, !isActive(u)),
-                      `Compte de ${u.fullName} ${isActive(u) ? "désactivé" : "réactivé"}.`,
-                    )
-                  }
-                />
-              ))}
+            <tbody className="divide-y divide-surface-container">
+              {visible.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-on-surface-variant">
+                    Aucun utilisateur ne correspond aux critères de recherche.
+                  </td>
+                </tr>
+              ) : (
+                visible.map((u) => (
+                  <UserRow
+                    key={u.id}
+                    user={u}
+                    isSelf={u.id === actor.id}
+                    canDelete={canDelete}
+                    onRoleChange={(role) =>
+                      run(
+                        () => updateUser(actor, u, { role }),
+                        `${u.fullName} : rôle ${ROLE_LABELS[role]} enregistré.`,
+                      )
+                    }
+                    onToggleActive={() =>
+                      run(
+                        () => setUserActive(actor, u, !isActive(u)),
+                        `Compte de ${u.fullName} ${isActive(u) ? "désactivé" : "réactivé"}.`,
+                      )
+                    }
+                    onPasswordReset={() => handlePasswordReset(u)}
+                    onDelete={() => handleDeleteUser(u)}
+                  />
+                ))
+              )}
             </tbody>
           </table>
+        </div>
+
+        {/* Vue mobile & tablette (< 768px) en cartes accessibles */}
+        <div className="md:hidden flex flex-col gap-3">
+          {visible.length === 0 ? (
+            <div className="p-6 rounded-xl border border-border-subtle bg-surface-container-lowest text-center text-on-surface-variant text-sm">
+              Aucun utilisateur ne correspond aux critères de recherche.
+            </div>
+          ) : (
+            visible.map((u) => (
+              <UserCard
+                key={u.id}
+                user={u}
+                isSelf={u.id === actor.id}
+                canDelete={canDelete}
+                onRoleChange={(role) =>
+                  run(
+                    () => updateUser(actor, u, { role }),
+                    `${u.fullName} : rôle ${ROLE_LABELS[role]} enregistré.`,
+                  )
+                }
+                onToggleActive={() =>
+                  run(
+                    () => setUserActive(actor, u, !isActive(u)),
+                    `Compte de ${u.fullName} ${isActive(u) ? "désactivé" : "réactivé"}.`,
+                  )
+                }
+                onPasswordReset={() => handlePasswordReset(u)}
+                onDelete={() => handleDeleteUser(u)}
+              />
+            ))
+          )}
         </div>
       </section>
     </div>
@@ -95,59 +291,300 @@ export function UserManager({ actor }: { actor: Actor }) {
 function UserRow({
   user,
   isSelf,
+  canDelete,
   onRoleChange,
   onToggleActive,
+  onPasswordReset,
+  onDelete,
 }: {
   user: UserProfile;
   isSelf: boolean;
+  canDelete: boolean;
   onRoleChange: (role: Role) => Promise<void>;
   onToggleActive: () => Promise<void>;
+  onPasswordReset: () => Promise<void>;
+  onDelete: () => Promise<void>;
 }) {
   const [role, setRole] = useState<Role>(user.role);
+  const [savingRole, setSavingRole] = useState(false);
   const active = isActive(user);
-  // A trainee has no login: turning one into staff requires creating a real account.
   const roleOptions = user.role === "trainee" ? (["trainee"] as Role[]) : STAFF_ROLES;
 
+  const initials = user.fullName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const handleSaveRole = async () => {
+    setSavingRole(true);
+    try {
+      await onRoleChange(role);
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
   return (
-    <tr className={`border-t-2 border-gray-200 align-top ${active ? "" : "text-gray-600"}`}>
-      <th scope="row" className="p-3 font-semibold">
-        {user.fullName}
-        {isSelf && <span className="font-normal"> (vous)</span>}
+    <tr className={`align-middle hover:bg-surface-container-low transition-colors ${active ? "" : "text-outline opacity-70"}`}>
+      <th scope="row" className="p-3 sm:p-4 font-normal">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary-fixed text-primary font-bold text-xs shadow-xs"
+            aria-hidden="true"
+          >
+            {initials}
+          </div>
+          <div>
+            <span className="font-bold text-on-surface text-sm block">
+              {user.fullName}
+              {isSelf && <span className="font-bold text-xs text-secondary ml-1.5">(vous)</span>}
+            </span>
+          </div>
+        </div>
       </th>
-      <td className="break-all p-3">{user.email || "—"}</td>
-      <td className="p-3">
-        <SelectField label={`Rôle de ${user.fullName}`} value={role} disabled={isSelf || user.role === "trainee"} onChange={(e) => setRole(e.target.value as Role)}>
-          {roleOptions.map((r) => (
-            <option key={r} value={r}>
-              {ROLE_LABELS[r]}
-            </option>
-          ))}
-        </SelectField>
+      <td className="break-all p-3 sm:p-4 text-on-surface-variant font-medium text-xs sm:text-sm">
+        {user.email || "—"}
       </td>
-      <td className="p-3">{active ? "Actif" : "Désactivé"}</td>
-      <td className="p-3">
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => onRoleChange(role)} disabled={role === user.role} aria-label={`Enregistrer le rôle de ${user.fullName}`}>
-            Enregistrer
-          </Button>
+      <td className="p-3 sm:p-4 min-w-[200px]">
+        <div className="flex items-center gap-2">
+          <SelectField
+            label={`Rôle de ${user.fullName}`}
+            value={role}
+            disabled={isSelf || user.role === "trainee"}
+            onChange={(e) => setRole(e.target.value as Role)}
+            className="!min-h-9 text-xs sm:text-sm"
+          >
+            {roleOptions.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </SelectField>
+          {role !== user.role && (
+            <Button
+              onClick={handleSaveRole}
+              disabled={savingRole}
+              className="!min-h-9 !px-2.5 text-xs rounded-xl shrink-0"
+              aria-label={`Enregistrer le rôle ${ROLE_LABELS[role]} pour ${user.fullName}`}
+            >
+              {savingRole ? "..." : "Valider"}
+            </Button>
+          )}
+        </div>
+      </td>
+      <td className="p-3 sm:p-4">
+        {active ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-status-present-bg px-2.5 py-1 text-xs font-bold text-status-present">
+            <span className="h-1.5 w-1.5 rounded-full bg-status-present" aria-hidden="true" />
+            Actif
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-highest px-2.5 py-1 text-xs font-bold text-outline">
+            <span className="h-1.5 w-1.5 rounded-full bg-outline" aria-hidden="true" />
+            Désactivé
+          </span>
+        )}
+      </td>
+      <td className="p-3 sm:p-4 text-right">
+        <div className="flex flex-wrap gap-2 justify-end">
+          {user.email && user.role !== "trainee" && (
+            <ConfirmDialog
+              triggerLabel="Réinitialiser MDP"
+              triggerAccessibleLabel={`Envoyer un email de réinitialisation de mot de passe à ${user.fullName}`}
+              triggerVariant="secondary"
+              title="Réinitialiser le mot de passe ?"
+              description={`Un lien sécurisé de réinitialisation sera envoyé par email à ${user.email}. La personne pourra choisir un nouveau mot de passe.`}
+              confirmLabel="Envoyer l'email"
+              onConfirm={onPasswordReset}
+            />
+          )}
           {!isSelf &&
             (active ? (
               <ConfirmDialog
                 triggerLabel="Désactiver"
                 triggerAccessibleLabel={`Désactiver le compte de ${user.fullName}`}
+                triggerVariant="secondary"
                 title="Désactiver ce compte ?"
                 description={`${user.fullName} ne pourra plus accéder à l'application. Son historique est conservé et le compte peut être réactivé à tout moment.`}
                 confirmLabel="Désactiver"
                 onConfirm={onToggleActive}
               />
             ) : (
-              <Button variant="secondary" onClick={onToggleActive} aria-label={`Réactiver le compte de ${user.fullName}`}>
+              <Button
+                variant="secondary"
+                className="!min-h-9 !px-3 text-xs rounded-xl"
+                onClick={onToggleActive}
+                aria-label={`Réactiver le compte de ${user.fullName}`}
+              >
                 Réactiver
               </Button>
             ))}
+          {canDelete && !isSelf && (
+            <ConfirmDialog
+              triggerLabel="Supprimer"
+              triggerAccessibleLabel={`Supprimer définitivement le compte de ${user.fullName}`}
+              triggerVariant="danger"
+              title={`Supprimer définitivement ${user.fullName} ?`}
+              description={`Attention : Cette action est irréversible. Le compte de ${user.fullName} (${ROLE_LABELS[user.role]}) sera définitivement supprimé de la base de données. Toutes ses données associées seront nettoyées.`}
+              confirmLabel="Supprimer définitivement"
+              onConfirm={onDelete}
+            />
+          )}
         </div>
       </td>
     </tr>
+  );
+}
+
+function UserCard({
+  user,
+  isSelf,
+  canDelete,
+  onRoleChange,
+  onToggleActive,
+  onPasswordReset,
+  onDelete,
+}: {
+  user: UserProfile;
+  isSelf: boolean;
+  canDelete: boolean;
+  onRoleChange: (role: Role) => Promise<void>;
+  onToggleActive: () => Promise<void>;
+  onPasswordReset: () => Promise<void>;
+  onDelete: () => Promise<void>;
+}) {
+  const [role, setRole] = useState<Role>(user.role);
+  const [savingRole, setSavingRole] = useState(false);
+  const active = isActive(user);
+  const roleOptions = user.role === "trainee" ? (["trainee"] as Role[]) : STAFF_ROLES;
+
+  const initials = user.fullName
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+
+  const handleSaveRole = async () => {
+    setSavingRole(true);
+    try {
+      await onRoleChange(role);
+    } finally {
+      setSavingRole(false);
+    }
+  };
+
+  return (
+    <div className={`p-4 rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs flex flex-col gap-3 ${active ? "" : "opacity-70"}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-secondary-fixed text-primary font-bold text-sm"
+            aria-hidden="true"
+          >
+            {initials}
+          </div>
+          <div>
+            <div className="font-bold text-on-surface text-base">
+              {user.fullName}
+              {isSelf && <span className="font-bold text-xs text-secondary ml-1.5">(vous)</span>}
+            </div>
+            <div className="text-xs text-on-surface-variant font-medium break-all">
+              {user.email || "Aucun email"}
+            </div>
+          </div>
+        </div>
+        <div>
+          {active ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-status-present-bg px-2.5 py-1 text-xs font-bold text-status-present">
+              <span className="h-1.5 w-1.5 rounded-full bg-status-present" aria-hidden="true" />
+              Actif
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-highest px-2.5 py-1 text-xs font-bold text-outline">
+              <span className="h-1.5 w-1.5 rounded-full bg-outline" aria-hidden="true" />
+              Désactivé
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 pt-1 border-t border-border-subtle">
+        <div className="flex-1">
+          <SelectField
+            label={`Rôle de ${user.fullName}`}
+            value={role}
+            disabled={isSelf || user.role === "trainee"}
+            onChange={(e) => setRole(e.target.value as Role)}
+            className="!min-h-11 text-sm"
+          >
+            {roleOptions.map((r) => (
+              <option key={r} value={r}>
+                {ROLE_LABELS[r]}
+              </option>
+            ))}
+          </SelectField>
+        </div>
+        {role !== user.role && (
+          <Button
+            onClick={handleSaveRole}
+            disabled={savingRole}
+            className="!min-h-11 !px-4 text-xs font-bold rounded-xl shrink-0 mt-6"
+            aria-label={`Enregistrer le rôle pour ${user.fullName}`}
+          >
+            {savingRole ? "..." : "Valider"}
+          </Button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2 pt-2 justify-end border-t border-border-subtle">
+        {user.email && user.role !== "trainee" && (
+          <ConfirmDialog
+            triggerLabel="Réinitialiser MDP"
+            triggerAccessibleLabel={`Envoyer un email de réinitialisation de mot de passe à ${user.fullName}`}
+            triggerVariant="secondary"
+            title="Réinitialiser le mot de passe ?"
+            description={`Un lien sécurisé de réinitialisation sera envoyé par email à ${user.email}.`}
+            confirmLabel="Envoyer l'email"
+            onConfirm={onPasswordReset}
+          />
+        )}
+        {!isSelf &&
+          (active ? (
+            <ConfirmDialog
+              triggerLabel="Désactiver"
+              triggerAccessibleLabel={`Désactiver le compte de ${user.fullName}`}
+              triggerVariant="secondary"
+              title="Désactiver ce compte ?"
+              description={`${user.fullName} ne pourra plus accéder à l'application. Son historique est conservé.`}
+              confirmLabel="Désactiver"
+              onConfirm={onToggleActive}
+            />
+          ) : (
+            <Button
+              variant="secondary"
+              className="!min-h-11 !px-4 text-xs font-bold rounded-xl"
+              onClick={onToggleActive}
+              aria-label={`Réactiver le compte de ${user.fullName}`}
+            >
+              Réactiver
+            </Button>
+          ))}
+        {canDelete && !isSelf && (
+          <ConfirmDialog
+            triggerLabel="Supprimer"
+            triggerAccessibleLabel={`Supprimer définitivement le compte de ${user.fullName}`}
+            triggerVariant="danger"
+            title={`Supprimer définitivement ${user.fullName} ?`}
+            description={`Attention : Cette action est irréversible. Le compte de ${user.fullName} (${ROLE_LABELS[user.role]}) sera définitivement supprimé.`}
+            confirmLabel="Supprimer définitivement"
+            onConfirm={onDelete}
+          />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -155,18 +592,21 @@ function CreateUserForm({ actor, onCreated }: { actor: Actor; onCreated: (name: 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<Role>("trainer");
+  const [role, setRole] = useState<Role>("secretary");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError(null);
+    setSuccess(null);
     if (!fullName.trim() || !email.trim()) return setError("Le nom et l'email sont obligatoires.");
     if (password.length < 8) return setError("Le mot de passe provisoire doit contenir au moins 8 caractères.");
     setBusy(true);
     try {
       await createStaffAccount(actor, { fullName: fullName.trim(), email: email.trim(), password, role });
+      setSuccess(`Le compte de ${fullName.trim()} (${ROLE_LABELS[role]}) a été créé avec succès.`);
       await onCreated(fullName.trim());
       setFullName("");
       setEmail("");
@@ -179,18 +619,45 @@ function CreateUserForm({ actor, onCreated }: { actor: Actor; onCreated: (name: 
   };
 
   return (
-    <section aria-labelledby="create-user-heading" className="rounded-lg border-2 border-gray-300 bg-white p-5">
-      <h2 id="create-user-heading" className="mb-4 text-xl font-bold">
-        Créer un compte du personnel
+    <section
+      aria-labelledby="create-user-heading"
+      className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs"
+    >
+      <h2 id="create-user-heading" className="mb-4 text-xl font-bold text-primary flex items-center gap-2">
+        <UserPlus className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
+        <span>Créer un compte du personnel</span>
       </h2>
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         {error && <Alert tone="error">{error}</Alert>}
+        {success && (
+          <Alert tone="info">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-status-present shrink-0" aria-hidden="true" />
+              <span>{success}</span>
+            </div>
+          </Alert>
+        )}
         <div className="grid gap-4 md:grid-cols-2">
-          <TextField label="Nom complet" value={fullName} onChange={(e) => setFullName(e.target.value)} required autoComplete="off" />
-          <TextField label="Adresse email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="off" />
           <TextField
+            label="Nom complet"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            required
+            autoComplete="off"
+            placeholder="Ex : Dupont Marie"
+          />
+          <TextField
+            label="Adresse email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            autoComplete="off"
+            placeholder="nom@exemple.fr"
+          />
+          {/* PasswordField avec l'œil de visibilité intégré */}
+          <PasswordField
             label="Mot de passe provisoire"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             hint="8 caractères minimum. La personne pourra le changer avec « Mot de passe oublié »."
@@ -205,9 +672,9 @@ function CreateUserForm({ actor, onCreated }: { actor: Actor; onCreated: (name: 
             ))}
           </SelectField>
         </div>
-        <div>
-          <Button type="submit" disabled={busy}>
-            {busy ? "Création…" : "Créer le compte"}
+        <div className="pt-2">
+          <Button type="submit" disabled={busy} className="min-h-11">
+            {busy ? "Création en cours…" : "Créer le compte"}
           </Button>
         </div>
       </form>

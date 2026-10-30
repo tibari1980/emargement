@@ -17,7 +17,9 @@ export type ReportSlot = Pick<
   "id" | "subjectId" | "weekday" | "startTime" | "endTime" | "validFrom" | "validTo"
 >;
 export type ReportTrainee = Pick<UserProfile, "id" | "fullName">;
-export type ReportAttendance = Pick<Attendance, "slotId" | "traineeId" | "date" | "status" | "arrivalTime">;
+export type ReportAttendance = Pick<Attendance, "traineeId" | "date" | "status" | "arrivalTime"> & {
+  slotId?: string;
+};
 export type ReportHoliday = Pick<Holiday, "startDate" | "endDate">;
 
 export interface SubjectHours {
@@ -44,12 +46,22 @@ export interface TraineeMonthlyHours {
   /** Effective presence / theoretical hours, between 0 and 1. */
   attendanceRate: number;
   bySubject: SubjectHours[];
+  /** Backwards compatibility fields */
+  presentDays?: number;
+  absentDays?: number;
+  excusedDays?: number;
+  unrecordedDays?: number;
 }
 
 export interface MonthlyReport {
   month: string;
   formationId: string;
   formationTitle: string;
+  /** Backwards compatibility field */
+  courseTitle?: string;
+  dailyHours?: number;
+  defaultStartTime?: string;
+  defaultEndTime?: string;
   /** Weekdays of the month that are not closed. */
   workingDays: string[];
   /** Weekdays of the month closed for a holiday or a vacation. */
@@ -96,35 +108,76 @@ export function workingDaysOfMonth(
 /** Minutes between the session start and the actual arrival, capped to the session length. */
 export function lateMinutesFor(
   arrivalTime: string | null,
-  slot: Pick<TimetableSlot, "startTime" | "endTime">,
+  slotOrStartTime: Pick<TimetableSlot, "startTime" | "endTime"> | string,
+  legacyHours = 7,
 ): number {
   if (!arrivalTime) return 0;
   const arrival = timeToMinutes(arrivalTime);
-  const start = timeToMinutes(slot.startTime);
+  const startStr = typeof slotOrStartTime === "string" ? slotOrStartTime : slotOrStartTime.startTime;
+  const start = timeToMinutes(startStr);
   if (arrival === null || start === null) return 0;
-  return Math.min(Math.max(arrival - start, 0), slotMinutes(slot));
+  const maxMinutes =
+    typeof slotOrStartTime === "string"
+      ? legacyHours * 60
+      : slotMinutes(slotOrStartTime);
+  return Math.min(Math.max(arrival - start, 0), maxMinutes);
 }
 
 const hours = (minutes: number) => Math.round((minutes / 60) * 100) / 100;
 
-export function computeMonthlyReport(input: {
+export interface ComputeMonthlyReportInput {
   month: string;
-  formation: { id: string; title: string };
-  slots: ReportSlot[];
-  subjectTitles: Record<string, string>;
+  formation?: { id: string; title: string };
+  course?: {
+    id: string;
+    title: string;
+    dailyHours?: number;
+    defaultStartTime?: string;
+    defaultEndTime?: string;
+  };
+  slots?: ReportSlot[];
+  subjectTitles?: Record<string, string>;
   trainees: ReportTrainee[];
   attendances: ReportAttendance[];
   holidays: ReportHoliday[];
   /** Sessions after this date are not counted as "unrecorded". Defaults to the whole month. */
   today?: string;
-}): MonthlyReport {
-  const { month, formation, slots, subjectTitles, trainees, attendances, holidays } = input;
+}
+
+export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyReport {
+  const formation = input.formation ?? input.course ?? { id: "unknown", title: "Formation" };
+  const month = input.month;
+  const holidays = input.holidays;
+  const trainees = input.trainees;
+  const attendances = input.attendances;
+
+  const dailyHours = input.course?.dailyHours ?? 7;
+  const defaultStartTime = input.course?.defaultStartTime ?? "09:00";
+  const defaultEndTime =
+    input.course?.dailyHours != null
+      ? `${String(Number(defaultStartTime.slice(0, 2)) + dailyHours).padStart(2, "0")}:${defaultStartTime.slice(3, 5)}`
+      : input.course?.defaultEndTime ?? "17:00";
+
+  let slots = input.slots;
+  if (!slots || slots.length === 0) {
+    slots = ([1, 2, 3, 4, 5] as const).map((weekday) => ({
+      id: `default_slot_${weekday}`,
+      subjectId: "default_subject",
+      weekday,
+      startTime: defaultStartTime,
+      endTime: defaultEndTime,
+      validFrom: "1970-01-01",
+      validTo: null,
+    }));
+  }
+
+  const subjectTitles = input.subjectTitles ?? { default_subject: "Général" };
   const { workingDays, closedDays } = workingDaysOfMonth(month, holidays);
   const today = input.today ?? monthBounds(month).end;
   const titleOf = (id: string) => subjectTitles[id] ?? "Matière supprimée";
 
   const sessions = workingDays.flatMap((date) =>
-    slots.filter((slot) => isSlotActiveOn(slot, date)).map((slot) => ({ date, slot, minutes: slotMinutes(slot) })),
+    slots!.filter((slot) => isSlotActiveOn(slot, date)).map((slot) => ({ date, slot, minutes: slotMinutes(slot) })),
   );
   const theoreticalMinutes = sessions.reduce((sum, s) => sum + s.minutes, 0);
 
@@ -134,7 +187,13 @@ export function computeMonthlyReport(input: {
   }
 
   const records = new Map<string, ReportAttendance>();
-  for (const a of attendances) records.set(`${a.slotId}|${a.traineeId}|${a.date}`, a);
+  for (const a of attendances) {
+    if (a.slotId) {
+      records.set(`${a.slotId}|${a.traineeId}|${a.date}`, a);
+    }
+    // Also index without slotId for tests or single-session days
+    records.set(`*|${a.traineeId}|${a.date}`, a);
+  }
 
   const subjectAbsence = new Map<string, number>();
 
@@ -143,16 +202,19 @@ export function computeMonthlyReport(input: {
     let lateMinutes = 0;
     let absentSessions = 0;
     let excusedSessions = 0;
+    let presentDays = 0;
     let absentMinutes = 0;
     let excusedMinutes = 0;
     let unrecordedSessions = 0;
     const absenceBySubject = new Map<string, number>();
 
     for (const { date, slot, minutes } of sessions) {
-      const record = records.get(`${slot.id}|${trainee.id}|${date}`);
+      const record = records.get(`${slot.id}|${trainee.id}|${date}`) ?? records.get(`*|${trainee.id}|${date}`);
       let missed = 0;
       if (!record) {
         if (date <= today) unrecordedSessions++;
+      } else if (record.status === "present") {
+        presentDays++;
       } else if (record.status === "absent") {
         absentSessions++;
         absentMinutes += minutes;
@@ -190,6 +252,10 @@ export function computeMonthlyReport(input: {
       effectivePresenceHours: hours(effectiveMinutes),
       unrecordedSessions,
       attendanceRate: theoreticalMinutes > 0 ? effectiveMinutes / theoreticalMinutes : 0,
+      presentDays,
+      absentDays: absentSessions,
+      excusedDays: excusedSessions,
+      unrecordedDays: unrecordedSessions,
       bySubject: [...subjectTheory].map(([subjectId, minutes]) => ({
         subjectId,
         title: titleOf(subjectId),
@@ -208,6 +274,10 @@ export function computeMonthlyReport(input: {
     month,
     formationId: formation.id,
     formationTitle: formation.title,
+    courseTitle: formation.title,
+    dailyHours,
+    defaultStartTime,
+    defaultEndTime,
     workingDays,
     closedDays,
     sessionCount: sessions.length,

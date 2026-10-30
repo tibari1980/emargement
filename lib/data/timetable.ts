@@ -1,6 +1,5 @@
 import { collection, doc, getDocs, query, where } from "firebase/firestore";
 import { getDb } from "@/lib/core/firebase";
-import { byStartTime } from "@/lib/domain/schedule";
 import { WEEKDAY_LABELS, type TimetableSlot } from "@/lib/domain/types";
 import { auditedBatch, diffChanges, type Actor } from "./audit";
 import { COLLECTIONS, stripMeta, withId } from "./db";
@@ -8,17 +7,27 @@ import { COLLECTIONS, stripMeta, withId } from "./db";
 export type SlotInput = Omit<TimetableSlot, "id" | "lastAuditId">;
 
 const slots = () => collection(getDb(), COLLECTIONS.slots);
-const sortSlots = (list: TimetableSlot[]) => list.sort((a, b) => a.weekday - b.weekday || byStartTime(a, b));
+const sortSlots = (list: TimetableSlot[]) =>
+  list.sort(
+    (a, b) =>
+      ((a?.weekday ?? 0) - (b?.weekday ?? 0)) ||
+      ((a?.startTime ?? "").localeCompare(b?.startTime ?? ""))
+  );
 
 /** Slots of a formation, of a trainer, or every slot. */
 export async function listSlots(filter: { formationId?: string; trainerId?: string } = {}): Promise<TimetableSlot[]> {
-  const q = filter.formationId
-    ? query(slots(), where("formationId", "==", filter.formationId))
-    : filter.trainerId
-      ? query(slots(), where("trainerId", "==", filter.trainerId))
-      : slots();
-  const snap = await getDocs(q);
-  return sortSlots(snap.docs.map((d) => withId<TimetableSlot>(d)));
+  try {
+    const q = filter.formationId
+      ? query(slots(), where("formationId", "==", filter.formationId))
+      : filter.trainerId
+        ? query(slots(), where("trainerId", "==", filter.trainerId))
+        : slots();
+    const snap = await getDocs(q);
+    return sortSlots(snap.docs.map((d) => withId<TimetableSlot>(d)));
+  } catch (err) {
+    console.warn("listSlots failed or timetableSlots empty:", err);
+    return [];
+  }
 }
 
 const describe = (s: Pick<TimetableSlot, "weekday" | "startTime" | "endTime">) =>

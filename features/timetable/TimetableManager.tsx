@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Calendar, Plus, Sparkles } from "lucide-react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -8,7 +10,9 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SelectField, TextField } from "@/components/ui/Field";
 import { formatHours, formatShortDate, isValidIsoDate, timeToMinutes, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
+import { groupFormations } from "@/lib/data/formations";
 import { createSlot, deleteSlot, listSlots, updateSlot, type SlotInput } from "@/lib/data/timetable";
+import { updateSubject } from "@/lib/data/subjects";
 import { isActive } from "@/lib/data/users";
 import { findConflicts, slotMinutes } from "@/lib/domain/schedule";
 import { WEEKDAYS, WEEKDAY_LABELS, type TimetableSlot, type Weekday } from "@/lib/domain/types";
@@ -17,7 +21,7 @@ import { WeekView } from "./WeekView";
 
 export function TimetableManager({ actor }: { actor: Actor }) {
   const announce = useAnnounce();
-  const { data, lookups, error } = useReferenceData();
+  const { data, lookups, error, reload } = useReferenceData();
   const [formationId, setFormationId] = useState("");
   const [allSlots, setAllSlots] = useState<TimetableSlot[] | null>(null);
   const [editing, setEditing] = useState<TimetableSlot | "new" | null>(null);
@@ -33,10 +37,12 @@ export function TimetableManager({ actor }: { actor: Actor }) {
   if (!data || !lookups || !allSlots) return <Loading />;
 
   const formations = data.formations.filter((f) => f.active !== false);
-  const formation = formations.find((f) => f.id === formationId);
-  const slots = allSlots.filter((s) => s.formationId === formationId);
+  const selectedFormationId =
+    formationId || (formations.length > 0 ? formations[0].id : "");
+  const formation = formations.find((f) => f.id === selectedFormationId);
+  const slots = allSlots.filter((s) => s.formationId === selectedFormationId);
   const labelOf = (s: Pick<TimetableSlot, "subjectId" | "trainerId">) =>
-    `${lookups.subjectTitle(s.subjectId)} avec ${lookups.personName(s.trainerId)} (${formation?.title ?? ""})`;
+    `${lookups.subjectTitle(s.subjectId)} avec ${lookups.trainerName(s.trainerId)} (${formation?.title ?? ""})`;
 
   const reloadSlots = async () => setAllSlots(await listSlots());
   const closeEditor = () => {
@@ -48,28 +54,56 @@ export function TimetableManager({ actor }: { actor: Actor }) {
     .filter((s) => !s.validTo || s.validTo >= todayIso())
     .reduce((sum, s) => sum + slotMinutes(s), 0);
 
+  const groupedFormations = groupFormations(formations);
+
   return (
     <div className="flex flex-col gap-6">
-      <div className="max-w-xl">
+      <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-5 shadow-xs max-w-xl">
         <SelectField
-          label="Formation"
-          value={formationId}
+          label="Formation / Promotion"
+          value={selectedFormationId}
           onChange={(e) => {
             setFormationId(e.target.value);
             setEditing(null);
           }}
         >
           <option value="">Choisir une formation</option>
-          {formations.map((f) => (
-            <option key={f.id} value={f.id}>
-              {f.title}
-            </option>
+          {groupedFormations.map((g) => (
+            <optgroup key={g.group} label={g.group}>
+              {g.items.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.title}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </SelectField>
       </div>
 
-      {formations.length === 0 && <Alert tone="info">Créez d&apos;abord une formation (page Formations).</Alert>}
-      {data.subjects.length === 0 && <Alert tone="info">Créez d&apos;abord les matières (page Matières).</Alert>}
+      {formations.length === 0 && (
+        <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-6 sm:p-8 text-center flex flex-col items-center justify-center gap-4 shadow-xs">
+          <div className="h-16 w-16 rounded-2xl bg-surface-container flex items-center justify-center text-secondary">
+            <Calendar className="h-8 w-8" aria-hidden="true" />
+          </div>
+          <div className="max-w-md">
+            <h3 className="text-xl font-bold text-primary">Aucune formation active</h3>
+            <p className="mt-1 text-sm text-on-surface-variant">
+              Pour configurer un emploi du temps, une formation est requise. Vous pouvez créer votre première formation dans l&apos;onglet Formations.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
+            <Link
+              href="/pedagogical/courses"
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:bg-primary/90 transition-colors"
+            >
+              <span>Créer une formation</span>
+            </Link>
+          </div>
+        </div>
+      )}
+      {formations.length > 0 && data.subjects.length === 0 && (
+        <Alert tone="info">Créez d&apos;abord les matières (page Matières) pour affecter des cours à cette formation.</Alert>
+      )}
 
       {formation && (
         <>
@@ -84,7 +118,22 @@ export function TimetableManager({ actor }: { actor: Actor }) {
                 try {
                   if (editing === "new") await createSlot(actor, input, labelOf(input));
                   else await updateSlot(actor, editing, input, labelOf(input));
+
+                  // Si la matière avait une liste restreinte de formateurs, on y intègre automatiquement ce formateur
+                  const currentSubject = data.subjects.find((s) => s.id === input.subjectId);
+                  if (
+                    currentSubject &&
+                    Array.isArray(currentSubject.trainerIds) &&
+                    currentSubject.trainerIds.length > 0 &&
+                    !currentSubject.trainerIds.includes(input.trainerId)
+                  ) {
+                    await updateSubject(actor, currentSubject, {
+                      trainerIds: [...currentSubject.trainerIds, input.trainerId],
+                    });
+                  }
+
                   await reloadSlots();
+                  await reload();
                   announce(`Créneau du ${WEEKDAY_LABELS[input.weekday].toLowerCase()} ${input.startTime} enregistré.`);
                   closeEditor();
                 } catch {
@@ -95,7 +144,10 @@ export function TimetableManager({ actor }: { actor: Actor }) {
             />
           ) : (
             <div>
-              <Button onClick={() => setEditing("new")}>Ajouter un créneau</Button>
+              <Button onClick={() => setEditing("new")} className="inline-flex items-center gap-2">
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                <span>Ajouter un créneau</span>
+              </Button>
             </div>
           )}
 
@@ -103,8 +155,8 @@ export function TimetableManager({ actor }: { actor: Actor }) {
             <h2 id="week-heading" ref={weekHeading} tabIndex={-1} className="text-2xl font-bold outline-none">
               Semaine type — {formation.title}
             </h2>
-            <p>
-              {slots.length} créneau{slots.length > 1 ? "x" : ""}, {formatHours(weeklyMinutes / 60)} de formation par semaine.
+            <p className="text-sm text-on-surface-variant">
+              <span className="font-bold text-primary">{slots.length} créneau{slots.length > 1 ? "x" : ""}</span>, volume de <span className="font-bold text-primary">{formatHours(weeklyMinutes / 60)}</span> de formation par semaine.
             </p>
             <WeekView
               slots={slots}
@@ -183,12 +235,21 @@ function SlotForm({
 
   const subjects = reference.subjects.filter((s) => s.active !== false || s.id === form.subjectId);
   const subject = reference.subjects.find((s) => s.id === form.subjectId);
-  const trainers = reference.staff.filter(
+
+  // Formateurs éligibles (rôle formateur ou resp. pédagogique)
+  const allEligibleTrainers = reference.staff.filter(
     (u) =>
       (u.role === "trainer" || u.role === "pedagogical_lead") &&
-      (isActive(u) || u.id === form.trainerId) &&
-      (!subject?.trainerIds?.length || subject.trainerIds.includes(u.id) || u.id === form.trainerId),
+      (isActive(u) || u.id === form.trainerId)
   );
+
+  const hasRestrictions = Boolean(subject?.trainerIds && subject.trainerIds.length > 0);
+  const habilitatedTrainers = hasRestrictions
+    ? allEligibleTrainers.filter((u) => subject!.trainerIds!.includes(u.id))
+    : allEligibleTrainers;
+  const otherTrainers = hasRestrictions
+    ? allEligibleTrainers.filter((u) => !subject!.trainerIds!.includes(u.id))
+    : [];
   const set = <K extends keyof SlotInput>(key: K, value: SlotInput[K]) => setForm((f) => ({ ...f, [key]: value }));
 
   const submit = async (event: React.FormEvent) => {
@@ -224,8 +285,8 @@ function SlotForm({
   };
 
   return (
-    <section aria-labelledby="slot-form-heading" className="rounded-lg border-2 border-blue-800 bg-white p-5">
-      <h2 id="slot-form-heading" ref={heading} tabIndex={-1} className="mb-4 text-2xl font-bold outline-none">
+    <section aria-labelledby="slot-form-heading" className="rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-6 shadow-sm">
+      <h2 id="slot-form-heading" ref={heading} tabIndex={-1} className="mb-4 text-2xl font-bold text-primary outline-none">
         {slot ? "Modifier le créneau" : "Nouveau créneau"}
       </h2>
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
@@ -265,14 +326,37 @@ function SlotForm({
             value={form.trainerId}
             onChange={(e) => set("trainerId", e.target.value)}
             error={errors.trainerId}
-            hint={subject?.trainerIds?.length ? "Formateurs habilités pour cette matière." : undefined}
+            hint={
+              hasRestrictions
+                ? "Sélectionnez le formateur pour ce créneau (les formateurs habituels de la matière apparaissent en premier)."
+                : undefined
+            }
           >
             <option value="">Choisir un formateur</option>
-            {trainers.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.fullName}
-              </option>
-            ))}
+            {hasRestrictions && habilitatedTrainers.length > 0 && otherTrainers.length > 0 ? (
+              <>
+                <optgroup label="Formateurs habilités pour cette matière">
+                  {habilitatedTrainers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.fullName} (habilité)
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Autres formateurs du centre">
+                  {otherTrainers.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.fullName}
+                    </option>
+                  ))}
+                </optgroup>
+              </>
+            ) : (
+              allEligibleTrainers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.fullName}
+                </option>
+              ))
+            )}
           </SelectField>
           <TextField label="Salle" value={form.room} onChange={(e) => set("room", e.target.value)} hint="Facultatif." />
           <TextField

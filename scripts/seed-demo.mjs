@@ -131,14 +131,10 @@ if (!installed) {
     if (snap.data()?.role !== "admin") throw new Error("not admin");
   } catch {
     console.error(
-      "L'application est déjà installée : le script doit se connecter avec un compte administrateur.
-" +
-        "Ajoutez temporairement dans .env.local :
-" +
-        "  SEED_ADMIN_EMAIL=votre.email@exemple.fr
-" +
-        "  SEED_ADMIN_PASSWORD=votre-mot-de-passe
-" +
+      "L'application est déjà installée : le script doit se connecter avec un compte administrateur.\n" +
+        "Ajoutez temporairement dans .env.local :\n" +
+        "  SEED_ADMIN_EMAIL=votre.email@exemple.fr\n" +
+        "  SEED_ADMIN_PASSWORD=votre-mot-de-passe\n" +
         "puis relancez « npm run seed-demo » (et retirez ces lignes ensuite).",
     );
     process.exit(1);

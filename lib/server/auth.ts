@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Role } from "@/lib/types";
+import type { Role } from "@/lib/domain/types";
 
 export class HttpError extends Error {
   constructor(

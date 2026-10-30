@@ -23,7 +23,7 @@ export function ProtectedPage({
 }: {
   title: string;
   description?: string;
-  permission: Permission;
+  permission?: Permission;
   children: (profile: UserProfile & Actor) => React.ReactNode;
 }) {
   return (
@@ -38,7 +38,7 @@ function Guard({
   permission,
   children,
 }: {
-  permission: Permission;
+  permission?: Permission;
   children: (profile: UserProfile & Actor) => React.ReactNode;
 }) {
   const { user, profile, loading, configured } = useAuth();
@@ -56,7 +56,7 @@ function Guard({
   if (!isActive(profile)) {
     return <Alert tone="error">Votre compte est désactivé. Contactez un administrateur.</Alert>;
   }
-  if (!can(profile.role, permission)) {
+  if (permission && !can(profile.role, permission)) {
     return <Alert tone="error">Vous n&apos;avez pas accès à cette page avec votre rôle actuel.</Alert>;
   }
   return <>{children(profile)}</>;

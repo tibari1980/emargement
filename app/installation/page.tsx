@@ -5,12 +5,12 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { useAuth } from "@/components/AuthProvider";
-import { FirebaseNotConfigured } from "@/components/RoleGuard";
+import { FirebaseNotConfigured } from "@/components/ProtectedPage";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button, focusRing } from "@/components/ui/Button";
-import { TextField } from "@/components/ui/Field";
+import { PasswordField, TextField } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { accountErrorMessage, createFirstAdmin, isAppInitialised } from "@/lib/accounts";
+import { accountErrorMessage, createFirstAdmin, isAppInitialised } from "@/lib/data/accounts";
 
 /** First-run setup: creates the first administrator account. */
 export default function InstallationPage() {
@@ -76,18 +76,16 @@ export default function InstallationPage() {
           {error && <Alert tone="error">{error}</Alert>}
           <TextField label="Nom complet" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" required />
           <TextField label="Adresse email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
-          <TextField
+          <PasswordField
             label="Mot de passe"
-            type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             hint="8 caractères minimum."
             autoComplete="new-password"
             required
           />
-          <TextField
+          <PasswordField
             label="Confirmation du mot de passe"
-            type="password"
             value={confirmation}
             onChange={(e) => setConfirmation(e.target.value)}
             autoComplete="new-password"

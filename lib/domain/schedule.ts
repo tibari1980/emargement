@@ -26,7 +26,7 @@ export function isSlotActiveOn(slot: SlotTiming, iso: string): boolean {
 }
 
 export const byStartTime = (a: Pick<TimetableSlot, "startTime">, b: Pick<TimetableSlot, "startTime">) =>
-  a.startTime.localeCompare(b.startTime);
+  (a?.startTime ?? "").localeCompare(b?.startTime ?? "");
 
 /** Sessions held on a day: none on weekends and closure days. */
 export function sessionsOn<T extends SlotTiming>(slots: T[], iso: string, closedDays: Set<string>): T[] {
