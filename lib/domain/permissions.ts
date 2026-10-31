@@ -6,9 +6,13 @@ import type { Role } from "./types";
  * Data access is enforced independently by firestore.rules: keep both in sync.
  */
 export const PERMISSIONS = {
-  "attendance.record": ["admin", "pedagogical_lead", "trainer"],
+  "attendance.record": ["admin", "pedagogical_lead", "trainer", "secretary"],
   /** Record attendance for any session, not only one's own. */
-  "attendance.recordAny": ["admin", "pedagogical_lead"],
+  "attendance.recordAny": ["admin", "pedagogical_lead", "secretary"],
+  /** Modify/regularize past attendance records. */
+  "attendance.modify": ["admin", "pedagogical_lead", "secretary"],
+  /** Declare trainer absence, assign substitute, or cancel session. */
+  "trainer.manageAbsence": ["admin", "pedagogical_lead", "secretary"],
   "planning.view": ["admin", "pedagogical_lead", "trainer", "secretary"],
   "absences.justify": ["admin", "secretary"],
   "trainees.import": ["admin", "secretary"],
@@ -17,7 +21,7 @@ export const PERMISSIONS = {
   "subjects.manage": ["admin", "pedagogical_lead"],
   "timetable.manage": ["admin", "pedagogical_lead"],
   "reports.view": ["admin", "pedagogical_lead"],
-  "users.manage": ["admin", "pedagogical_lead"],
+  "users.manage": ["admin"],
   "audit.read": ["admin"],
 } as const satisfies Record<string, readonly Role[]>;
 

@@ -218,7 +218,7 @@ html.contrast-high svg {
 html.contrast-high [aria-current="page"],
 html.contrast-high [aria-pressed="true"],
 html.contrast-high [class*="bg-primary-container"],
-html.contrast-high button:hover,
+html.contrast-high button:not(:disabled):hover,
 html.contrast-high a:hover {
   background-color: #ffff00 !important;
   color: #000000 !important;
@@ -229,10 +229,25 @@ html.contrast-high a:hover {
 html.contrast-high [aria-current="page"] *,
 html.contrast-high [aria-pressed="true"] *,
 html.contrast-high [class*="bg-primary-container"] *,
-html.contrast-high button:hover *,
+html.contrast-high button:not(:disabled):hover *,
 html.contrast-high a:hover * {
   background-color: transparent !important;
   color: #000000 !important;
+}
+
+/* Disabled buttons in high contrast: dimmed outline, no yellow glow */
+html.contrast-high button:disabled,
+html.contrast-high button:disabled:hover {
+  opacity: 0.35 !important;
+  cursor: not-allowed !important;
+  background-color: #000000 !important;
+  color: #a0a0a0 !important;
+  border-color: #555555 !important;
+}
+html.contrast-high button:disabled *,
+html.contrast-high button:disabled:hover * {
+  background-color: transparent !important;
+  color: #a0a0a0 !important;
 }
 
 /* Institutional header brand & user identity links: maintain crisp yellow-on-black with visible outline on hover/focus */
@@ -317,6 +332,19 @@ html.contrast-dark [class*="bg-status-excused-bg"] {
 }
 html.contrast-dark [class*="bg-status-excused-bg"] * {
   color: #d8b4fe !important;
+}
+
+/* Logo officiel Valentin Haüy : préserve un fond blanc net pour respecter les couleurs institutionnelles */
+.logo-container,
+html.contrast-dark .logo-container,
+html.contrast-high .logo-container {
+  background-color: #ffffff !important;
+}
+html.contrast-high .logo-container {
+  border: 2.5px solid #ffff00 !important;
+}
+html.contrast-high .logo-container p {
+  color: #1e293b !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

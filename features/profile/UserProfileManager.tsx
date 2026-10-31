@@ -6,12 +6,15 @@ import { useEffect, useState } from "react";
 import {
   AlertCircle,
   CheckCircle2,
+  Download,
+  FileText,
   KeyRound,
   Lock,
   Mail,
   MapPin,
   Phone,
   Shield,
+  ShieldCheck,
   Sparkles,
   User,
 } from "lucide-react";
@@ -23,6 +26,7 @@ import { PasswordField, TextField } from "@/components/ui/Field";
 import { accountErrorMessage, changeUserPassword } from "@/lib/data/accounts";
 import type { Actor } from "@/lib/data/audit";
 import { homeFor } from "@/lib/core/navigation";
+import { validatePassword } from "@/lib/security/password";
 import {
   getUserProfile,
   sendUserPasswordReset,
@@ -127,7 +131,7 @@ export function UserProfileManager({ actor }: { actor: Actor }) {
     }
   };
 
-  // Mise à jour du mot de passe
+  // Mise à jour du mot de passe avec validation de la politique ANSSI / CNIL
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPasswordSuccess(null);
@@ -137,10 +141,14 @@ export function UserProfileManager({ actor }: { actor: Actor }) {
       setPasswordError("Veuillez saisir votre mot de passe actuel.");
       return;
     }
-    if (!newPassword || newPassword.length < 8) {
-      setPasswordError("Le nouveau mot de passe doit comporter au moins 8 caractères.");
+
+    const validation = validatePassword(newPassword);
+    if (!validation.valid) {
+      setPasswordError(validation.errors.join(" "));
+      announce(validation.errors[0] || "Mot de passe non conforme aux règles de sécurité.", "assertive");
       return;
     }
+
     if (newPassword !== confirmPassword) {
       setPasswordError("La confirmation ne correspond pas au nouveau mot de passe.");
       return;
@@ -149,7 +157,7 @@ export function UserProfileManager({ actor }: { actor: Actor }) {
     setChangingPassword(true);
     try {
       await changeUserPassword(currentPassword, newPassword);
-      const msg = "Votre mot de passe a été modifié avec succès.";
+      const msg = "Votre mot de passe a été modifié avec succès conformément aux normes de sécurité.";
       setPasswordSuccess(msg);
       announce(msg);
       setCurrentPassword("");
@@ -161,6 +169,58 @@ export function UserProfileManager({ actor }: { actor: Actor }) {
       announce(`Échec de la modification du mot de passe : ${errText}`, "assertive");
     } finally {
       setChangingPassword(false);
+    }
+  };
+
+  // Export RGPD des données personnelles (Article 15 & 20 RGPD)
+  const [exportingData, setExportingData] = useState(false);
+
+  const handleExportPersonalData = () => {
+    setExportingData(true);
+    try {
+      const personalData = {
+        _rgpd_notice: "Export certifié des données à caractère personnel conformément aux Articles 15 (Droit d'accès) et 20 (Droit à la portabilité) du Règlement Général sur la Protection des Données (UE 2016/679).",
+        etablissement: "ESRP / CFRP Valentin Haüy — Association Valentin Haüy",
+        date_export: new Date().toISOString(),
+        utilisateur: {
+          identifiant_unique: actor.id,
+          nom_complet: profile?.fullName || actor.fullName,
+          email_professionnel: profile?.email || "",
+          role_attribue: profile?.role || actor.role,
+          libelle_role: ROLE_LABELS[profile?.role || actor.role],
+          telephone_professionnel: profile?.phone || "Non renseigné",
+          bureau_salle: profile?.room || "Non renseigné",
+          specialite: profile?.specialty || "Non renseignée",
+          statut_compte: profile?.active !== false ? "Actif" : "Désactivé",
+          date_creation: profile?.createdAt || "Non consignée",
+        },
+        droits_et_contacts: {
+          dpo: "dpo@avh.asso.fr",
+          autorite_de_controle: "CNIL (Commission Nationale de l'Informatique et des Libertés - https://www.cnil.fr)",
+          duree_conservation: "5 ans à compter de la clôture des sessions de formation conformément aux obligations légales de financement de la formation professionnelle.",
+        },
+      };
+
+      const blob = new Blob([JSON.stringify(personalData, null, 2)], {
+        type: "application/json;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const sanitizedName = (profile?.fullName || actor.fullName).toLowerCase().replace(/[^a-z0-9]/g, "-");
+      const dateStr = new Date().toISOString().slice(0, 10);
+      a.download = `rgpd-donnees-personnelles-${sanitizedName}-${dateStr}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      announce("Vos données personnelles ont été téléchargées avec succès au format JSON.");
+    } catch (e) {
+      console.error(e);
+      announce("Erreur lors de l'export des données personnelles.", "assertive");
+    } finally {
+      setExportingData(false);
     }
   };
 
@@ -353,13 +413,48 @@ export function UserProfileManager({ actor }: { actor: Actor }) {
               hint="Requis pour vérifier votre identité avant toute modification."
             />
 
-            <PasswordField
-              label="Nouveau mot de passe *"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              required
-              hint="Au moins 8 caractères (combinaison de lettres, chiffres et symboles recommandée)."
-            />
+            <div className="flex flex-col gap-2">
+              <PasswordField
+                label="Nouveau mot de passe *"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                required
+                hint="Au moins 10 caractères (12 recommandés ANSSI), combinant majuscules, minuscules, chiffres et caractères spéciaux."
+              />
+
+              {newPassword.length > 0 && (() => {
+                const strength = validatePassword(newPassword);
+                const scoreColors = [
+                  "bg-status-absent",
+                  "bg-status-absent",
+                  "bg-amber-500",
+                  "bg-emerald-500",
+                  "bg-emerald-600",
+                ];
+                return (
+                  <div className="mt-1 flex flex-col gap-1.5 rounded-lg border border-border-subtle bg-surface-container p-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-on-surface-variant">Robustesse du mot de passe :</span>
+                      <span className="font-bold text-primary" aria-live="polite">
+                        {strength.label}
+                      </span>
+                    </div>
+                    {/* Visual strength bar */}
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-surface-container-highest">
+                      <div
+                        className={`h-full transition-all duration-300 ${scoreColors[strength.score]}`}
+                        style={{ width: `${Math.max(15, (strength.score / 4) * 100)}%` }}
+                      />
+                    </div>
+                    {strength.errors.length > 0 && (
+                      <p className="text-xs text-status-absent mt-1" role="alert">
+                        {strength.errors[0]}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
 
             <PasswordField
               label="Confirmer le nouveau mot de passe *"
@@ -385,6 +480,71 @@ export function UserProfileManager({ actor }: { actor: Actor }) {
             </Button>
           </div>
         </form>
+      </section>
+
+      {/* Section RGPD: Droit d'accès, Portabilité & Protection des Données */}
+      <section
+        aria-labelledby="rgpd-heading"
+        className="rounded-2xl border-2 border-border-subtle bg-surface-container-lowest p-6 sm:p-8 shadow-xs flex flex-col gap-6"
+      >
+        <div className="flex items-start gap-3 border-b border-border-subtle pb-5">
+          <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0 mt-0.5">
+            <ShieldCheck className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <div>
+            <h2 id="rgpd-heading" className="text-xl sm:text-2xl font-bold text-primary tracking-tight">
+              Protection des Données Personnelles &amp; Conformité RGPD
+            </h2>
+            <p className="text-xs sm:text-sm text-on-surface-variant mt-1">
+              Conformément au Règlement Général sur la Protection des Données (RGPD - Règlement UE 2016/679), vos données professionnelles sont sécurisées, tracées et strictement protégées.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-border-subtle bg-surface-container p-4">
+            <h3 className="font-bold text-sm text-primary flex items-center gap-2">
+              <FileText className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+              Finalité &amp; Base Légale
+            </h3>
+            <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+              Vos données sont traitées pour la gestion certifiée des feuilles d&apos;émargement, l&apos;assiduité des stagiaires et les relevés légaux destinés aux financeurs publics (France Travail, Régions, AGEFIPH).
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-border-subtle bg-surface-container p-4">
+            <h3 className="font-bold text-sm text-primary flex items-center gap-2">
+              <Shield className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+              Durée de Conservation &amp; DPO
+            </h3>
+            <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
+              Données conservées 5 ans après la clôture de la session conformément au Code du Travail. Contact DPO officiel :{" "}
+              <a href="mailto:dpo@avh.asso.fr" className="font-semibold underline text-primary">
+                dpo@avh.asso.fr
+              </a>.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-3 border-t border-border-subtle">
+          <Link
+            href="/politique-confidentialite"
+            className="text-xs sm:text-sm text-secondary hover:underline font-semibold"
+          >
+            Consulter l&apos;intégralité de la Politique de Confidentialité RGPD →
+          </Link>
+
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleExportPersonalData}
+            disabled={exportingData}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" aria-hidden="true" />
+            {exportingData ? "Génération en cours…" : "Exporter mes données (JSON RGPD)"}
+          </Button>
+        </div>
       </section>
     </div>
   );

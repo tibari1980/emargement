@@ -14,6 +14,7 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   FileText,
+  Landmark,
   Receipt,
   RotateCw,
   ShieldCheck,
@@ -25,6 +26,7 @@ import { Alert, Loading } from "@/components/ui/Alert";
 import { Button, focusRing } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SelectField } from "@/components/ui/Field";
+import { Pagination } from "@/components/ui/Pagination";
 import { authFetch, downloadBlob, fileNameFromResponse } from "@/lib/core/apiClient";
 import { currentMonth, formatHours, formatMonth, formatShortDate, todayIso } from "@/lib/core/dates";
 import { listForFormation } from "@/lib/data/attendances";
@@ -32,6 +34,7 @@ import type { Actor } from "@/lib/data/audit";
 import { deduplicateFormationsList, groupFormations, listFormations } from "@/lib/data/formations";
 import { listHolidays } from "@/lib/data/holidays";
 import { purgeAllTestData } from "@/lib/data/maintenance";
+import { listSessionOverridesForMonth } from "@/lib/data/sessionOverrides";
 import { listSubjects } from "@/lib/data/subjects";
 import { listSlots } from "@/lib/data/timetable";
 import { listUsersByIds } from "@/lib/data/users";
@@ -121,6 +124,17 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
   const [purging, setPurging] = useState(false);
   const [purgeSuccess, setPurgeSuccess] = useState<string | null>(null);
 
+  // View mode switcher: General consolidated (DGEFP) vs ASP official transmission
+  const [viewMode, setViewMode] = useState<"general" | "asp">("general");
+
+  // Trainee detail modal state
+  const [modalTab, setModalTab] = useState<"chronology" | "subjects">("chronology");
+  const [sessionFilter, setSessionFilter] = useState<"all" | "absences_lates" | "cancelled">("all");
+
+  // Pagination state (10 trainees per page by default)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   const canPurge = actor.role === "admin" || actor.role === "pedagogical_lead";
   const month = `${year}-${monthNumber}`;
   const formation = formations?.find((f) => f.id === formationId) ?? null;
@@ -128,6 +142,10 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
   const current = result && result.key === key ? result : null;
   const report = current?.report ?? null;
   const loading = key !== null && !current;
+
+  useEffect(() => {
+    setPage(1);
+  }, [key]);
 
   useEffect(() => {
     let stale = false;
@@ -196,8 +214,9 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
       listHolidays().catch(() => []),
       listSlots({ formationId: formation.id }).catch(() => []),
       listSubjects().catch(() => []),
+      listSessionOverridesForMonth(month, formation.id).catch(() => []),
     ])
-      .then(([trainees, attendances, holidays, slots, subjects]) => {
+      .then(([trainees, attendances, holidays, slots, subjects, sessionOverrides]) => {
         if (stale) return;
         const subjectTitles = Object.fromEntries(subjects.map((s) => [s.id, s.title]));
         const rep = computeMonthlyReport({
@@ -208,6 +227,7 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
           trainees,
           attendances,
           holidays,
+          sessionOverrides,
           today: todayIso(),
         });
         setResult({ key, report: rep });
@@ -262,6 +282,12 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
   const years = [String(currentYr - 2), String(currentYr - 1), String(currentYr), String(currentYr + 1)];
 
   if (!formations) return <Loading label="Chargement des formations…" />;
+
+  const totalTrainees = report?.trainees?.length ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalTrainees / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const paginatedTrainees = (report?.trainees ?? []).slice(startIndex, startIndex + pageSize);
 
   return (
     <div className="flex flex-col gap-6">
@@ -486,93 +512,226 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
 
       {report && (
         <section aria-labelledby="report-heading" className="flex flex-col gap-6">
-          {/* 3. TABLEAU DE BORD DES METRICS CERTIFIÉES (Stitch Responsive 4-Card Grid) */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            {/* Carte 1 : Heures Théoriques DGEFP */}
-            <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-on-surface-variant truncate">
-                  Heures théoriques
-                </span>
-                <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-surface-container text-primary shrink-0">
-                  <Clock className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
-                </span>
-              </div>
-              <div className="mt-3 sm:mt-4">
-                <div className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
-                  {formatHours(report.totals.theoreticalHours)}
-                </div>
-                <p className="text-[11px] sm:text-xs text-on-surface-variant mt-1 truncate">
-                  {report.workingDays.length}j × {report.trainees.length} stagiaires
-                </p>
-              </div>
-            </div>
-
-            {/* Carte 2 : Présence Effective Réalisée */}
-            <div className="rounded-xl border border-status-present-border/40 bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-status-present truncate">
-                  Présence certifiée
-                </span>
-                <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-status-present-bg text-status-present shrink-0">
-                  <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
-                </span>
-              </div>
-              <div className="mt-3 sm:mt-4">
-                <div className="text-2xl sm:text-3xl font-bold text-status-present tracking-tight">
-                  {formatHours(report.totals.effectivePresenceHours)}
-                </div>
-                <div className="flex items-center gap-1 sm:gap-1.5 mt-1 text-[11px] sm:text-xs font-bold text-status-present">
-                  <span>
-                    {report.totals.theoreticalHours > 0
-                      ? `${((report.totals.effectivePresenceHours / report.totals.theoreticalHours) * 100).toFixed(1)} %`
-                      : "0 %"}
+          {/* SÉLECTEUR DE MODE : RELEVÉ GÉNÉRAL vs DÉCLARATION ASP */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 rounded-2xl border border-border-subtle bg-surface-container-low p-2.5 shadow-xs">
+            <div role="tablist" aria-label="Mode d'affichage du rapport" className="flex items-center gap-1.5 p-1 bg-surface-container-lowest rounded-xl border border-border-subtle w-full sm:w-auto">
+              <button
+                type="button"
+                role="tab"
+                id="tab-mode-general"
+                aria-selected={viewMode === "general"}
+                aria-controls="panel-mode-general"
+                onClick={() => setViewMode("general")}
+                className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === "general"
+                    ? "bg-primary-container text-on-primary shadow-xs ring-2 ring-primary"
+                    : "text-on-surface hover:bg-surface-container"
+                }`}
+              >
+                <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>Relevé Synthétique (DGEFP / France Travail)</span>
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id="tab-mode-asp"
+                aria-selected={viewMode === "asp"}
+                aria-controls="panel-mode-asp"
+                onClick={() => setViewMode("asp")}
+                className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition-all ${
+                  viewMode === "asp"
+                    ? "bg-primary-container text-on-primary shadow-xs ring-2 ring-focus-outer"
+                    : "text-on-surface hover:bg-surface-container"
+                }`}
+              >
+                <Landmark className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>Bordereau Déclaration ASP (RSFP)</span>
+                {report.aspTotals.traineesWithDeductionsCount > 0 && (
+                  <span className="inline-flex items-center justify-center rounded-full bg-status-absent text-on-primary px-2 py-0.5 text-[10px] font-bold">
+                    {report.aspTotals.traineesWithDeductionsCount} avec retenue
                   </span>
-                  <span className="text-[10px] sm:text-[11px] font-normal text-on-surface-variant truncate">d&apos;assiduité</span>
-                </div>
-              </div>
+                )}
+              </button>
             </div>
 
-            {/* Carte 3 : Absences Justifiées (CPAM / Convocation) */}
-            <div className="rounded-xl border border-status-excused-border/40 bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-status-excused truncate">
-                  Abs. justifiées
-                </span>
-                <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-status-excused-bg text-status-excused shrink-0">
-                  <Receipt className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
-                </span>
-              </div>
-              <div className="mt-3 sm:mt-4">
-                <div className="text-2xl sm:text-3xl font-bold text-status-excused tracking-tight">
-                  {formatHours(report.totals.excusedHours)}
-                </div>
-                <p className="text-[11px] sm:text-xs text-on-surface-variant mt-1 truncate">
-                  Justificatifs validés
-                </p>
-              </div>
-            </div>
-
-            {/* Carte 4 : Absences Injustifiées & Retards */}
-            <div className="rounded-xl border border-status-absent-border/40 bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-status-absent truncate">
-                  Abs. injustifiées
-                </span>
-                <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-status-absent-bg text-status-absent shrink-0">
-                  <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
-                </span>
-              </div>
-              <div className="mt-3 sm:mt-4">
-                <div className="text-2xl sm:text-3xl font-bold text-status-absent tracking-tight">
-                  {formatHours(report.totals.absentHours)}
-                </div>
-                <p className="text-[11px] sm:text-xs text-status-late font-bold mt-1 truncate">
-                  +{report.totals.lateMinutes} min retards
-                </p>
-              </div>
+            <div className="flex items-center gap-2 px-2 text-xs text-on-surface-variant font-medium">
+              <span className="h-2 w-2 rounded-full bg-status-present shrink-0" aria-hidden="true" />
+              <span>Conforme ASP : week-ends &amp; 11 fériés légaux français exclus</span>
             </div>
           </div>
+
+          {/* 3. TABLEAU DE BORD DES METRICS CERTIFIÉES */}
+          {viewMode === "general" ? (
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              {/* Carte 1 : Heures Théoriques DGEFP */}
+              <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-on-surface-variant truncate">
+                    Heures théoriques
+                  </span>
+                  <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-surface-container text-primary shrink-0">
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-3 sm:mt-4">
+                  <div className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
+                    {formatHours(report.totals.theoreticalHours)}
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-on-surface-variant mt-1 truncate">
+                    {report.workingDays.length}j × {report.trainees.length} stagiaires
+                  </p>
+                </div>
+              </div>
+
+              {/* Carte 2 : Présence Effective Réalisée */}
+              <div className="rounded-xl border border-status-present-border/40 bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-status-present truncate">
+                    Présence certifiée
+                  </span>
+                  <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-status-present-bg text-status-present shrink-0">
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-3 sm:mt-4">
+                  <div className="text-2xl sm:text-3xl font-bold text-status-present tracking-tight">
+                    {formatHours(report.totals.effectivePresenceHours)}
+                  </div>
+                  <div className="flex items-center gap-1 sm:gap-1.5 mt-1 text-[11px] sm:text-xs font-bold text-status-present">
+                    <span>
+                      {report.totals.theoreticalHours > 0
+                        ? `${((report.totals.effectivePresenceHours / report.totals.theoreticalHours) * 100).toFixed(1)} %`
+                        : "0 %"}
+                    </span>
+                    <span className="text-[10px] sm:text-[11px] font-normal text-on-surface-variant truncate">d&apos;assiduité</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Carte 3 : Absences Justifiées */}
+              <div className="rounded-xl border border-status-excused-border/40 bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-status-excused truncate">
+                    Abs. justifiées
+                  </span>
+                  <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-status-excused-bg text-status-excused shrink-0">
+                    <Receipt className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-3 sm:mt-4">
+                  <div className="text-2xl sm:text-3xl font-bold text-status-excused tracking-tight">
+                    {formatHours(report.totals.excusedHours)}
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-on-surface-variant mt-1 truncate">
+                    Justificatifs validés
+                  </p>
+                </div>
+              </div>
+
+              {/* Carte 4 : Absences Injustifiées & Retards */}
+              <div className="rounded-xl border border-status-absent-border/40 bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-status-absent truncate">
+                    Abs. injustifiées
+                  </span>
+                  <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-status-absent-bg text-status-absent shrink-0">
+                    <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-3 sm:mt-4">
+                  <div className="text-2xl sm:text-3xl font-bold text-status-absent tracking-tight">
+                    {formatHours(report.totals.absentHours)}
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-status-late font-bold mt-1 truncate">
+                    +{report.totals.lateMinutes} min retards
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* CARTES SPÉCIFIQUES BORDEREAU DÉCLARATION ASP */
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              {/* Carte 1 ASP : Heures Nettes Exigibles */}
+              <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-on-surface-variant truncate">
+                    Heures nettes exigibles
+                  </span>
+                  <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-surface-container text-primary shrink-0">
+                    <Clock className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-3 sm:mt-4">
+                  <div className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
+                    {formatHours(report.netTheoreticalHours)}
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-on-surface-variant mt-1 truncate">
+                    {report.workingDays.length} jours ouvrés nets
+                  </p>
+                </div>
+              </div>
+
+              {/* Carte 2 ASP : Présence Réalisée & TP Autonomie */}
+              <div className="rounded-xl border border-status-present-border/40 bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-status-present truncate">
+                    Présence certifiée ASP
+                  </span>
+                  <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-status-present-bg text-status-present shrink-0">
+                    <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-3 sm:mt-4">
+                  <div className="text-2xl sm:text-3xl font-bold text-status-present tracking-tight">
+                    {formatHours(report.totals.effectivePresenceHours)}
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-on-surface-variant mt-1 truncate">
+                    Présence cours + TP encadrés
+                  </p>
+                </div>
+              </div>
+
+              {/* Carte 3 ASP : TOTAL HEURES À DÉDUIRE ASP (Injustifiées + Retards) */}
+              <div className="rounded-xl border-2 border-status-absent bg-status-absent-bg/40 p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-status-absent truncate">
+                    Heures à déduire ASP
+                  </span>
+                  <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-status-absent text-on-primary shrink-0">
+                    <AlertTriangle className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-3 sm:mt-4">
+                  <div className="text-2xl sm:text-3xl font-bold text-status-absent tracking-tight">
+                    {formatHours(report.totals.aspDeductibleHours)}
+                  </div>
+                  <p className="text-[11px] sm:text-xs font-bold text-status-absent mt-1 truncate">
+                    {report.aspTotals.traineesWithDeductionsCount} stagiaire(s) avec retenue
+                  </p>
+                </div>
+              </div>
+
+              {/* Carte 4 ASP : Justifiées & Dispensées Organisme */}
+              <div className="rounded-xl border border-secondary/30 bg-surface-container-lowest p-3.5 sm:p-5 shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] sm:text-xs uppercase tracking-wider font-bold text-secondary truncate">
+                    Justifiées &amp; Dispensées
+                  </span>
+                  <span className="flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-xl bg-surface-container text-secondary shrink-0">
+                    <Receipt className="h-4 w-4 sm:h-5 sm:w-5" aria-hidden="true" />
+                  </span>
+                </div>
+                <div className="mt-3 sm:mt-4">
+                  <div className="text-2xl sm:text-3xl font-bold text-secondary tracking-tight">
+                    {formatHours(report.totals.excusedHours + (report.totals.exemptedHours ?? 0))}
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-on-surface-variant mt-1 truncate">
+                    {formatHours(report.totals.excusedHours)} CPAM + {formatHours(report.totals.exemptedHours ?? 0)} dispenses
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 4. BANDEAU DE DÉTAIL DU CALENDRIER DU MOIS */}
           <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-4 sm:p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -585,17 +744,17 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
                   Structure du mois : {report.formationTitle} ({formatMonth(report.month)})
                 </h2>
                 <p className="text-xs text-on-surface-variant">
-                  {report.workingDays.length} jours travaillés • {report.closedDays.length} jours de fermeture (fériés/vacances) • {report.sessionCount} séances programmées
+                  {report.workingDays.length} jours travaillés (samedi/dimanche et 11 fériés légaux exclus) • {report.closedDays.length} jours de fermeture • {report.exemptedHours > 0 ? `${formatHours(report.exemptedHours)} dispensées centre • ` : ""}{report.sessionCount} séances
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-on-surface-variant">
-                Heures par stagiaire :
+                {viewMode === "asp" ? "Heures nettes exigibles :" : "Heures par stagiaire :"}
               </span>
               <span className="rounded-lg bg-surface-container px-2.5 py-1 font-mono text-sm font-bold text-primary">
-                {formatHours(report.theoreticalHours)}
+                {formatHours(viewMode === "asp" ? report.netTheoreticalHours : report.theoreticalHours)}
               </span>
             </div>
           </div>
@@ -625,36 +784,14 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
                   <span>Gérer l&apos;emploi du temps</span>
                 </Link>
               </div>
-
-              {/* Suggestions rapides : Formations ayant des stagiaires inscrits */}
-              {formations.some((f) => (f.traineeIds?.length ?? 0) > 0) && (
-                <div className="mt-4 pt-4 border-t border-border-subtle w-full max-w-lg flex flex-col items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-secondary">
-                    Promotions avec stagiaires inscrits :
-                  </span>
-                  <div className="flex flex-wrap items-center justify-center gap-2">
-                    {formations
-                      .filter((f) => (f.traineeIds?.length ?? 0) > 0)
-                      .map((f) => (
-                        <button
-                          key={f.id}
-                          type="button"
-                          onClick={() => setFormationId(f.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold bg-surface-container hover:bg-primary-container hover:text-on-primary transition-colors text-primary border border-border-subtle ${focusRing}`}
-                        >
-                          {f.title} ({f.traineeIds?.length} stagiaire{f.traineeIds?.length! > 1 ? "s" : ""})
-                        </button>
-                      ))}
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             <>
               {/* Vue Mobile (< 768px) : Cartes d'assiduité individuelles tactiles */}
               <div className="md:hidden flex flex-col gap-3">
-                {report.trainees.map((t) => {
+                {paginatedTrainees.map((t) => {
                   const percent = Math.round(t.attendanceRate * 100);
+                  const isAsp = viewMode === "asp";
                   return (
                     <article
                       key={t.traineeId}
@@ -665,17 +802,35 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
                           <h3 className="text-base font-bold text-primary">{t.fullName}</h3>
                           <span className="text-xs text-on-surface-variant font-mono">ID: {t.traineeId.slice(0, 8)}</span>
                         </div>
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                            percent >= 90
-                              ? "bg-status-present-bg text-status-present"
-                              : percent >= 75
-                                ? "bg-status-late-bg text-status-late"
-                                : "bg-status-absent-bg text-status-absent"
-                          }`}
-                        >
-                          {percent} %
-                        </span>
+                        {isAsp ? (
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                              t.aspStatus === "compliant"
+                                ? "bg-status-present-bg text-status-present"
+                                : t.aspStatus === "has_deductions"
+                                  ? "bg-status-absent-bg text-status-absent border border-status-absent"
+                                  : "bg-status-late-bg text-status-late"
+                            }`}
+                          >
+                            {t.aspStatus === "compliant"
+                              ? "Conforme"
+                              : t.aspStatus === "has_deductions"
+                                ? `Retenue ${formatHours(t.aspDeductibleHours)}`
+                                : "À régulariser"}
+                          </span>
+                        ) : (
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                              percent >= 90
+                                ? "bg-status-present-bg text-status-present"
+                                : percent >= 75
+                                  ? "bg-status-late-bg text-status-late"
+                                  : "bg-status-absent-bg text-status-absent"
+                            }`}
+                          >
+                            {percent} %
+                          </span>
+                        )}
                       </div>
 
                       {/* Jauge d'assiduité mobile */}
@@ -700,10 +855,12 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
                             {formatHours(t.effectivePresenceHours)}
                           </span>
                         </div>
-                        <div className="rounded-xl bg-status-absent-bg/30 p-2.5">
-                          <span className="text-status-absent font-bold block">Injustifiée</span>
-                          <span className="text-sm font-bold text-status-absent mt-0.5 block font-mono">
-                            {formatHours(t.absentHours)}
+                        <div className={`rounded-xl p-2.5 ${t.aspDeductibleHours > 0 ? "bg-status-absent-bg text-status-absent border border-status-absent/40" : "bg-surface-container"}`}>
+                          <span className="font-bold block">
+                            {isAsp ? "Déduction ASP" : "Injustifiée"}
+                          </span>
+                          <span className="text-sm font-bold mt-0.5 block font-mono">
+                            {formatHours(isAsp ? t.aspDeductibleHours : t.absentHours)}
                           </span>
                         </div>
                         <div className="rounded-xl bg-status-excused-bg/30 p-2.5">
@@ -734,10 +891,10 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
                           variant="secondary"
                           className="!min-h-9 !px-3 text-xs rounded-xl inline-flex items-center gap-1.5"
                           onClick={() => setSelectedTrainee(t)}
-                          aria-label={`Détail par matière pour ${t.fullName}`}
+                          aria-label={`Détail pour ${t.fullName}`}
                         >
                           <BarChart3 className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
-                          <span>Détail</span>
+                          <span>Fiche ASP / Détail</span>
                         </Button>
                       </div>
                     </article>
@@ -757,22 +914,36 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
                     Rapport mensuel d&apos;assiduité de {report.formationTitle} pour {formatMonth(report.month)}
                   </caption>
                   <thead className="border-b border-border-subtle bg-surface-container-low text-xs font-bold uppercase tracking-wider text-on-surface">
-                    <tr>
-                      <th scope="col" className="p-3 sm:p-4">Stagiaire</th>
-                      <th scope="col" className="p-3 sm:p-4 text-center">Assiduité</th>
-                      <th scope="col" className="p-3 sm:p-4">Présence eff.</th>
-                      <th scope="col" className="p-3 sm:p-4">Abs. injustifiées</th>
-                      <th scope="col" className="p-3 sm:p-4">Abs. justifiées</th>
-                      <th scope="col" className="p-3 sm:p-4">Retards</th>
-                      <th scope="col" className="p-3 sm:p-4">Total absence</th>
-                      <th scope="col" className="p-3 sm:p-4 text-center">Non saisies</th>
-                      <th scope="col" className="p-3 sm:p-4 text-right">Actions</th>
-                    </tr>
+                    {viewMode === "general" ? (
+                      <tr>
+                        <th scope="col" className="p-3 sm:p-4">Stagiaire</th>
+                        <th scope="col" className="p-3 sm:p-4 text-center">Assiduité</th>
+                        <th scope="col" className="p-3 sm:p-4">Présence eff.</th>
+                        <th scope="col" className="p-3 sm:p-4">Abs. injustifiées</th>
+                        <th scope="col" className="p-3 sm:p-4">Abs. justifiées</th>
+                        <th scope="col" className="p-3 sm:p-4">Retards</th>
+                        <th scope="col" className="p-3 sm:p-4">Total absence</th>
+                        <th scope="col" className="p-3 sm:p-4 text-center">Non saisies</th>
+                        <th scope="col" className="p-3 sm:p-4 text-right">Actions</th>
+                      </tr>
+                    ) : (
+                      <tr>
+                        <th scope="col" className="p-3 sm:p-4">Stagiaire</th>
+                        <th scope="col" className="p-3 sm:p-4">Heures nettes</th>
+                        <th scope="col" className="p-3 sm:p-4">Présence certifiée</th>
+                        <th scope="col" className="p-3 sm:p-4 text-status-absent">Déduction ASP</th>
+                        <th scope="col" className="p-3 sm:p-4">Abs. justifiées</th>
+                        <th scope="col" className="p-3 sm:p-4">Retards</th>
+                        <th scope="col" className="p-3 sm:p-4">Dispensées centre</th>
+                        <th scope="col" className="p-3 sm:p-4 text-center">Statut ASP</th>
+                        <th scope="col" className="p-3 sm:p-4 text-right">Actions</th>
+                      </tr>
+                    )}
                   </thead>
                   <tbody className="divide-y divide-surface-container">
-                    {report.trainees.map((t) => {
+                    {paginatedTrainees.map((t) => {
                       const percent = Math.round(t.attendanceRate * 100);
-                      return (
+                      return viewMode === "general" ? (
                         <tr key={t.traineeId} className="align-middle hover:bg-surface-container-low transition-colors">
                           {/* Stagiaire */}
                           <th scope="row" className="p-3 sm:p-4 font-normal">
@@ -858,30 +1029,140 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
                             </Button>
                           </td>
                         </tr>
+                      ) : (
+                        /* LIGNE SPÉCIFIQUE BORDEREAU ASP */
+                        <tr key={t.traineeId} className="align-middle hover:bg-surface-container-low transition-colors">
+                          {/* Stagiaire */}
+                          <th scope="row" className="p-3 sm:p-4 font-normal">
+                            <span className="font-bold text-on-surface text-base block">{t.fullName}</span>
+                            <span className="text-xs text-on-surface-variant font-mono">ID: {t.traineeId.slice(0, 8)}</span>
+                          </th>
+
+                          {/* Heures nettes prévues */}
+                          <td className="p-3 sm:p-4 font-mono font-semibold text-primary">
+                            {formatHours(t.netTheoreticalHours)}
+                          </td>
+
+                          {/* Présence certifiée réalisée */}
+                          <td className="p-3 sm:p-4 font-mono font-bold text-status-present">
+                            {formatHours(t.effectivePresenceHours)}
+                          </td>
+
+                          {/* Déduction ASP */}
+                          <td className="p-3 sm:p-4">
+                            {t.aspDeductibleHours > 0 ? (
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-status-absent-bg px-2.5 py-1 text-xs font-bold text-status-absent border border-status-absent/30">
+                                <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                                {formatHours(t.aspDeductibleHours)}
+                              </span>
+                            ) : (
+                              <span className="text-xs font-semibold text-status-present">0,00 h</span>
+                            )}
+                          </td>
+
+                          {/* Absences justifiées */}
+                          <td className="p-3 sm:p-4">
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-mono text-sm font-semibold text-status-excused">
+                                {formatHours(t.excusedHours)}
+                              </span>
+                              {Object.keys(t.excuseReasonsSummary ?? {}).length > 0 && (
+                                <span className="text-[11px] text-on-surface-variant truncate max-w-[12rem]">
+                                  {Object.keys(t.excuseReasonsSummary).join(", ")}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Retards */}
+                          <td className="p-3 sm:p-4 text-xs font-semibold text-status-late">
+                            {t.lateCount > 0 ? `${t.lateCount} (${t.lateMinutes}m)` : "0"}
+                          </td>
+
+                          {/* Dispensées centre */}
+                          <td className="p-3 sm:p-4 text-xs font-mono text-on-surface-variant">
+                            {formatHours(t.exemptedHours ?? 0)}
+                          </td>
+
+                          {/* Statut ASP */}
+                          <td className="p-3 sm:p-4 text-center">
+                            {t.unrecordedSessions > 0 ? (
+                              <span className="inline-flex rounded-full bg-status-late-bg px-2.5 py-0.5 text-xs font-bold text-status-late">
+                                {t.unrecordedSessions} non saisie(s)
+                              </span>
+                            ) : t.aspDeductibleHours > 0 ? (
+                              <span className="inline-flex rounded-full bg-status-absent-bg px-2.5 py-0.5 text-xs font-bold text-status-absent border border-status-absent/30">
+                                Retenue à déduire
+                              </span>
+                            ) : (
+                              <span className="inline-flex rounded-full bg-status-present-bg px-2.5 py-0.5 text-xs font-bold text-status-present">
+                                Conforme ASP
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Actions */}
+                          <td className="p-3 sm:p-4 text-right">
+                            <Button
+                              variant="secondary"
+                              className="!min-h-9 !px-3 !py-1 text-xs rounded-xl inline-flex items-center gap-1"
+                              onClick={() => setSelectedTrainee(t)}
+                              aria-label={`Fiche ASP et émargements détaillés pour ${t.fullName}`}
+                            >
+                              <Landmark className="h-4 w-4 shrink-0 text-secondary" aria-hidden="true" />
+                              <span className="hidden sm:inline">Fiche ASP</span>
+                            </Button>
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
+
+              {/* Contrôles de pagination accessibles pour le rapport */}
+              <Pagination
+                currentPage={safePage}
+                totalPages={totalPages}
+                totalItems={totalTrainees}
+                pageSize={pageSize}
+                onPageChange={setPage}
+                onPageSizeChange={(newSize) => {
+                  setPageSize(newSize);
+                  setPage(1);
+                }}
+                pageSizeOptions={[10, 25, 50]}
+                itemName="stagiaires"
+                ariaLabel="Pagination des stagiaires du rapport"
+              />
             </>
           )}
 
-          {/* 6. MODALE ACCESSIBLE DU DÉTAIL PAR STAGIAIRE */}
+          {/* 6. MODALE ACCESSIBLE DU DÉTAIL / FICHE ASP PAR STAGIAIRE */}
           {selectedTrainee && (
             <Dialog.Root open={true} onOpenChange={(open) => !open && setSelectedTrainee(null)}>
               <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs" />
                 <Dialog.Content
-                  className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[min(94vw,44rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-6 shadow-2xl focus:outline-none"
+                  className="fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[min(94vw,52rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-5 sm:p-6 shadow-2xl focus:outline-none"
                   aria-describedby="trainee-detail-desc"
                 >
                   <div className="flex items-start justify-between gap-4 border-b border-border-subtle pb-4">
                     <div>
-                      <Dialog.Title className="text-2xl font-bold text-primary">
-                        {selectedTrainee.fullName}
+                      <Dialog.Title className="text-2xl font-bold text-primary flex items-center gap-2">
+                        <span>{selectedTrainee.fullName}</span>
+                        {selectedTrainee.aspDeductibleHours > 0 ? (
+                          <span className="inline-flex rounded-full bg-status-absent text-on-primary px-2.5 py-0.5 text-xs font-bold">
+                            Retenue ASP : {formatHours(selectedTrainee.aspDeductibleHours)}
+                          </span>
+                        ) : (
+                          <span className="inline-flex rounded-full bg-status-present-bg text-status-present px-2.5 py-0.5 text-xs font-bold">
+                            Assiduité 100% conforme ASP
+                          </span>
+                        )}
                       </Dialog.Title>
                       <Dialog.Description id="trainee-detail-desc" className="text-sm text-on-surface-variant mt-1">
-                        {report.formationTitle} — {formatMonth(report.month)}
+                        Fiche d&apos;Émargement Mensuelle &amp; Relevé ASP • {report.formationTitle} — {formatMonth(report.month)}
                       </Dialog.Description>
                     </div>
                     <Dialog.Close asChild>
@@ -891,38 +1172,180 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
                     </Dialog.Close>
                   </div>
 
-                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3.5">
-                      <p className="text-xs uppercase font-bold text-on-surface-variant">Théorique</p>
-                      <p className="text-xl font-bold text-primary mt-1">
-                        {formatHours(selectedTrainee.theoreticalHours)}
+                  {/* 5 KPI Cartes */}
+                  <div className="mt-5 grid grid-cols-2 gap-2.5 sm:grid-cols-5">
+                    <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3">
+                      <p className="text-[11px] uppercase font-bold text-on-surface-variant">Heures nettes</p>
+                      <p className="text-lg font-bold text-primary mt-0.5">
+                        {formatHours(selectedTrainee.netTheoreticalHours)}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-status-present-border/40 bg-status-present-bg p-3.5">
-                      <p className="text-xs uppercase font-bold text-status-present">Présence</p>
-                      <p className="text-xl font-bold text-status-present mt-1">
+                    <div className="rounded-xl border border-status-present-border/40 bg-status-present-bg p-3">
+                      <p className="text-[11px] uppercase font-bold text-status-present">Présence</p>
+                      <p className="text-lg font-bold text-status-present mt-0.5">
                         {formatHours(selectedTrainee.effectivePresenceHours)}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-secondary/30 bg-surface-container p-3.5">
-                      <p className="text-xs uppercase font-bold text-secondary">Assiduité</p>
-                      <p className="text-xl font-bold text-secondary mt-1">
-                        {(selectedTrainee.attendanceRate * 100).toFixed(1)} %
+                    <div className={`rounded-xl p-3 border ${selectedTrainee.aspDeductibleHours > 0 ? "border-status-absent bg-status-absent-bg text-status-absent" : "border-border-subtle bg-surface-container-low"}`}>
+                      <p className="text-[11px] uppercase font-bold">Déduction ASP</p>
+                      <p className="text-lg font-bold mt-0.5">
+                        {formatHours(selectedTrainee.aspDeductibleHours)}
                       </p>
                     </div>
-                    <div className="rounded-xl border border-status-absent-border/40 bg-status-absent-bg p-3.5">
-                      <p className="text-xs uppercase font-bold text-status-absent">Absences</p>
-                      <p className="text-xl font-bold text-status-absent mt-1">
-                        {formatHours(selectedTrainee.totalAbsenceHours)}
+                    <div className="rounded-xl border border-status-excused-border/40 bg-status-excused-bg p-3">
+                      <p className="text-[11px] uppercase font-bold text-status-excused">Justifiées</p>
+                      <p className="text-lg font-bold text-status-excused mt-0.5">
+                        {formatHours(selectedTrainee.excusedHours)}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 col-span-2 sm:col-span-1">
+                      <p className="text-[11px] uppercase font-bold text-secondary">Dispensées</p>
+                      <p className="text-lg font-bold text-secondary mt-0.5">
+                        {formatHours(selectedTrainee.exemptedHours ?? 0)}
                       </p>
                     </div>
                   </div>
 
-                  {selectedTrainee.bySubject && selectedTrainee.bySubject.length > 0 && (
-                    <div className="mt-6 flex flex-col gap-3">
-                      <h3 className="text-base font-bold text-primary">
-                        Ventilation par matière
-                      </h3>
+                  {/* Onglets de la modale */}
+                  <div className="mt-6 flex items-center justify-between border-b border-border-subtle pb-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setModalTab("chronology")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                          modalTab === "chronology"
+                            ? "bg-primary-container text-on-primary"
+                            : "bg-surface-container text-on-surface hover:bg-surface-container-high"
+                        }`}
+                      >
+                        📅 Journal chronologique ({selectedTrainee.sessionsList?.length ?? 0})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setModalTab("subjects")}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                          modalTab === "subjects"
+                            ? "bg-primary-container text-on-primary"
+                            : "bg-surface-container text-on-surface hover:bg-surface-container-high"
+                        }`}
+                      >
+                        📚 Ventilation par matière ({selectedTrainee.bySubject?.length ?? 0})
+                      </button>
+                    </div>
+
+                    {modalTab === "chronology" && (
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <button
+                          type="button"
+                          onClick={() => setSessionFilter("all")}
+                          className={`px-2 py-1 rounded-md font-semibold ${sessionFilter === "all" ? "bg-surface-container-high text-primary" : "text-on-surface-variant hover:text-on-surface"}`}
+                        >
+                          Toutes
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSessionFilter("absences_lates")}
+                          className={`px-2 py-1 rounded-md font-semibold ${sessionFilter === "absences_lates" ? "bg-status-absent-bg text-status-absent font-bold" : "text-on-surface-variant hover:text-on-surface"}`}
+                        >
+                          Absences/Retards
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSessionFilter("cancelled")}
+                          className={`px-2 py-1 rounded-md font-semibold ${sessionFilter === "cancelled" ? "bg-surface-container-high text-primary font-bold" : "text-on-surface-variant hover:text-on-surface"}`}
+                        >
+                          Dispensées
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* CONTENU ONGLET 1 : Journal Chronologique */}
+                  {modalTab === "chronology" && (
+                    <div className="mt-4 flex flex-col gap-2 max-h-96 overflow-y-auto pr-1">
+                      {(() => {
+                        const list = (selectedTrainee.sessionsList ?? []).filter((s) => {
+                          if (sessionFilter === "absences_lates") return s.status === "absent" || s.status === "late" || s.status === "excused";
+                          if (sessionFilter === "cancelled") return s.isCancelled;
+                          return true;
+                        });
+
+                        if (list.length === 0) {
+                          return (
+                            <p className="text-center text-xs text-on-surface-variant py-8">
+                              Aucune séance ne correspond aux filtres sélectionnés.
+                            </p>
+                          );
+                        }
+
+                        return list.map((s, idx) => (
+                          <div
+                            key={`${s.date}_${s.slotId}_${idx}`}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border-subtle bg-surface-container-low p-3 hover:bg-surface-container transition-colors text-xs"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono font-bold text-primary w-24">
+                                {formatShortDate(s.date)}
+                              </span>
+                              <span className="font-semibold text-on-surface-variant">
+                                {s.startTime} - {s.endTime}
+                              </span>
+                              <span className="font-bold text-on-surface">
+                                {s.subjectTitle}
+                              </span>
+                              {s.isSelfStudyTP && (
+                                <span className="rounded-md bg-secondary/15 px-2 py-0.5 text-[10px] font-bold text-secondary">
+                                  TP libre encadré
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 self-end sm:self-auto">
+                              {s.status === "present" && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-status-present-bg px-2.5 py-0.5 font-bold text-status-present">
+                                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Présent ({formatHours(s.durationMinutes / 60)})
+                                </span>
+                              )}
+                              {s.status === "absent" && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-status-absent-bg px-2.5 py-0.5 font-bold text-status-absent border border-status-absent/40">
+                                  <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Absent ({formatHours(s.durationMinutes / 60)}) — Déduction ASP
+                                </span>
+                              )}
+                              {s.status === "late" && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-status-late-bg px-2.5 py-0.5 font-bold text-status-late">
+                                  <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Retard {s.lateMinutes} min (Arrivée {s.arrivalTime})
+                                </span>
+                              )}
+                              {s.status === "excused" && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-status-excused-bg px-2.5 py-0.5 font-bold text-status-excused">
+                                  <Receipt className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Justifié : {s.excuseReason} ({formatHours(s.durationMinutes / 60)})
+                                </span>
+                              )}
+                              {s.status === "cancelled" && (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-0.5 font-bold text-on-surface-variant">
+                                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                                  Dispensé centre ({s.cancellationReason ?? "Absence formateur"}) — Sans pénalité
+                                </span>
+                              )}
+                              {s.status === "unrecorded" && (
+                                <span className="inline-flex rounded-full bg-surface-container px-2.5 py-0.5 font-medium text-outline">
+                                  Séance non saisie
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  )}
+
+                  {/* CONTENU ONGLET 2 : Ventilation par matière */}
+                  {modalTab === "subjects" && selectedTrainee.bySubject && selectedTrainee.bySubject.length > 0 && (
+                    <div className="mt-4 flex flex-col gap-3">
                       <div className="overflow-x-auto rounded-xl border border-border-subtle">
                         <table className="w-full border-collapse text-left text-sm">
                           <thead className="bg-surface-container text-xs font-bold uppercase text-on-surface">

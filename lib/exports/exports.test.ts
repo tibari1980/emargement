@@ -44,5 +44,11 @@ describe("exports", () => {
     const total = sheet.getRow(8 + report.trainees.length);
     expect(total.getCell(1).value).toBe("Total");
     expect(total.getCell(11).value).toBe(report.totals.totalAbsenceHours);
+
+    // Verify ASP sheet exists and has proper headers
+    const aspSheet = workbook.getWorksheet("Bordereau_ASP_Rémunération")!;
+    expect(aspSheet).toBeDefined();
+    const aspNames = aspSheet.getColumn(1).values.map(String);
+    expect(aspNames).toContain(report.trainees[0].fullName);
   });
 });

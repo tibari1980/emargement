@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarCheck, CalendarDays, FileCheck, UploadCloud } from "lucide-react";
+import { BookOpen, CalendarCheck, CalendarDays, FileCheck, UploadCloud } from "lucide-react";
 import { ProtectedPage } from "@/components/ProtectedPage";
 import { focusRing } from "@/components/ui/Button";
 
@@ -37,6 +37,14 @@ const SECRETARY_MODULES = [
     icon: CalendarDays,
     badge: "Consultation",
     color: "bg-surface-container text-primary border-border-subtle",
+  },
+  {
+    title: "Guide Secrétariat & Déclaration ASP",
+    description: "Manuel pas-à-pas pour les imports, la gestion des arrêts maladie et la préparation de la paie ASP.",
+    href: "/guide?role=secretary",
+    icon: BookOpen,
+    badge: "Assistance",
+    color: "bg-secondary/15 text-secondary border-secondary/30",
   },
 ];
 

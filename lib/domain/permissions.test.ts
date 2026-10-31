@@ -14,6 +14,9 @@ describe("permissions: Role-Based Access Control", () => {
     expect(can("secretary", "trainees.import")).toBe(true);
     expect(can("secretary", "calendar.manage")).toBe(true);
     expect(can("secretary", "planning.view")).toBe(true);
+    expect(can("secretary", "attendance.record")).toBe(true);
+    expect(can("secretary", "attendance.modify")).toBe(true);
+    expect(can("secretary", "trainer.manageAbsence")).toBe(true);
 
     // Forbidden for secretary
     expect(can("secretary", "users.manage")).toBe(false);
@@ -28,6 +31,8 @@ describe("permissions: Role-Based Access Control", () => {
 
     // Forbidden for trainer
     expect(can("trainer", "attendance.recordAny")).toBe(false);
+    expect(can("trainer", "attendance.modify")).toBe(false);
+    expect(can("trainer", "trainer.manageAbsence")).toBe(false);
     expect(can("trainer", "users.manage")).toBe(false);
     expect(can("trainer", "reports.view")).toBe(false);
     expect(can("trainer", "formations.manage")).toBe(false);
@@ -41,6 +46,8 @@ describe("permissions: Role-Based Access Control", () => {
     expect(can("pedagogical_lead", "reports.view")).toBe(true);
     expect(can("pedagogical_lead", "attendance.record")).toBe(true);
     expect(can("pedagogical_lead", "attendance.recordAny")).toBe(true);
+    expect(can("pedagogical_lead", "attendance.modify")).toBe(true);
+    expect(can("pedagogical_lead", "trainer.manageAbsence")).toBe(true);
 
     // Forbidden for pedagogical_lead
     expect(can("pedagogical_lead", "users.manage")).toBe(false);

@@ -1,19 +1,23 @@
 import ExcelJS from "exceljs";
-import { formatMonth, formatShortDate } from "@/lib/core/dates";
+import { formatHours, formatMonth, formatShortDate } from "@/lib/core/dates";
 import type { MonthlyReport } from "@/lib/domain/hoursCalculator";
+import { sanitizeForSpreadsheet } from "@/lib/security/sanitize";
 
-/** Monthly attendance workbook for HR / internal reporting. */
+/** Monthly attendance workbook for HR, internal reporting, and ASP teletransmission. */
 export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "CFRP Valentin Haüy — Émargement";
   workbook.created = new Date();
 
+  const title = sanitizeForSpreadsheet(report.formationTitle ?? report.courseTitle ?? "Formation");
+
+  /* =========================================================================
+   * FEUILLE 1 : Récapitulatif Général d'Assiduité (DGEFP / Région)
+   * ========================================================================= */
   const sheet = workbook.addWorksheet("Récapitulatif", {
     views: [{ state: "frozen", ySplit: 7 }],
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1 },
   });
-
-  const title = report.formationTitle ?? report.courseTitle ?? "Formation";
 
   sheet.addRow(["CFRP Valentin Haüy — Relevé mensuel de présence"]).font = { bold: true, size: 14 };
   sheet.addRow(["Formation", title]);
@@ -31,6 +35,10 @@ export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
     report.workingDays.length,
     "Heures théoriques",
     report.theoreticalHours,
+    "Heures dispensées (centre)",
+    report.exemptedHours ?? 0,
+    "Heures nettes exigibles",
+    report.netTheoreticalHours ?? report.theoreticalHours,
   ]);
   sheet.addRow([]);
 
@@ -57,7 +65,7 @@ export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
 
   for (const t of report.trainees) {
     sheet.addRow([
-      t.fullName,
+      sanitizeForSpreadsheet(t.fullName),
       t.theoreticalHours,
       t.effectivePresenceHours,
       t.presentDays ?? "",
@@ -96,10 +104,137 @@ export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
   if (report.closedDays.length) {
     sheet.addRow([]);
     sheet.addRow([
-      "Jours de fermeture exclus",
-      report.closedDays.map(formatShortDate).join(", "),
+      "Jours fériés légaux et fermetures exclus (0 heure comptée)",
+      report.closedDays
+        .map((d) => (report.holidayTitles?.[d] ? `${formatShortDate(d)} (${report.holidayTitles[d]})` : formatShortDate(d)))
+        .join(", "),
     ]);
   }
+
+  /* =========================================================================
+   * FEUILLE 2 : Bordereau Déclaration ASP (Rémunération des Stagiaires - RSFP)
+   * ========================================================================= */
+  const aspSheet = workbook.addWorksheet("Bordereau_ASP_Rémunération", {
+    views: [{ state: "frozen", ySplit: 8 }],
+    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1 },
+  });
+
+  aspSheet.addRow(["CFRP Valentin Haüy — Bordereau d'Assiduité pour Télétransmission ASP"]).font = {
+    bold: true,
+    size: 14,
+    color: { argb: "FF0D2E5C" },
+  };
+  aspSheet.addRow(["Cadre Réglementaire", "Rémunération des Stagiaires de la Formation Professionnelle (RSFP) — ASP / Région Île-de-France"]);
+  aspSheet.addRow(["Formation", title]);
+  aspSheet.addRow(["Mois de Déclaration", formatMonth(report.month)]);
+  aspSheet.addRow([
+    "Jours ouvrés réels",
+    `${report.workingDays.length} jours (Samedi/Dimanche et 11 jours fériés légaux strictement exclus)`,
+  ]);
+  aspSheet.addRow([
+    "Heures contractuelles nettes",
+    `${formatHours(report.netTheoreticalHours ?? report.theoreticalHours)} par stagiaire`,
+    "Heures dispensées organisme",
+    `${formatHours(report.exemptedHours ?? 0)} (cours annulés non imputables aux stagiaires)`,
+  ]);
+  aspSheet.addRow([]);
+
+  const aspHeader = aspSheet.addRow([
+    "Stagiaire (Nom & Prénom)",
+    "Identifiant Stagiaire",
+    "Heures prévues (h)",
+    "Heures réalisées (h)",
+    "Abs. injustifiées (h)",
+    "Retards (min)",
+    "Retards (h)",
+    "TOTAL À DÉDUIRE ASP (h)",
+    "Abs. justifiées (h)",
+    "Motifs justifiés déclarés",
+    "Heures dispensées centre (h)",
+    "Taux d'assiduité",
+    "Statut Déclaration ASP",
+  ]);
+  aspHeader.font = { bold: true };
+  aspHeader.alignment = { wrapText: true, vertical: "middle" };
+  aspHeader.eachCell((cell, colNumber) => {
+    // Highlight the ASP deduction column in alert orange/yellow
+    if (colNumber === 8) {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFFE2DD" } };
+      cell.font = { bold: true, color: { argb: "FF900C3F" } };
+    } else {
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEBF1F5" } };
+    }
+  });
+
+  for (const t of report.trainees) {
+    const reasonsList = Object.entries(t.excuseReasonsSummary ?? {})
+      .map(([reason, data]) => `${reason} (${formatHours(data.hours)})`)
+      .join(", ") || (t.excusedHours > 0 ? "Justifié" : "—");
+
+    const lateHours = Math.round((t.lateMinutes / 60) * 100) / 100;
+    const statusLabel =
+      t.aspStatus === "compliant"
+        ? "Conforme (0 retenue)"
+        : t.aspStatus === "warning_unrecorded"
+          ? `Attention : ${t.unrecordedSessions} séance(s) non saisie(s)`
+          : `Retenue de ${formatHours(t.aspDeductibleHours)} à appliquer`;
+
+    aspSheet.addRow([
+      sanitizeForSpreadsheet(t.fullName),
+      t.traineeId,
+      t.netTheoreticalHours ?? t.theoreticalHours,
+      t.aspRealizedHours ?? t.effectivePresenceHours,
+      t.absentHours,
+      t.lateMinutes,
+      lateHours,
+      t.aspDeductibleHours,
+      t.aspExcusedHours ?? t.excusedHours,
+      reasonsList,
+      t.exemptedHours ?? 0,
+      t.attendanceRate,
+      statusLabel,
+    ]);
+  }
+
+  const aspTotal = aspSheet.addRow([
+    "TOTAL PROMOTION",
+    null,
+    report.totals.netTheoreticalHours ?? report.totals.theoreticalHours,
+    report.totals.effectivePresenceHours,
+    report.totals.absentHours,
+    report.totals.lateMinutes,
+    Math.round((report.totals.lateMinutes / 60) * 100) / 100,
+    report.totals.aspDeductibleHours ?? (report.totals.absentHours + Math.round((report.totals.lateMinutes / 60) * 100) / 100),
+    report.totals.excusedHours,
+    null,
+    report.totals.exemptedHours ?? 0,
+    null,
+    `${report.aspTotals?.traineesWithDeductionsCount ?? 0} stagiaire(s) avec retenue`,
+  ]);
+  aspTotal.font = { bold: true };
+
+  aspSheet.getColumn(1).width = 30;
+  aspSheet.getColumn(2).width = 16;
+  aspSheet.getColumn(3).width = 16;
+  aspSheet.getColumn(4).width = 16;
+  aspSheet.getColumn(5).width = 16;
+  aspSheet.getColumn(6).width = 14;
+  aspSheet.getColumn(7).width = 14;
+  aspSheet.getColumn(8).width = 20;
+  aspSheet.getColumn(9).width = 16;
+  aspSheet.getColumn(10).width = 32;
+  aspSheet.getColumn(11).width = 18;
+  aspSheet.getColumn(12).width = 14;
+  aspSheet.getColumn(13).width = 28;
+
+  for (const c of [3, 4, 5, 7, 8, 9, 11]) aspSheet.getColumn(c).numFmt = "0.00";
+  aspSheet.getColumn(12).numFmt = "0.0%";
+
+  aspSheet.addRow([]);
+  aspSheet.addRow([
+    "Attestation légale :",
+    "Bordereau certifié conforme par la direction du CFRP Valentin Haüy pour la transmission mensuelle à l'ASP. Les samedis, dimanches, jours fériés légaux et séances annulées par l'organisme ne constituent aucune retenue financière pour le stagiaire.",
+  ]);
 
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }

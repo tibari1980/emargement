@@ -44,6 +44,13 @@ const ADMIN_SECTIONS = [
         icon: ShieldCheck,
         color: "bg-status-present-bg text-status-present border-status-present-border/40",
       },
+      {
+        title: "Guide Administrateur & Sécurité RGPD",
+        description: "Manuel pas-à-pas de gestion des comptes, politique ANSSI des mots de passe et traçabilité.",
+        href: "/guide?role=admin",
+        icon: BookOpen,
+        color: "bg-secondary/15 text-secondary border-secondary/30",
+      },
     ],
   },
   {

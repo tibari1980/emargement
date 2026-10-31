@@ -8,6 +8,7 @@ export const COLLECTIONS = {
   slots: "timetableSlots",
   holidays: "holidays",
   attendances: "attendances",
+  sessionOverrides: "sessionOverrides",
   auditLogs: "auditLogs",
   settings: "settings",
 } as const;

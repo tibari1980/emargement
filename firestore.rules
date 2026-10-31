@@ -41,19 +41,25 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isStaff() || (signedIn() && request.auth.uid == userId);
+      // Account creation: admin can create any account; secretary can only create trainees; bootstrap can create first admin
       allow create: if isAdmin()
-        || hasRole(['pedagogical_lead'])
         || (hasRole(['secretary']) && request.resource.data.role == 'trainee')
         || (signedIn() && request.auth.uid == userId
             && request.resource.data.role == 'admin'
             && !exists(/databases/$(database)/documents/settings/bootstrap));
+      // Account update:
+      // - Admin has full update rights
+      // - Secretary can only update trainee accounts without changing role
+      // - Users can only update their own non-sensitive profile info (never role or active state)
       allow update: if isAdmin()
-        || hasRole(['pedagogical_lead'])
-        || (signedIn() && request.auth.uid == userId)
         || (hasRole(['secretary']) && resource.data.role == 'trainee'
-            && request.resource.data.role == 'trainee');
+            && request.resource.data.role == 'trainee')
+        || (signedIn() && request.auth.uid == userId
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.active == resource.data.active
+            && onlyChanges(['fullName', 'phone', 'specialty', 'room', 'lastAuditId']));
+      // Account deletion: admin can delete any account; secretary can only delete trainees
       allow delete: if isAdmin()
-        || hasRole(['pedagogical_lead'])
         || (hasRole(['secretary']) && resource.data.role == 'trainee');
     }
 
@@ -95,9 +101,17 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    match /sessionOverrides/{overrideId} {
+      allow read: if isStaff();
+      allow write: if isAdmin() || hasRole(['pedagogical_lead', 'secretary']);
+    }
+
     match /auditLogs/{logId} {
       allow read: if isAdmin();
-      allow create: if isStaff();
+      // Audit logs are strictly append-only and author-verified
+      allow create: if isStaff()
+        && request.resource.data.actorId == request.auth.uid;
+      allow update, delete: if false;
     }
   }
 }

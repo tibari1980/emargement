@@ -158,6 +158,51 @@ export function attendanceId(slotId: string, traineeId: string, date: string): s
   return `${slotId}_${traineeId}_${date}`;
 }
 
+/* ----------------------------------------------- session overrides & trainer absence */
+
+export const SESSION_CANCELLATION_REASONS = [
+  "trainer_absent",
+  "weather",
+  "institutional",
+  "other",
+] as const;
+export type SessionCancellationReason = (typeof SESSION_CANCELLATION_REASONS)[number];
+
+export const SESSION_CANCELLATION_LABELS: Record<SessionCancellationReason, string> = {
+  trainer_absent: "Absence du formateur",
+  weather: "Intempéries / Force majeure",
+  institutional: "Événement de l'établissement",
+  other: "Autre motif administratif",
+};
+
+/** Deterministic id: one override record per slot and date */
+export function sessionOverrideId(slotId: string, date: string): string {
+  return `${slotId}_${date}`;
+}
+
+export interface SessionOverride extends Audited {
+  id: string; // `${slotId}_${date}`
+  slotId: string;
+  date: string; // "YYYY-MM-DD"
+  month: string; // "YYYY-MM"
+  formationId: string;
+  subjectId: string;
+  originalTrainerId: string;
+  substituteTrainerId?: string | null;
+  substituteTrainerName?: string | null;
+  /** Travaux pratiques / travail libre supervisé par le secrétariat ou responsable pédagogique */
+  isSelfStudyTP?: boolean;
+  supervisorId?: string | null;
+  supervisorName?: string | null;
+  supervisorRole?: Role | null;
+  selfStudyNote?: string | null;
+  isCancelled?: boolean;
+  cancellationReason?: SessionCancellationReason | null;
+  cancellationNote?: string | null;
+  updatedBy: string;
+  updatedAt?: unknown;
+}
+
 /* ------------------------------------------------------------ audit trail */
 
 export const AUDIT_ENTITY_TYPES = [
@@ -167,6 +212,7 @@ export const AUDIT_ENTITY_TYPES = [
   "timetableSlot",
   "holiday",
   "attendance",
+  "sessionOverride",
   "application",
 ] as const;
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
@@ -178,6 +224,7 @@ export const AUDIT_ENTITY_LABELS: Record<AuditEntityType, string> = {
   timetableSlot: "Emploi du temps",
   holiday: "Calendrier",
   attendance: "Émargement",
+  sessionOverride: "Gestion de séance & Remplacement",
   application: "Application",
 };
 

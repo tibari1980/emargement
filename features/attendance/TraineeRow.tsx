@@ -44,6 +44,7 @@ export function TraineeRow({
   record,
   state,
   onSave,
+  readOnly = false,
 }: {
   trainee: UserProfile;
   slot: TimetableSlot;
@@ -51,6 +52,7 @@ export function TraineeRow({
   record: Attendance | undefined;
   state: RowState;
   onSave: (trainee: UserProfile, status: AttendanceStatus, arrivalTime: string | null) => Promise<unknown>;
+  readOnly?: boolean;
 }) {
   const [time, setTime] = useState(record?.arrivalTime ?? "");
   const [timeError, setTimeError] = useState<string | null>(null);
@@ -172,8 +174,11 @@ export function TraineeRow({
             <button
               type="button"
               onClick={() => choose("present")}
+              disabled={readOnly}
               aria-pressed={status === "present"}
               className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-all ${focusRing} ${
+                readOnly ? "cursor-not-allowed opacity-75" : ""
+              } ${
                 status === "present"
                   ? "bg-status-present-bg text-status-present border-2 border-status-present-border font-bold shadow-xs ring-1 ring-status-present"
                   : "bg-surface-container text-on-surface hover:bg-surface-variant border border-border-subtle"
@@ -187,8 +192,11 @@ export function TraineeRow({
             <button
               type="button"
               onClick={() => choose("late")}
+              disabled={readOnly}
               aria-pressed={status === "late"}
               className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-all ${focusRing} ${
+                readOnly ? "cursor-not-allowed opacity-75" : ""
+              } ${
                 status === "late"
                   ? "bg-status-late-bg text-status-late border-2 border-status-late-border font-bold shadow-xs ring-1 ring-status-late"
                   : "bg-surface-container text-on-surface hover:bg-surface-variant border border-border-subtle"
@@ -202,8 +210,11 @@ export function TraineeRow({
             <button
               type="button"
               onClick={() => choose("absent")}
+              disabled={readOnly}
               aria-pressed={status === "absent"}
               className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-all ${focusRing} ${
+                readOnly ? "cursor-not-allowed opacity-75" : ""
+              } ${
                 status === "absent"
                   ? "bg-status-absent-bg text-status-absent border-2 border-status-absent-border font-bold shadow-xs ring-1 ring-status-absent"
                   : "bg-surface-container text-on-surface hover:bg-surface-variant border border-border-subtle"
@@ -323,6 +334,7 @@ export function TraineeCard({
   record,
   state,
   onSave,
+  readOnly = false,
 }: {
   trainee: UserProfile;
   slot: TimetableSlot;
@@ -330,6 +342,7 @@ export function TraineeCard({
   record: Attendance | undefined;
   state: RowState;
   onSave: (trainee: UserProfile, status: AttendanceStatus, arrivalTime: string | null) => Promise<unknown>;
+  readOnly?: boolean;
 }) {
   const [time, setTime] = useState(record?.arrivalTime ?? "");
   const [timeError, setTimeError] = useState<string | null>(null);
@@ -448,8 +461,11 @@ export function TraineeCard({
           <button
             type="button"
             onClick={() => choose("present")}
+            disabled={readOnly}
             aria-pressed={status === "present"}
             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl p-2 text-xs font-bold transition-all ${focusRing} ${
+              readOnly ? "cursor-not-allowed opacity-75" : ""
+            } ${
               status === "present"
                 ? "bg-status-present-bg text-status-present border-2 border-status-present shadow-xs ring-1 ring-status-present"
                 : "bg-surface-container-low text-on-surface hover:bg-surface-container border border-border-subtle"
@@ -463,8 +479,11 @@ export function TraineeCard({
           <button
             type="button"
             onClick={() => choose("late")}
+            disabled={readOnly}
             aria-pressed={status === "late"}
             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl p-2 text-xs font-bold transition-all ${focusRing} ${
+              readOnly ? "cursor-not-allowed opacity-75" : ""
+            } ${
               status === "late"
                 ? "bg-status-late-bg text-status-late border-2 border-status-late shadow-xs ring-1 ring-status-late"
                 : "bg-surface-container-low text-on-surface hover:bg-surface-container border border-border-subtle"
@@ -478,8 +497,11 @@ export function TraineeCard({
           <button
             type="button"
             onClick={() => choose("absent")}
+            disabled={readOnly}
             aria-pressed={status === "absent"}
             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl p-2 text-xs font-bold transition-all ${focusRing} ${
+              readOnly ? "cursor-not-allowed opacity-75" : ""
+            } ${
               status === "absent"
                 ? "bg-status-absent-bg text-status-absent border-2 border-status-absent shadow-xs ring-1 ring-status-absent"
                 : "bg-surface-container-low text-on-surface hover:bg-surface-container border border-border-subtle"

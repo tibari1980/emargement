@@ -25,6 +25,18 @@ export function AppFooter() {
             RGAA 4.1 AAA &amp; WAI-ARIA
           </span>
           <Link
+            href="/guide"
+            className={`text-secondary hover:text-primary font-medium text-xs sm:text-sm underline underline-offset-2 ${focusRing}`}
+          >
+            Guide d&apos;utilisation pas-à-pas
+          </Link>
+          <Link
+            href="/politique-confidentialite"
+            className={`text-secondary hover:text-primary font-medium text-xs sm:text-sm underline underline-offset-2 ${focusRing}`}
+          >
+            Confidentialité &amp; RGPD
+          </Link>
+          <Link
             href="/acces-refuse"
             className={`text-secondary hover:text-primary font-medium text-xs sm:text-sm underline underline-offset-2 ${focusRing}`}
           >

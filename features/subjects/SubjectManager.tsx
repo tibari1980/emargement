@@ -6,6 +6,7 @@ import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { TextAreaField, TextField } from "@/components/ui/Field";
+import { Pagination } from "@/components/ui/Pagination";
 import type { Actor } from "@/lib/data/audit";
 import { createSubject, deleteSubject, updateSubject, type SubjectInput } from "@/lib/data/subjects";
 import { isActive } from "@/lib/data/users";
@@ -23,6 +24,10 @@ export function SubjectManager({ actor }: { actor: Actor }) {
   const [search, setSearch] = useState("");
   const listHeading = useRef<HTMLHeadingElement>(null);
 
+  // Pagination state (10 subjects per page by default)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   if (error) return <Alert tone="error">{error}</Alert>;
   if (!data || !lookups) return <Loading />;
 
@@ -34,6 +39,12 @@ export function SubjectManager({ actor }: { actor: Actor }) {
     const q = search.toLowerCase();
     return s.title.toLowerCase().includes(q) || (s.description && s.description.toLowerCase().includes(q));
   });
+
+  const totalItems = visible.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const paginatedSubjects = visible.slice(startIndex, startIndex + pageSize);
   const missing = SUBJECT_CATALOG.filter((c) => !data.subjects.some((s) => s.title === c.title));
 
   const closeEditor = () => {
@@ -96,96 +107,124 @@ export function SubjectManager({ actor }: { actor: Actor }) {
               label="Rechercher une matière"
               placeholder="Intitulé ou description..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
               hint={search ? `${visible.length} matière(s) correspondante(s)` : undefined}
             />
           </div>
           <label className="flex min-h-11 items-center gap-3">
-            <input type="checkbox" className="h-5 w-5 accent-blue-900" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+            <input
+              type="checkbox"
+              className="h-5 w-5 accent-blue-900"
+              checked={showArchived}
+              onChange={(e) => {
+                setShowArchived(e.target.checked);
+                setPage(1);
+              }}
+            />
             Afficher les matières archivées
           </label>
         </div>
         {visible.length === 0 ? (
           <Alert tone="info">Aucune matière pour le moment.</Alert>
         ) : (
-          <div
-            tabIndex={0}
-            role="region"
-            aria-label="Tableau de la liste des matières"
-            className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
-          >
-            <table className="w-full border-collapse text-left text-sm min-w-[550px]">
-              <caption className="sr-only">Liste des matières</caption>
-              <thead className="border-b border-border-subtle bg-surface-container text-xs font-bold uppercase text-on-surface">
-                <tr>
-                  <th scope="col" className="p-3 sm:p-4">Matière</th>
-                  <th scope="col" className="p-3 sm:p-4">Formateurs habilités</th>
-                  <th scope="col" className="p-3 sm:p-4">Statut</th>
-                  <th scope="col" className="p-3 sm:p-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-surface-container">
-                {visible.map((s) => (
-                  <tr key={s.id} className="align-top hover:bg-surface-container-low transition-colors">
-                    <th scope="row" className="p-3 sm:p-4 font-normal">
-                      <span className="font-bold text-on-surface text-base block">{s.title}</span>
-                      {s.description && <span className="block text-xs text-on-surface-variant mt-0.5">{s.description}</span>}
-                    </th>
-                    <td className="p-3 sm:p-4 text-on-surface-variant font-medium">
-                      {s.trainerIds?.length ? s.trainerIds.map(lookups.personName).join(", ") : "Tous les formateurs"}
-                    </td>
-                    <td className="p-3 sm:p-4">
-                      {s.active === false ? (
-                        <span className="inline-flex rounded bg-status-late-bg px-2 py-0.5 text-xs font-bold text-status-late">
-                          Archivée
-                        </span>
-                      ) : (
-                        <span className="inline-flex rounded bg-status-present-bg px-2 py-0.5 text-xs font-bold text-status-present">
-                          Active
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-3 sm:p-4 text-right">
-                      <div className="flex flex-wrap gap-2 justify-end">
-                        <Button variant="secondary" className="!min-h-9 !px-3 text-xs rounded-xl" onClick={() => setEditing(s)} aria-label={`Modifier ${s.title}`}>
-                          Modifier
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          className="!min-h-9 !px-3 text-xs rounded-xl"
-                          aria-label={`${s.active === false ? "Réactiver" : "Archiver"} ${s.title}`}
-                          onClick={() =>
-                            run(
-                              () => updateSubject(actor, s, { active: s.active === false }),
-                              `Matière ${s.title} ${s.active === false ? "réactivée" : "archivée"}.`,
-                            )
-                          }
-                        >
-                          {s.active === false ? "Réactiver" : "Archiver"}
-                        </Button>
-                        {canDelete && (
-                          <ConfirmDialog
-                            triggerLabel="Supprimer"
-                            triggerAccessibleLabel={`Supprimer définitivement la matière ${s.title}`}
-                            triggerVariant="danger"
-                            title={`Supprimer définitivement « ${s.title} » ?`}
-                            description={`Attention : Cette action est irréversible. La matière « ${s.title} » sera définitivement supprimée de l'établissement ainsi que ses créneaux associés dans les emplois du temps.`}
-                            confirmLabel="Supprimer définitivement"
-                            onConfirm={async () => {
-                              await run(
-                                () => deleteSubject(actor, s),
-                                `Matière « ${s.title} » définitivement supprimée.`,
-                              );
-                            }}
-                          />
-                        )}
-                      </div>
-                    </td>
+          <>
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label="Tableau de la liste des matières"
+              className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
+            >
+              <table className="w-full border-collapse text-left text-sm min-w-[550px]">
+                <caption className="sr-only">Liste des matières</caption>
+                <thead className="border-b border-border-subtle bg-surface-container text-xs font-bold uppercase text-on-surface">
+                  <tr>
+                    <th scope="col" className="p-3 sm:p-4">Matière</th>
+                    <th scope="col" className="p-3 sm:p-4">Formateurs habilités</th>
+                    <th scope="col" className="p-3 sm:p-4">Statut</th>
+                    <th scope="col" className="p-3 sm:p-4 text-right">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-surface-container">
+                  {paginatedSubjects.map((s) => (
+                    <tr key={s.id} className="align-top hover:bg-surface-container-low transition-colors">
+                      <th scope="row" className="p-3 sm:p-4 font-normal">
+                        <span className="font-bold text-on-surface text-base block">{s.title}</span>
+                        {s.description && <span className="block text-xs text-on-surface-variant mt-0.5">{s.description}</span>}
+                      </th>
+                      <td className="p-3 sm:p-4 text-on-surface-variant font-medium">
+                        {s.trainerIds?.length ? s.trainerIds.map(lookups.personName).join(", ") : "Tous les formateurs"}
+                      </td>
+                      <td className="p-3 sm:p-4">
+                        {s.active === false ? (
+                          <span className="inline-flex rounded bg-status-late-bg px-2 py-0.5 text-xs font-bold text-status-late">
+                            Archivée
+                          </span>
+                        ) : (
+                          <span className="inline-flex rounded bg-status-present-bg px-2 py-0.5 text-xs font-bold text-status-present">
+                            Active
+                          </span>
+                        )}
+                      </td>
+                      <td className="p-3 sm:p-4 text-right">
+                        <div className="flex flex-wrap gap-2 justify-end">
+                          <Button variant="secondary" className="!min-h-9 !px-3 text-xs rounded-xl" onClick={() => setEditing(s)} aria-label={`Modifier ${s.title}`}>
+                            Modifier
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            className="!min-h-9 !px-3 text-xs rounded-xl"
+                            aria-label={`${s.active === false ? "Réactiver" : "Archiver"} ${s.title}`}
+                            onClick={() =>
+                              run(
+                                () => updateSubject(actor, s, { active: s.active === false }),
+                                `Matière ${s.title} ${s.active === false ? "réactivée" : "archivée"}.`,
+                              )
+                            }
+                          >
+                            {s.active === false ? "Réactiver" : "Archiver"}
+                          </Button>
+                          {canDelete && (
+                            <ConfirmDialog
+                              triggerLabel="Supprimer"
+                              triggerAccessibleLabel={`Supprimer définitivement la matière ${s.title}`}
+                              triggerVariant="danger"
+                              title={`Supprimer définitivement « ${s.title} » ?`}
+                              description={`Attention : Cette action est irréversible. La matière « ${s.title} » sera définitivement supprimée de l'établissement ainsi que ses créneaux associés dans les emplois du temps.`}
+                              confirmLabel="Supprimer définitivement"
+                              onConfirm={async () => {
+                                await run(
+                                  () => deleteSubject(actor, s),
+                                  `Matière « ${s.title} » définitivement supprimée.`,
+                                );
+                              }}
+                            />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <Pagination
+              currentPage={safePage}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={(newSize) => {
+                setPageSize(newSize);
+                setPage(1);
+              }}
+              pageSizeOptions={[10, 25, 50]}
+              itemName="matières"
+              ariaLabel="Pagination des matières"
+            />
+          </>
         )}
       </section>
     </div>

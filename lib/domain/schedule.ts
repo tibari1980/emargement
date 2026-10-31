@@ -53,6 +53,88 @@ export interface SlotConflict {
   slot: TimetableSlot;
 }
 
+export type SessionTemporalStatus = "future" | "current" | "ended_today" | "past";
+
+export interface SessionTemporalInfo {
+  status: SessionTemporalStatus;
+  isUnlockedForTrainer: boolean;
+  message: string;
+}
+
+/**
+ * Determines the temporal status of a session relative to current time.
+ * Enforces the core rule:
+ * - A trainer cannot take attendance BEFORE the session starts (only consultation).
+ * - A trainer takes attendance DURING the session (with a 15-minute grace period to finalize).
+ * - AFTER the session/grace period or on past dates, the session is locked for trainers
+ *   and can only be modified/regularized by the Secretary or Pedagogical Lead.
+ */
+export function getSessionTemporalStatus(
+  slot: Pick<TimetableSlot, "startTime" | "endTime">,
+  sessionDate: string,
+  nowTimeStr?: string,
+  nowDateStr?: string,
+  graceMinutes: number = 15,
+): SessionTemporalInfo {
+  const today = nowDateStr ?? new Date().toISOString().slice(0, 10);
+  const currentClock = nowTimeStr ?? new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+  if (sessionDate > today) {
+    return {
+      status: "future",
+      isUnlockedForTrainer: false,
+      message: `Émargement non ouvert — Séance programmée le ${sessionDate} à ${slot.startTime}. Consultation du planning uniquement.`,
+    };
+  }
+
+  if (sessionDate < today) {
+    return {
+      status: "past",
+      isUnlockedForTrainer: false,
+      message: `Séance passée — L'émargement est clôturé pour le formateur. Seuls le secrétariat et la direction peuvent régulariser cette feuille.`,
+    };
+  }
+
+  // sessionDate === today
+  if (currentClock < slot.startTime) {
+    return {
+      status: "future",
+      isUnlockedForTrainer: false,
+      message: `Émargement non ouvert — La séance commence à ${slot.startTime} (actuellement ${currentClock}). Les boutons d'émargement s'activeront au début du cours.`,
+    };
+  }
+
+  // Calculate end time with grace period
+  const endMinutes = timeToMinutes(slot.endTime);
+  const currentMinutes = timeToMinutes(currentClock);
+
+  if (endMinutes !== null && currentMinutes !== null) {
+    if (currentMinutes <= endMinutes + graceMinutes) {
+      const isGrace = currentMinutes > endMinutes;
+      return {
+        status: "current",
+        isUnlockedForTrainer: true,
+        message: isGrace
+          ? `Séance terminée à ${slot.endTime} — Période de finalisation de l'émargement en cours (${graceMinutes} min de grâce).`
+          : `Séance en cours — Émargement ouvert jusqu'à ${slot.endTime}.`,
+      };
+    }
+  } else if (currentClock <= slot.endTime) {
+    return {
+      status: "current",
+      isUnlockedForTrainer: true,
+      message: `Séance en cours — Émargement ouvert jusqu'à ${slot.endTime}.`,
+    };
+  }
+
+  // Current time > end time + grace
+  return {
+    status: "ended_today",
+    isUnlockedForTrainer: false,
+    message: `Séance clôturée — La séance est terminée depuis ${slot.endTime}. L'émargement est en lecture seule pour le formateur. Contactez le secrétariat pour toute régularisation.`,
+  };
+}
+
 /**
  * Conflicts of a candidate slot with existing ones: another session of the
  * same formation at the same time, or the trainer already teaching elsewhere.

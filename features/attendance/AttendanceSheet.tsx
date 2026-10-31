@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
   Calendar,
   CheckCheck,
   CheckCircle2,
@@ -11,12 +12,16 @@ import {
   Clock,
   GraduationCap,
   Keyboard,
+  Laptop,
+  Lock,
   MapPin,
   Search,
+  Shield,
   Sparkles,
   Timer,
   TrendingUp,
   User,
+  UserCheck,
   Users,
   UserX,
   X,
@@ -29,12 +34,22 @@ import { TextField } from "@/components/ui/Field";
 import { addDays, formatLongDate, formatSpokenTime, isValidIsoDate, isWeekend, nowTime, timeToMinutes, todayIso } from "@/lib/core/dates";
 import { listForSession, saveAttendances, type AttendanceEntry } from "@/lib/data/attendances";
 import type { Actor } from "@/lib/data/audit";
+import { subscribeSessionOverridesForDate } from "@/lib/data/sessionOverrides";
 import { listSlots } from "@/lib/data/timetable";
-import { listUsersByIds } from "@/lib/data/users";
+import { listStaff, listUsersByIds } from "@/lib/data/users";
 import { can } from "@/lib/domain/permissions";
-import { sessionsOn } from "@/lib/domain/schedule";
-import type { Attendance, AttendanceStatus, TimetableSlot, UserProfile } from "@/lib/domain/types";
+import { getSessionTemporalStatus, sessionsOn } from "@/lib/domain/schedule";
+import {
+  ROLE_LABELS,
+  SESSION_CANCELLATION_LABELS,
+  type Attendance,
+  type AttendanceStatus,
+  type SessionOverride,
+  type TimetableSlot,
+  type UserProfile,
+} from "@/lib/domain/types";
 import { useReferenceData } from "@/features/shared/useReferenceData";
+import { TrainerAbsenceModal } from "./TrainerAbsenceModal";
 import { TraineeRow, TraineeCard, type RowState } from "./TraineeRow";
 
 type FilterMode = "all" | "pending" | "present" | "late" | "absent";
@@ -99,8 +114,36 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
   const [filter, setFilter] = useState<FilterMode>("all");
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Temporal & Clock auto-refresh every 15 seconds
+  const [currentTime, setCurrentTime] = useState(nowTime());
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(nowTime());
+    }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Overrides & Substitute trainers state
+  const [overrides, setOverrides] = useState<SessionOverride[]>([]);
+  const [trainersList, setTrainersList] = useState<UserProfile[]>([]);
+  const [absenceModalOpen, setAbsenceModalOpen] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeSessionOverridesForDate(date, (list) => {
+      setOverrides(list);
+    });
+    return () => unsub();
+  }, [date]);
+
+  useEffect(() => {
+    if (can(profile.role, "trainer.manageAbsence")) {
+      listStaff(["trainer"]).then(setTrainersList).catch(() => {});
+    }
+  }, [profile.role]);
+
   useEffect(() => {
     let stale = false;
+    // Admins, pedagogical leads and secretaries see all slots; trainers see their own slots
     listSlots(seesAll ? {} : { trainerId: profile.id })
       .then((loaded) => {
         if (!stale) {
@@ -158,9 +201,49 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
 
   const label = slot && lookups ? `${lookups.subjectTitle(slot.subjectId)} — ${lookups.formationTitle(slot.formationId)}` : "";
 
+  // Temporal analysis & Overrides evaluation
+  const currentOverride = useMemo(() => {
+    if (!slot) return null;
+    return overrides.find((o) => o.slotId === slot.id && o.date === date) ?? null;
+  }, [slot, overrides, date]);
+
+  const isCancelled = Boolean(currentOverride?.isCancelled);
+  const isSubstitute = Boolean(currentOverride?.substituteTrainerId);
+  const isSelfStudyTP = Boolean(currentOverride?.isSelfStudyTP);
+  const isSupervisor = currentOverride?.supervisorId === profile.id;
+
+  const temporal = useMemo(() => {
+    if (!slot) return null;
+    return getSessionTemporalStatus(slot, date, currentTime);
+  }, [slot, date, currentTime]);
+
+  const canManageAbsence = can(profile.role, "trainer.manageAbsence");
+  const isRegularizationMode = can(profile.role, "attendance.modify");
+  const isAssignedTrainer = slot
+    ? slot.trainerId === profile.id || currentOverride?.substituteTrainerId === profile.id
+    : false;
+
+  // Saisie/modification autorisée si :
+  // 1. La séance n'est PAS annulée
+  // 2. ET (l'utilisateur est en mode régularisation administrative [admin, responsable, secrétariat])
+  //    OU (la séance est en Travaux Pratiques / Travail libre supervisé par le secrétariat / responsable)
+  //    OU (l'utilisateur est le formateur titulaire/remplaçant ET la séance est dans sa fenêtre temporelle autorisée)
+  const canModify =
+    !isCancelled &&
+    (isRegularizationMode || isSelfStudyTP || isSupervisor || (isAssignedTrainer && Boolean(temporal?.isUnlockedForTrainer)));
+
   const save = useCallback(
     async (entries: AttendanceEntry[], { silent = false } = {}) => {
       if (!slot) return false;
+      if (!canModify) {
+        announce(
+          isCancelled
+            ? "Cette séance a été annulée. L'émargement est désactivé."
+            : temporal?.message || "Saisie non autorisée sur ce créneau horaire.",
+          "assertive",
+        );
+        return false;
+      }
       const previous = { ...records };
       setRecords((r) => {
         const next = { ...r };
@@ -204,7 +287,7 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
         return false;
       }
     },
-    [slot, date, label, profile, records, announce],
+    [slot, date, label, profile, records, announce, canModify, isCancelled, temporal],
   );
 
   if (error || refError) return <Alert tone="error">{error ?? refError}</Alert>;
@@ -454,6 +537,148 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
         </div>
       )}
 
+      {/* BANNIÈRES OPÉRATIONNELLES : ANNULATION / REMPLACEMENT / CONTRÔLE TEMPOREL / RÉGULARISATION */}
+      {slot && (
+        <div className="flex flex-col gap-3">
+          {/* Cas 1 : Séance Annulée pour absence du formateur */}
+          {isCancelled && (
+            <div className="rounded-xl border-2 border-status-absent/50 bg-status-absent-bg/40 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-status-absent/20 text-status-absent flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-status-absent">
+                    Séance Annulée — {currentOverride?.cancellationReason ? SESSION_CANCELLATION_LABELS[currentOverride.cancellationReason] : "Absence du formateur"}
+                  </h3>
+                  <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+                    {currentOverride?.cancellationNote || "Séance non dispensée par l'établissement."} Les heures de ce créneau ne sont pas imputées aux stagiaires (dispense administrative officielle sans pénalisation d&apos;assiduité).
+                  </p>
+                </div>
+              </div>
+
+              {canManageAbsence && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setAbsenceModalOpen(true)}
+                  className="shrink-0 !text-xs !py-1.5"
+                >
+                  Modifier la décision
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Cas 2 : Remplacement actif */}
+          {isSubstitute && !isCancelled && (
+            <div className="rounded-xl border border-secondary/40 bg-secondary/10 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-secondary/20 text-secondary flex items-center justify-center shrink-0 mt-0.5">
+                  <UserCheck className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-primary">
+                    Remplacement Pédagogique Actif
+                  </h3>
+                  <p className="text-xs text-on-surface-variant mt-0.5">
+                    Formateur titulaire : <strong>{lookups.personName(slot.trainerId)}</strong> (absent) — Séance assurée par : <strong className="text-primary">{currentOverride?.substituteTrainerName || "Formateur remplaçant"}</strong>.
+                  </p>
+                </div>
+              </div>
+
+              {canManageAbsence && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setAbsenceModalOpen(true)}
+                  className="shrink-0 !text-xs !py-1.5"
+                >
+                  Modifier le remplacement
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Cas 3 : Travaux Pratiques / Travail Libre Supervisé par Secrétariat / Direction */}
+          {isSelfStudyTP && !isCancelled && (
+            <div className="rounded-xl border-2 border-secondary/40 bg-secondary/10 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-secondary/20 text-secondary flex items-center justify-center shrink-0 mt-0.5">
+                  <Laptop className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-primary flex items-center gap-2">
+                    Travaux Pratiques &amp; Travail Libre Supervisé
+                    <span className="rounded-full bg-status-present-bg px-2.5 py-0.5 text-[11px] font-bold text-status-present">
+                      Présence 100% Validée
+                    </span>
+                  </h3>
+                  <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+                    Formateur titulaire absent — Séance maintenue en auto-formation / exercices pratiques. Émargement supervisé par <strong>{currentOverride?.supervisorName}</strong> ({currentOverride?.supervisorRole ? ROLE_LABELS[currentOverride.supervisorRole] : "Responsable"}). {currentOverride?.selfStudyNote && `Activité : « ${currentOverride.selfStudyNote} »`}
+                  </p>
+                </div>
+              </div>
+
+              {canManageAbsence && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setAbsenceModalOpen(true)}
+                  className="shrink-0 !text-xs !py-1.5"
+                >
+                  Modifier la décision
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* Cas 4 : Verrouillage Temporel Formateur (avant l'heure ou après clôture) */}
+          {!isCancelled && !isSelfStudyTP && !isRegularizationMode && !temporal?.isUnlockedForTrainer && (
+            <div className="rounded-xl border border-border-subtle bg-surface-container p-4 shadow-xs flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-surface-container-highest text-on-surface-variant flex items-center justify-center shrink-0">
+                <Lock className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div>
+                <h3 className="font-bold text-sm text-primary">
+                  {temporal?.status === "future" ? "Émargement non ouvert (Anticipation interdite)" : "Séance clôturée (Lecture seule)"}
+                </h3>
+                <p className="text-xs text-on-surface-variant mt-0.5 leading-relaxed">
+                  {temporal?.message}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Cas 5 : Mode Régularisation Administrative (Admin / Responsable / Secrétariat) */}
+          {isRegularizationMode && (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs">
+                <Shield className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+                <span className="font-bold text-primary">
+                  Mode Régularisation Administrative :
+                </span>
+                <span className="text-on-surface-variant hidden sm:inline">
+                  Vous êtes habilité(e) à modifier ou régulariser les émargements sur n&apos;importe quel créneau.
+                </span>
+              </div>
+
+              {canManageAbsence && !isCancelled && !isSubstitute && !isSelfStudyTP && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setAbsenceModalOpen(true)}
+                  className="shrink-0 !text-xs !py-1.5 flex items-center gap-1.5"
+                >
+                  <UserX className="h-4 w-4 text-status-absent" aria-hidden="true" />
+                  Gérer l&apos;absence du formateur
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 3. KPI / ATTENDANCE METRICS CARDS (Stitch Design Responsive Grid) */}
       {slot && trainees && trainees.length > 0 && (
         <section
@@ -589,7 +814,7 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
           </div>
 
           <div className="flex items-center gap-3 flex-wrap w-full md:w-auto justify-end">
-            {pending.length > 0 && (
+            {pending.length > 0 && canModify && (
               <ConfirmDialog
                 triggerLabel={`Marquer tous présents (${pending.length})`}
                 triggerAccessibleLabel={`Marquer présents les ${pending.length} stagiaires non saisis`}
@@ -598,6 +823,12 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
                 confirmLabel="Confirmer la présence"
                 onConfirm={markAllPresent}
               />
+            )}
+            {pending.length > 0 && !canModify && (
+              <span className="inline-flex items-center gap-1.5 font-bold text-xs text-on-surface-variant bg-surface-container px-3 py-2 rounded-xl">
+                <Lock className="h-4 w-4" aria-hidden="true" />
+                Émargement verrouillé ({pending.length} en attente)
+              </span>
             )}
             {pending.length === 0 && (
               <span className="inline-flex items-center gap-1.5 font-bold text-xs text-status-present bg-status-present-bg px-3 py-2 rounded-xl">
@@ -704,6 +935,7 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
                 record={records[trainee.id]}
                 state={rowState[trainee.id] ?? "idle"}
                 onSave={(t, status, arrivalTime) => save([{ trainee: t, status, arrivalTime }])}
+                readOnly={!canModify}
               />
             ))}
             {filteredTrainees.length === 0 && (
@@ -747,6 +979,7 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
                     record={records[trainee.id]}
                     state={rowState[trainee.id] ?? "idle"}
                     onSave={(t, status, arrivalTime) => save([{ trainee: t, status, arrivalTime }])}
+                    readOnly={!canModify}
                   />
                 ))}
                 {filteredTrainees.length === 0 && (
@@ -762,6 +995,25 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
             </table>
           </div>
         </section>
+      )}
+
+      {/* 7. MODALE DE GESTION DE L'ABSENCE DU FORMATEUR (Remplacement & Annulation) */}
+      {slot && canManageAbsence && (
+        <TrainerAbsenceModal
+          actor={profile}
+          slot={slot}
+          date={date}
+          override={currentOverride}
+          trainers={trainersList}
+          subjectTitle={lookups?.subjectTitle(slot.subjectId) || "Matière"}
+          formationTitle={lookups?.formationTitle(slot.formationId) || "Formation"}
+          primaryTrainerName={lookups?.personName(slot.trainerId) || "Formateur titulaire"}
+          isOpen={absenceModalOpen}
+          onClose={() => setAbsenceModalOpen(false)}
+          onSaved={() => {
+            // Subscription to session overrides auto-updates state
+          }}
+        />
       )}
     </div>
   );

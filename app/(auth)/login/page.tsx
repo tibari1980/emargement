@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { useAuth } from "@/components/AuthProvider";
 import { FirebaseNotConfigured } from "@/components/ProtectedPage";
+import { BrandLogoEye } from "@/components/BrandLogoEye";
 import { Alert } from "@/components/ui/Alert";
 import { Button, focusRing } from "@/components/ui/Button";
 import { PasswordField, TextField } from "@/components/ui/Field";
@@ -43,6 +44,24 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [needsSetup, setNeedsSetup] = useState(false);
 
+  // Anti-brute-force rate limiting state
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setLockoutSeconds((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockoutSeconds]);
+
   useEffect(() => {
     if (user) router.replace("/");
   }, [user, router]);
@@ -58,14 +77,32 @@ export default function LoginPage() {
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (lockoutSeconds > 0) {
+      announce(`Compte temporairement verrouillé pour des raisons de sécurité. Veuillez patienter ${lockoutSeconds} secondes.`);
+      return;
+    }
+
     setError(null);
     setInfo(null);
     setBusy(true);
     try {
       await signInWithEmailAndPassword(getFirebaseAuth(), email.trim(), password);
+      setFailedAttempts(0);
       announce("Connexion réussie.");
     } catch (e) {
-      setError(authErrorMessage(e));
+      const nextFailures = failedAttempts + 1;
+      setFailedAttempts(nextFailures);
+
+      if (nextFailures >= 5) {
+        const cooldown = 60;
+        setLockoutSeconds(cooldown);
+        setError(
+          `Trop de tentatives de connexion infructueuses (5/5). Par mesure de sécurité et conformément aux exigences de protection contre le vol de données, l'accès est temporairement verrouillé pendant ${cooldown} secondes.`
+        );
+        announce("Trop d'échecs de connexion. Formulaire verrouillé pendant 60 secondes.");
+      } else {
+        setError(`${authErrorMessage(e)} (Tentative ${nextFailures}/5)`);
+      }
     } finally {
       setBusy(false);
     }
@@ -90,12 +127,7 @@ export default function LoginPage() {
   return (
     <div className="mx-auto max-w-md py-6 sm:py-12">
       <div className="mb-6 flex flex-col items-center text-center">
-        <div
-          className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-container text-white shadow-sm font-bold text-xl tracking-wider"
-          aria-hidden="true"
-        >
-          VH
-        </div>
+        <BrandLogoEye size="lg" className="mb-3 shadow-md" />
         <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
           ESRP / CFRP Valentin Haüy
         </h1>
@@ -149,12 +181,30 @@ export default function LoginPage() {
         />
 
         <div className="flex flex-col gap-3 pt-2">
-          <Button type="submit" disabled={busy} className="w-full">
-            {busy ? "Connexion en cours…" : "Se connecter"}
+          <Button
+            type="submit"
+            disabled={busy || lockoutSeconds > 0}
+            className="w-full"
+            aria-live="polite"
+          >
+            {lockoutSeconds > 0
+              ? `Verrouillé (${lockoutSeconds}s)`
+              : busy
+                ? "Connexion en cours…"
+                : "Se connecter"}
           </Button>
-          <Button variant="secondary" onClick={handleReset} className="w-full">
+          <Button variant="secondary" onClick={handleReset} className="w-full" disabled={busy || lockoutSeconds > 0}>
             Mot de passe oublié
           </Button>
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-border-subtle text-center text-xs text-on-surface-variant">
+          <Link
+            href="/politique-confidentialite"
+            className={`underline hover:text-primary ${focusRing}`}
+          >
+            Politique de Confidentialité &amp; Protection des Données (RGPD)
+          </Link>
         </div>
       </form>
     </div>

@@ -41,10 +41,18 @@ const PEDAGOGICAL_MODULES = [
   {
     title: "Plannings consolidés",
     description: "Visualisation synthétique des plannings de tous les formateurs et de toutes les promotions.",
-    href: "/pedagogical/planning",
+    href: "/planning",
     icon: CalendarDays,
     badge: "Vue globale",
     color: "bg-surface-container text-primary border-border-subtle",
+  },
+  {
+    title: "Guide Responsable Pédagogique",
+    description: "Manuel étape par étape : création des promotions, gestion des matières et suivi d'assiduité Qualiopi.",
+    href: "/guide?role=pedagogical_lead",
+    icon: BookOpen,
+    badge: "Assistance",
+    color: "bg-secondary/15 text-secondary border-secondary/30",
   },
 ];
 

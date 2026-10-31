@@ -1,0 +1,938 @@
+"use client";
+
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import {
+  Accessibility,
+  AlertTriangle,
+  BookOpen,
+  Calendar,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Compass,
+  FileCheck2,
+  FileSpreadsheet,
+  FileText,
+  GraduationCap,
+  HelpCircle,
+  Keyboard,
+  Landmark,
+  Layers,
+  Printer,
+  Receipt,
+  ShieldCheck,
+  Sparkles,
+  UploadCloud,
+  UserCheck,
+  Users,
+} from "lucide-react";
+import { useAuth } from "@/components/AuthProvider";
+import { Button, focusRing } from "@/components/ui/Button";
+import type { Role } from "@/lib/domain/types";
+
+type GuideRole = "trainer" | "secretary" | "pedagogical_lead" | "admin" | "accessibility";
+
+interface RoleTab {
+  id: GuideRole;
+  label: string;
+  badge: string;
+  icon: typeof GraduationCap;
+  description: string;
+}
+
+const ROLE_TABS: RoleTab[] = [
+  {
+    id: "trainer",
+    label: "Formateur",
+    badge: "Émargement direct",
+    icon: GraduationCap,
+    description: "Guide étape par étape pour faire l'émargement de vos cours, gérer les retards et utiliser les raccourcis clavier.",
+  },
+  {
+    id: "secretary",
+    label: "Secrétariat",
+    badge: "Administration & ASP",
+    icon: Receipt,
+    description: "Guide complet pour importer les stagiaires, enregistrer les justificatifs médicaux et préparer la déclaration ASP.",
+  },
+  {
+    id: "pedagogical_lead",
+    label: "Responsable Pédagogique",
+    badge: "Formations & Plannings",
+    icon: Compass,
+    description: "Guide pour gérer l'offre de formation, concevoir les emplois du temps et homologuer les bilans d'assiduité.",
+  },
+  {
+    id: "admin",
+    label: "Administrateur",
+    badge: "Sécurité & Comptes",
+    icon: ShieldCheck,
+    description: "Guide pour créer les comptes du personnel, surveiller le journal de sécurité et assurer la conformité RGPD.",
+  },
+  {
+    id: "accessibility",
+    label: "Accessibilité & Lecteurs d'écran",
+    badge: "Tous profils",
+    icon: Accessibility,
+    description: "Guide technique d'accessibilité universelle (NVDA, JAWS, VoiceOver, Orca, contrastes et navigation clavier).",
+  },
+];
+
+function GuidePageContent() {
+  const { profile } = useAuth();
+  const searchParams = useSearchParams();
+  const roleParam = searchParams.get("role") as GuideRole | null;
+
+  // Initial tab based on URL param or current user's role
+  const [activeTab, setActiveTab] = useState<GuideRole>("trainer");
+  const [expandedFaq, setExpandedFaq] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (roleParam && ROLE_TABS.some((t) => t.id === roleParam)) {
+      setActiveTab(roleParam);
+    } else if (profile?.role) {
+      if (profile.role === "trainer") setActiveTab("trainer");
+      else if (profile.role === "secretary") setActiveTab("secretary");
+      else if (profile.role === "pedagogical_lead") setActiveTab("pedagogical_lead");
+      else if (profile.role === "admin") setActiveTab("admin");
+    }
+  }, [roleParam, profile]);
+
+  const toggleFaq = (key: string) => {
+    setExpandedFaq((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handlePrint = () => {
+    if (typeof window !== "undefined") {
+      window.print();
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6 py-2">
+      {/* 1. EN-TÊTE CHALEUREUX & INSTITUTIONNEL */}
+      <header className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-6 sm:p-8 shadow-xs flex flex-col gap-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="flex flex-col gap-2 max-w-3xl">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary-container px-3 py-1 font-bold text-xs uppercase tracking-wide text-on-primary">
+                <BookOpen className="h-4 w-4 text-focus-outer shrink-0" aria-hidden="true" />
+                Manuel Utilisateur Officiel
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-on-surface-variant">
+                <ShieldCheck className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+                Conforme RGAA 4.1 AAA &amp; Qualiopi
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs font-bold text-primary bg-surface-container px-2.5 py-1 rounded-lg">
+                ESRP / CFRP Valentin Haüy
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-primary tracking-tight">
+              Guide d&apos;Utilisation Pas-à-Pas &amp; Manuel d&apos;Assistance
+            </h1>
+            <p className="text-base text-on-surface-variant leading-relaxed">
+              Bienvenue dans votre guide d&apos;utilisation accessible. Ce manuel a été rédigé avec bienveillance dans un langage simple,
+              humain et précis pour vous accompagner étape par étape, quel que soit votre rôle et que vous utilisiez un lecteur d&apos;écran
+              (NVDA, JAWS, VoiceOver, Orca), une plage braille ou la navigation au clavier.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 self-start lg:self-center shrink-0">
+            <Button
+              variant="secondary"
+              onClick={handlePrint}
+              className="inline-flex items-center gap-2 !px-4 !py-2.5 text-sm"
+              aria-label="Imprimer le guide d'utilisation de l'espace sélectionné"
+            >
+              <Printer className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+              <span>Imprimer cette fiche</span>
+            </Button>
+            <Link
+              href="/"
+              className={`inline-flex min-h-10 items-center justify-center rounded-xl bg-surface-container px-4 py-2 text-sm font-bold text-primary hover:bg-surface-variant transition-colors ${focusRing}`}
+            >
+              Retour à l&apos;accueil
+            </Link>
+          </div>
+        </div>
+
+        {/* 2. SÉLECTEUR DE RÔLE ACCESSIBLE (Radix / ARIA tablist) */}
+        <div className="mt-2 pt-4 border-t border-border-subtle">
+          <p className="text-xs font-bold uppercase tracking-wider text-secondary mb-3">
+            Choisissez votre profil pour consulter le guide qui vous correspond :
+          </p>
+          <div
+            role="tablist"
+            aria-label="Choisir le guide d'utilisation selon votre profil"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5"
+          >
+            {ROLE_TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isSelected = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  id={`tab-${tab.id}`}
+                  aria-selected={isSelected}
+                  aria-controls={`panel-${tab.id}`}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex flex-col items-start gap-1 p-3.5 rounded-xl border text-left transition-all ${
+                    isSelected
+                      ? "border-primary bg-primary-container text-on-primary shadow-md ring-2 ring-primary ring-offset-2"
+                      : "border-border-subtle bg-surface-container-low text-on-surface hover:bg-surface-container"
+                  } ${focusRing}`}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <Icon className={`h-5 w-5 shrink-0 ${isSelected ? "text-focus-outer" : "text-secondary"}`} aria-hidden="true" />
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
+                        isSelected ? "bg-white/20 text-white" : "bg-surface-container text-on-surface-variant"
+                      }`}
+                    >
+                      {tab.badge}
+                    </span>
+                  </div>
+                  <span className="text-sm font-bold mt-1 leading-snug">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </header>
+
+      {/* 3. CONTENU DÉTAILLÉ SELON LE RÔLE */}
+
+      {/* =========================================================================
+       * GUIDE FORMATEUR
+       * ========================================================================= */}
+      {activeTab === "trainer" && (
+        <section
+          id="panel-trainer"
+          role="tabpanel"
+          aria-labelledby="tab-trainer"
+          tabIndex={0}
+          className="flex flex-col gap-6 outline-none"
+        >
+          {/* Bandeau d'accueil Formateur */}
+          <div className="rounded-2xl border-l-4 border-l-status-present border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-status-present-bg text-status-present">
+                <GraduationCap className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-primary">
+                  Espace Formateur — Le Guide de l&apos;Émargement Quotidien
+                </h2>
+                <p className="text-sm text-on-surface-variant">
+                  Votre mission principale : certifier la présence de vos stagiaires à chaque séance de cours.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Étape 1 : Connexion */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                1
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Connexion à votre espace personnel
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-2 pl-11">
+              <p>
+                Rendez-vous sur la page de connexion avec votre identifiant (votre adresse email professionnelle) et votre mot de passe temporaire transmis par l&apos;administration.
+              </p>
+              <div className="rounded-xl bg-surface-container-low p-3.5 border border-border-subtle flex items-start gap-2.5">
+                <Sparkles className="h-5 w-5 text-secondary shrink-0 mt-0.5" aria-hidden="true" />
+                <p className="text-xs text-on-surface font-medium">
+                  <strong>Conseil de première connexion :</strong> Cliquez sur votre nom tout en haut à droite (« Mon profil ») pour définir votre mot de passe personnel sécurisé (au moins 12 caractères).
+                </p>
+              </div>
+            </div>
+          </article>
+
+          {/* Étape 2 : Vos cours du jour */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                2
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Consulter vos cours et votre planning hebdomadaire
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-2 pl-11">
+              <p>
+                Dès votre connexion, vous arrivez sur votre page <strong>« Émargement »</strong>. Vous y trouvez directement :
+              </p>
+              <ul className="list-disc pl-5 flex flex-col gap-1 text-on-surface">
+                <li>La date du jour et la liste de vos créneaux d&apos;enseignement.</li>
+                <li>Le nom de la promotion (ex. <em>TIP 1ère année</em>, <em>IFMK Kiné K2</em>).</li>
+                <li>La matière enseignée et la salle de cours adaptée.</li>
+                <li>L&apos;horaire exact (ex. <em>09:00 - 12:30</em>).</li>
+              </ul>
+              <p className="mt-1">
+                Vous pouvez également cliquer sur l&apos;onglet <strong>« Plannings »</strong> pour afficher la vue semaine complète de vos interventions.
+              </p>
+            </div>
+          </article>
+
+          {/* Étape 3 : La règle d'or temporelle */}
+          <article className="rounded-2xl border border-secondary/40 bg-surface-container-low p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-white font-bold text-sm">
+                3
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                La règle d&apos;or temporelle : quand pouvez-vous émarger ?
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface flex flex-col gap-3 pl-11">
+              <p>
+                Pour garantir la sincérité juridique des émargements demandée par les organismes financeurs (DGEFP, France Travail, ASP) :
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-xl bg-surface-container-lowest p-3 border border-border-subtle">
+                  <span className="font-bold text-outline block mb-1">⏳ Avant l&apos;heure du cours</span>
+                  <p className="text-on-surface-variant">
+                    La feuille est verrouillée. Vous voyez vos stagiaires mais les boutons d&apos;émargement sont inactifs.
+                  </p>
+                </div>
+                <div className="rounded-xl bg-status-present-bg p-3 border border-status-present-border/40">
+                  <span className="font-bold text-status-present block mb-1">🟢 Pendant le créneau</span>
+                  <p className="text-on-surface">
+                    La feuille est automatiquement déverrouillée. Vous pouvez pointer les présences, retards et absences jusqu&apos;à 15 minutes après la fin.
+                  </p>
+                </div>
+                <div className="rounded-xl bg-surface-container-lowest p-3 border border-border-subtle">
+                  <span className="font-bold text-primary block mb-1">🔒 Après la fin du cours</span>
+                  <p className="text-on-surface-variant">
+                    La feuille est clôturée et archivée avec horodatage électronique. Seul le secrétariat peut intervenir en cas d&apos;oubli.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          {/* Étape 4 : Comment pointer */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                4
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Comment pointer facilement vos stagiaires
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-3 pl-11">
+              <div className="rounded-xl border border-status-present-border/40 bg-status-present-bg/40 p-3.5 flex items-start gap-2.5">
+                <CheckCircle2 className="h-5 w-5 text-status-present shrink-0 mt-0.5" aria-hidden="true" />
+                <div>
+                  <strong className="text-status-present block">Le bouton magique « Marquer tous présents »</strong>
+                  <p className="text-xs text-on-surface mt-0.5">
+                    Si l&apos;ensemble du groupe est à l&apos;heure, cliquez simplement sur le bouton jaune en haut à droite. En 1 seconde, tous les stagiaires passent en « Présent » avec signature électronique.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <strong className="text-primary text-sm flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-status-late" aria-hidden="true" />
+                    Un stagiaire arrive en retard ?
+                  </strong>
+                  <p className="text-on-surface-variant">
+                    Cliquez sur <strong>« Retard »</strong> sur sa ligne. Saisissez son heure réelle d&apos;arrivée (ex. <em>09:20</em>). Le système calcule immédiatement les minutes de retard sans aucune erreur.
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <strong className="text-primary text-sm flex items-center gap-1.5">
+                    <AlertTriangle className="h-4 w-4 text-status-absent" aria-hidden="true" />
+                    Un stagiaire est absent ?
+                  </strong>
+                  <p className="text-on-surface-variant">
+                    Cliquez sur <strong>« Absent »</strong>. Si le stagiaire avait un arrêt maladie déjà enregistré par le secrétariat, son statut passe automatiquement en <em>Absence justifiée</em> sans pénalité pour lui.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          {/* Étape 5 : Raccourcis clavier accessibles pour formateurs non-voyants */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                5
+              </span>
+              <h3 className="text-lg font-bold text-primary flex items-center gap-2">
+                <Keyboard className="h-5 w-5 text-secondary" aria-hidden="true" />
+                <span>Raccourcis clavier accessibles (NVDA, JAWS, VoiceOver)</span>
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-3 pl-11">
+              <p>
+                Si vous êtes non-voyant ou malvoyant, vous pouvez effectuer l&apos;intégralité de l&apos;émargement sans jamais toucher à la souris :
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <div className="rounded-xl border border-border-subtle bg-surface-container p-2.5 text-center">
+                  <kbd className="px-2 py-1 rounded-md bg-surface-container-lowest font-mono font-bold text-primary shadow-xs border">P</kbd>
+                  <span className="block mt-1.5 font-bold text-status-present">Présent</span>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container p-2.5 text-center">
+                  <kbd className="px-2 py-1 rounded-md bg-surface-container-lowest font-mono font-bold text-primary shadow-xs border">R</kbd>
+                  <span className="block mt-1.5 font-bold text-status-late">En retard</span>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container p-2.5 text-center">
+                  <kbd className="px-2 py-1 rounded-md bg-surface-container-lowest font-mono font-bold text-primary shadow-xs border">A</kbd>
+                  <span className="block mt-1.5 font-bold text-status-absent">Absent</span>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container p-2.5 text-center">
+                  <kbd className="px-2 py-1 rounded-md bg-surface-container-lowest font-mono font-bold text-primary shadow-xs border">J</kbd>
+                  <span className="block mt-1.5 font-bold text-status-excused">Justifié</span>
+                </div>
+              </div>
+              <p className="text-xs text-on-surface-variant">
+                Utilisez la touche <kbd className="px-1.5 py-0.5 rounded bg-surface-container border text-[11px] font-mono">Tab</kbd> pour vous déplacer de stagiaire en stagiaire. Chaque statut validé est immédiatement vocalisé par votre lecteur d&apos;écran via l&apos;annuaire ARIA.
+              </p>
+            </div>
+          </article>
+
+          {/* Étape 6 : Que faire en cas d'absence du formateur */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                6
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Que faire si vous êtes malade ou indisponible ?
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-2 pl-11">
+              <p>
+                Prévenez simplement le secrétariat ou votre responsable pédagogique le plus tôt possible. L&apos;application gère automatiquement 3 solutions professionnelles :
+              </p>
+              <ol className="list-decimal pl-5 flex flex-col gap-1 text-on-surface text-xs">
+                <li><strong>Affectation d&apos;un formateur remplaçant :</strong> qui a immédiatement accès à votre feuille de cours pour émarger à votre place.</li>
+                <li><strong>Travaux Pratiques / Travail libre encadré en autonomie :</strong> le secrétariat supervise les stagiaires en salle et valide leur présence à 100%.</li>
+                <li><strong>Annulation administrative :</strong> la séance est dispensée par le centre ; <em>le stagiaire n&apos;est jamais pénalisé</em> et aucune retenue n&apos;est appliquée sur son allocation ASP.</li>
+              </ol>
+            </div>
+          </article>
+        </section>
+      )}
+
+      {/* =========================================================================
+       * GUIDE SECRÉTARIAT
+       * ========================================================================= */}
+      {activeTab === "secretary" && (
+        <section
+          id="panel-secretary"
+          role="tabpanel"
+          aria-labelledby="tab-secretary"
+          tabIndex={0}
+          className="flex flex-col gap-6 outline-none"
+        >
+          {/* Bandeau d'accueil Secrétariat */}
+          <div className="rounded-2xl border-l-4 border-l-secondary border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-container text-secondary">
+                <Receipt className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-primary">
+                  Espace Secrétariat — Manuel Administratif &amp; Déclaration ASP
+                </h2>
+                <p className="text-sm text-on-surface-variant">
+                  Imports de stagiaires, enregistrement des arrêts maladie, calendrier des fermetures et télétransmission mensuelle de la rémunération ASP.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Étape 1 : Importation massive de stagiaires */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                1
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Inscrire les stagiaires en masse par fichier Excel ou CSV
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-3 pl-11">
+              <p>
+                Rendez-vous sur l&apos;onglet <strong>« Import de stagiaires »</strong> (<Link href="/secretary/import" className="text-secondary font-bold underline">accéder à la page</Link>).
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <span className="font-bold text-primary">A. Télécharger le modèle</span>
+                  <p className="text-on-surface-variant">
+                    Cliquez sur <em>Télécharger le modèle Excel (.xlsx)</em>. Il contient les colonnes officielles pré-formatées : Nom, Prénom, Email, Téléphone.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <span className="font-bold text-primary">B. Choisir la promotion</span>
+                  <p className="text-on-surface-variant">
+                    Sélectionnez la promotion de rattachement (ex: <em>TIP 1ère année</em>). Les stagiaires y seront directement inscrits.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <span className="font-bold text-primary">C. Importer en un clic</span>
+                  <p className="text-on-surface-variant">
+                    Glissez votre fichier. L&apos;application supprime les doublons éventuels et crée toutes les fiches en quelques secondes.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          {/* Étape 2 : Justificatifs d'absence */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                2
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Enregistrer un justificatif d&apos;absence (Arrêt maladie, convocation...)
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-3 pl-11">
+              <p>
+                Lorsqu&apos;un stagiaire vous transmet un arrêt de travail CPAM, un certificat médical ou une convocation administrative :
+              </p>
+              <ol className="list-decimal pl-5 flex flex-col gap-1 text-on-surface text-xs">
+                <li>Allez sur l&apos;onglet <strong>« Justificatifs »</strong> (<Link href="/secretary/justifications" className="text-secondary font-bold underline">accéder</Link>).</li>
+                <li>Sélectionnez la formation, puis le stagiaire dans la liste déroulante.</li>
+                <li>Indiquez la <strong>Date de début</strong> et la <strong>Date de fin</strong> mentionnées sur le document.</li>
+                <li>Choisissez le motif officiel (<em>Arrêt maladie</em>, <em>Rendez-vous médical</em>, <em>Convocation administrative</em>, <em>Hospitalisation</em>, <em>Événement familial</em>).</li>
+                <li>Cliquez sur <strong>« Justifier les séances »</strong>.</li>
+              </ol>
+              <div className="rounded-xl bg-status-present-bg/30 p-3 border border-status-present-border/40 text-xs">
+                <strong className="text-status-present block">Résultat instantané :</strong>
+                Toutes les séances de cours tombant dans cette période passent automatiquement en <em>« Absence justifiée »</em>. Elles ne feront l&apos;objet d&apos;aucune retenue indue sur l&apos;allocation ASP !
+              </div>
+            </div>
+          </article>
+
+          {/* Étape 3 : Déclaration ASP Mensuelle */}
+          <article className="rounded-2xl border-2 border-secondary bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-white font-bold text-sm">
+                3
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Préparer et télétransmettre l&apos;état mensuel à l&apos;ASP (Rémunération RSFP)
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface flex flex-col gap-3 pl-11">
+              <p>
+                À la fin du mois, rendez-vous sur <strong>« Rapports mensuels »</strong> (<Link href="/pedagogical/reports" className="text-secondary font-bold underline">accéder</Link>) :
+              </p>
+              <div className="flex flex-col gap-2 text-xs">
+                <div className="rounded-xl bg-surface-container-low p-3 border border-border-subtle">
+                  <strong className="text-primary block text-sm">1. Basculer sur le « Bordereau Déclaration ASP »</strong>
+                  <p className="text-on-surface-variant mt-0.5">
+                    Cliquez sur le bouton d&apos;onglet en haut du rapport. Le tableau s&apos;adapte immédiatement aux colonnes de l&apos;ASP avec la colonne <strong>« Déduction ASP »</strong> en évidence.
+                  </p>
+                </div>
+                <div className="rounded-xl bg-surface-container-low p-3 border border-border-subtle">
+                  <strong className="text-primary block text-sm">2. Vérifier les exclusions automatiques</strong>
+                  <p className="text-on-surface-variant mt-0.5">
+                    Le système garantit que <strong>les week-ends (samedi et dimanche)</strong> ainsi que <strong>les 11 jours fériés légaux français</strong> sont strictement exclus. Aucune heure d&apos;absence ne peut être comptée sur ces jours.
+                  </p>
+                </div>
+                <div className="rounded-xl bg-surface-container-low p-3 border border-border-subtle">
+                  <strong className="text-primary block text-sm">3. Contrôler le détail d&apos;un stagiaire avant envoi</strong>
+                  <p className="text-on-surface-variant mt-0.5">
+                    Cliquez sur le bouton <strong>« Fiche ASP »</strong> sur la ligne du stagiaire. Vous accédez au <em>Journal chronologique séance par séance</em> pour vérifier chaque date, chaque heure de retard et chaque motif de justificatif.
+                  </p>
+                </div>
+                <div className="rounded-xl bg-surface-container-low p-3 border border-border-subtle">
+                  <strong className="text-primary block text-sm">4. Exporter les bordereaux officiels</strong>
+                  <p className="text-on-surface-variant mt-0.5">
+                    Téléchargez l&apos;<strong>Export XLSX</strong> (qui comprend l&apos;onglet spécialisé <em>Bordereau_ASP_Rémunération</em>) ou générez le <strong>Relevé PDF officiel</strong> signé électroniquement.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
+        </section>
+      )}
+
+      {/* =========================================================================
+       * GUIDE RESPONSABLE PÉDAGOGIQUE
+       * ========================================================================= */}
+      {activeTab === "pedagogical_lead" && (
+        <section
+          id="panel-pedagogical"
+          role="tabpanel"
+          aria-labelledby="tab-pedagogical_lead"
+          tabIndex={0}
+          className="flex flex-col gap-6 outline-none"
+        >
+          {/* Bandeau d'accueil Pédagogie */}
+          <div className="rounded-2xl border-l-4 border-l-primary border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-container text-primary">
+                <Compass className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-primary">
+                  Espace Responsable Pédagogique — Pilotage de l&apos;Offre &amp; Plannings
+                </h2>
+                <p className="text-sm text-on-surface-variant">
+                  Configuration des filières de formation, structuration des emplois du temps et homologation certifiée Qualiopi / DGEFP.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Étape 1 : Formations */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                1
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Gérer l&apos;offre de formation officielle du CFRP
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-2 pl-11">
+              <p>
+                Sur l&apos;onglet <strong>« Formations »</strong> (<Link href="/pedagogical/courses" className="text-secondary font-bold underline">accéder</Link>), vous configurez les promotions :
+              </p>
+              <ul className="list-disc pl-5 flex flex-col gap-1 text-on-surface text-xs">
+                <li><strong>Filière Informatique :</strong> TIP 1 (1ère année), TIP 2 (2ème année), Préparatoire informatique.</li>
+                <li><strong>Filière Masso-Kinésithérapie :</strong> Prépa kiné + IFMK K1, K2, K3, K4 sur 4 ans.</li>
+                <li><strong>Filière Tertiaire :</strong> CAGA 1ère et 2ème année.</li>
+                <li><strong>Autonomie :</strong> Cycles, Massages bien-être, Adaptation et Tremplin.</li>
+              </ul>
+              <p className="text-xs text-on-surface-variant mt-1">
+                Chaque formation possède son volume horaire réglementaire, ses dates de session et son rattachement certificateur (Qualiopi).
+              </p>
+            </div>
+          </article>
+
+          {/* Étape 2 : Matières adaptées */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                2
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Définir les matières adaptées à la déficience visuelle
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-2 pl-11">
+              <p>
+                Sur l&apos;onglet <strong>« Matières »</strong> (<Link href="/pedagogical/subjects" className="text-secondary font-bold underline">accéder</Link>), vous paramétrez les modules spécifiques au centre :
+                <em> Braille</em>, <em>Locomotion &amp; Déplacements</em>, <em>Outils adaptés (NVDA, JAWS)</em>, <em>Bureautique adaptée</em>, etc.
+              </p>
+            </div>
+          </article>
+
+          {/* Étape 3 : Emplois du temps hebdomadaires */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                3
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Construire les emplois du temps avec contrôle anti-chevauchement
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-2 pl-11">
+              <p>
+                Sur l&apos;onglet <strong>« Emplois du temps »</strong> (<Link href="/pedagogical/timetable" className="text-secondary font-bold underline">accéder</Link>), ajoutez les créneaux récurrents de la semaine :
+              </p>
+              <ul className="list-disc pl-5 flex flex-col gap-1 text-on-surface text-xs">
+                <li>Sélectionnez le jour (Lundi au Vendredi), l&apos;heure de début et de fin.</li>
+                <li>Attribuez la matière et le formateur titulaire.</li>
+                <li><strong>Sécurité intégrée :</strong> Le système vous alerte automatiquement si un formateur est déjà programmé sur un autre cours à la même heure.</li>
+              </ul>
+            </div>
+          </article>
+        </section>
+      )}
+
+      {/* =========================================================================
+       * GUIDE ADMINISTRATEUR
+       * ========================================================================= */}
+      {activeTab === "admin" && (
+        <section
+          id="panel-admin"
+          role="tabpanel"
+          aria-labelledby="tab-admin"
+          tabIndex={0}
+          className="flex flex-col gap-6 outline-none"
+        >
+          {/* Bandeau d'accueil Admin */}
+          <div className="rounded-2xl border-l-4 border-l-primary-container border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary-container text-on-primary">
+                <ShieldCheck className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-primary">
+                  Cockpit Administrateur — Sécurité, Comptes &amp; Audit RGPD
+                </h2>
+                <p className="text-sm text-on-surface-variant">
+                  Supervision globale, gestion des habilitations professionnelles, traçabilité inaltérable et intégrité de la plateforme.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Étape 1 : Gestion des utilisateurs */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                1
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Créer et gérer les comptes du personnel
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-2 pl-11">
+              <p>
+                Rendez-vous sur l&apos;onglet <strong>« Utilisateurs »</strong> (<Link href="/admin/users" className="text-secondary font-bold underline">accéder</Link>) :
+              </p>
+              <ul className="list-disc pl-5 flex flex-col gap-1 text-on-surface text-xs">
+                <li>Créez les comptes individuels : Nom, Prénom, Email et Rôle (Formateur, Secrétariat, Responsable pédagogique, Administrateur).</li>
+                <li><strong>Exigences de sécurité ANSSI :</strong> Les mots de passe doivent comporter au moins 12 caractères avec majuscule, minuscule, chiffre et symbole.</li>
+                <li><strong>Désactivation sans perte :</strong> Si un collaborateur quitte l&apos;établissement, vous pouvez désactiver son compte en 1 clic : ses accès sont immédiatement révoqués mais tout son historique d&apos;émargement est scrupuleusement conservé pour les audits.</li>
+              </ul>
+            </div>
+          </article>
+
+          {/* Étape 2 : Journal d'Audit */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                2
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Surveiller le Journal d&apos;Activité &amp; la Traçabilité légale
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-2 pl-11">
+              <p>
+                Sur l&apos;onglet <strong>« Journal d&apos;activité »</strong> (<Link href="/admin/audit" className="text-secondary font-bold underline">accéder</Link>), chaque action réalisée sur l&apos;application est tracée de manière inaltérable :
+                <em> Qui a émargé ? À quelle seconde ? Quelle adresse IP ? Quelle modification sur un justificatif ?</em>
+                Ce journal certifié constitue la preuve formelle lors des audits financeurs (Qualiopi, France Travail).
+              </p>
+            </div>
+          </article>
+        </section>
+      )}
+
+      {/* =========================================================================
+       * GUIDE ACCESSIBILITÉ UNIVERSELLE & LECTEURS D'ÉCRAN
+       * ========================================================================= */}
+      {activeTab === "accessibility" && (
+        <section
+          id="panel-accessibility"
+          role="tabpanel"
+          aria-labelledby="tab-accessibility"
+          tabIndex={0}
+          className="flex flex-col gap-6 outline-none"
+        >
+          {/* Bandeau d'accueil Accessibilité */}
+          <div className="rounded-2xl border-l-4 border-l-primary border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-surface-container text-primary">
+                <Accessibility className="h-6 w-6" aria-hidden="true" />
+              </div>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-primary">
+                  Accessibilité Universelle — Recommandations RGAA 4.1 AAA &amp; Outils d&apos;Assistance
+                </h2>
+                <p className="text-sm text-on-surface-variant">
+                  Guide complet pour les personnes aveugles, malvoyantes, sourdes, malentendantes ou avec handicap moteur.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Outils d'assistance visuelle */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <h3 className="text-lg font-bold text-primary flex items-center gap-2">
+              <Accessibility className="h-5 w-5 text-secondary" aria-hidden="true" />
+              <span>Personnaliser l&apos;affichage (Contraste renforcé &amp; Taille de texte)</span>
+            </h3>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-3">
+              <p>
+                Cliquez sur le bouton <strong>« A± Accessibilité »</strong> présent en permanence dans la barre du haut (ou appuyez sur la touche <kbd className="px-1.5 py-0.5 rounded bg-surface-container border text-xs font-mono">Alt + A</kbd>) :
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3">
+                  <strong className="text-primary block mb-1">Contraste renforcé</strong>
+                  <p className="text-on-surface-variant">
+                    Bascule en mode jaune sur fond noir absolu, offrant un contraste supérieur à 14:1 pour les personnes malvoyantes.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3">
+                  <strong className="text-primary block mb-1">Agrandissement du texte</strong>
+                  <p className="text-on-surface-variant">
+                    Passez à 125% ou 140% sans déformer les tableaux ni créer de défilement horizontal parasite.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3">
+                  <strong className="text-primary block mb-1">Police Atkinson Hyperlegible</strong>
+                  <p className="text-on-surface-variant">
+                    Typographie spécialement développée par le Braille Institute pour éliminer toute ambiguïté visuelle entre les lettres et chiffres (ex: 0 et O, 1 et l).
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          {/* Lecteurs d'écran */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <h3 className="text-lg font-bold text-primary flex items-center gap-2">
+              <Keyboard className="h-5 w-5 text-secondary" aria-hidden="true" />
+              <span>Compatibilité avec les lecteurs d&apos;écran (NVDA, JAWS, VoiceOver, Orca)</span>
+            </h3>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-2">
+              <p>
+                L&apos;ensemble de l&apos;application est structuré selon les standards WAI-ARIA :
+              </p>
+              <ul className="list-disc pl-5 flex flex-col gap-1 text-on-surface text-xs">
+                <li><strong>Régions Landmark :</strong> <code>header</code> (bannière), <code>nav</code> (navigation), <code>main</code> (contenu principal), <code>footer</code> (informations de bas de page).</li>
+                <li><strong>Liens d&apos;évitement (Skip links) :</strong> Dès la première tabulation sur la page, des raccourcis visibles permettent d&apos;aller directement au contenu principal, au menu ou aux réglages d&apos;accessibilité.</li>
+                <li><strong>Annonces vocales dynamiques :</strong> Lorsqu&apos;un émargement est validé ou qu&apos;un rapport est calculé, une annonce vocale discrète (<code>aria-live=&quot;polite&quot;</code>) informe l&apos;utilisateur sans interrompre sa lecture.</li>
+                <li><strong>Navigation sans souris :</strong> Toutes les fenêtres modales piègent le focus et se ferment avec la touche <kbd className="px-1.5 py-0.5 rounded bg-surface-container border text-[11px] font-mono">Échap</kbd> en replaçant le curseur sur le bouton déclencheur.</li>
+              </ul>
+            </div>
+          </article>
+
+          {/* Personnes sourdes / malentendantes et handicap moteur */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <h3 className="text-lg font-bold text-primary">
+              Handicap auditif, moteur et troubles cognitifs
+            </h3>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-2">
+              <p>
+                <strong>Sourds et malentendants :</strong> Aucun signal sonore n&apos;est utilisé de manière exclusive. Chaque confirmation ou alerte bénéficie d&apos;un bandeau textuel clair avec icône distinctive.
+              </p>
+              <p>
+                <strong>Handicap moteur :</strong> Toutes les cibles interactives (boutons, liens, sélecteurs) mesurent au moins 44 par 44 pixels. Les délais de session sont très confortables et aucune action n&apos;est chronométrée.
+              </p>
+            </div>
+          </article>
+        </section>
+      )}
+
+      {/* 4. FOIRE AUX QUESTIONS HUMAINE (FAQ) */}
+      <section aria-labelledby="faq-heading" className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-6 sm:p-8 shadow-xs flex flex-col gap-4">
+        <h2 id="faq-heading" className="text-xl sm:text-2xl font-bold text-primary flex items-center gap-2">
+          <HelpCircle className="h-6 w-6 text-secondary shrink-0" aria-hidden="true" />
+          <span>Foire Aux Questions Fréquentes (FAQ)</span>
+        </h2>
+        <p className="text-sm text-on-surface-variant">
+          Des réponses concrètes aux questions les plus courantes pour vous dépanner immédiatement :
+        </p>
+
+        <div className="flex flex-col gap-3 mt-2">
+          {/* FAQ 1 */}
+          <div className="rounded-xl border border-border-subtle bg-surface-container-low overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleFaq("pwd")}
+              aria-expanded={expandedFaq["pwd"] ?? false}
+              aria-controls="faq-ans-pwd"
+              className={`w-full flex items-center justify-between p-4 text-left font-bold text-sm text-primary hover:bg-surface-container transition-colors ${focusRing}`}
+            >
+              <span>J&apos;ai oublié mon mot de passe ou mon compte est bloqué, que faire ?</span>
+              {expandedFaq["pwd"] ? <ChevronUp className="h-5 w-5 text-secondary shrink-0" /> : <ChevronDown className="h-5 w-5 text-secondary shrink-0" />}
+            </button>
+            {expandedFaq["pwd"] && (
+              <div id="faq-ans-pwd" className="p-4 pt-1 text-xs sm:text-sm text-on-surface-variant border-t border-border-subtle bg-surface-container-lowest">
+                Contactez votre secrétariat ou votre administrateur. Ils peuvent réinitialiser votre mot de passe en 1 clic dans l&apos;onglet « Utilisateurs » et vous fournir un lien de connexion immédiat.
+              </div>
+            )}
+          </div>
+
+          {/* FAQ 2 */}
+          <div className="rounded-xl border border-border-subtle bg-surface-container-low overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleFaq("ferie")}
+              aria-expanded={expandedFaq["ferie"] ?? false}
+              aria-controls="faq-ans-ferie"
+              className={`w-full flex items-center justify-between p-4 text-left font-bold text-sm text-primary hover:bg-surface-container transition-colors ${focusRing}`}
+            >
+              <span>Est-ce qu&apos;un jour férié ou un week-end peut être compté en absence ?</span>
+              {expandedFaq["ferie"] ? <ChevronUp className="h-5 w-5 text-secondary shrink-0" /> : <ChevronDown className="h-5 w-5 text-secondary shrink-0" />}
+            </button>
+            {expandedFaq["ferie"] && (
+              <div id="faq-ans-ferie" className="p-4 pt-1 text-xs sm:text-sm text-on-surface-variant border-t border-border-subtle bg-surface-container-lowest">
+                <strong>Absolument jamais !</strong> Le moteur de calcul exclut systématiquement les samedis, les dimanches et les 11 jours fériés nationaux français. Même si aucun clic n&apos;a été fait dans le calendrier, ces jours ne sont jamais comptabilisés en heures dues ni en absences stagiaires.
+              </div>
+            )}
+          </div>
+
+          {/* FAQ 3 */}
+          <div className="rounded-xl border border-border-subtle bg-surface-container-low overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleFaq("asp_err")}
+              aria-expanded={expandedFaq["asp_err"] ?? false}
+              aria-controls="faq-ans-asp_err"
+              className={`w-full flex items-center justify-between p-4 text-left font-bold text-sm text-primary hover:bg-surface-container transition-colors ${focusRing}`}
+            >
+              <span>Pourquoi la colonne « Déduction ASP » apparaît-elle en rouge pour un stagiaire ?</span>
+              {expandedFaq["asp_err"] ? <ChevronUp className="h-5 w-5 text-secondary shrink-0" /> : <ChevronDown className="h-5 w-5 text-secondary shrink-0" />}
+            </button>
+            {expandedFaq["asp_err"] && (
+              <div id="faq-ans-asp_err" className="p-4 pt-1 text-xs sm:text-sm text-on-surface-variant border-t border-border-subtle bg-surface-container-lowest">
+                Cette alerte signale au secrétariat que ce stagiaire a des <strong>absences injustifiées ou des retards</strong> sur le mois qui donneront lieu à une retenue financière sur son allocation par l&apos;ASP. Cliquez sur « Fiche ASP » pour vérifier si un arrêt maladie n&apos;a pas été oublié avant de finaliser l&apos;envoi.
+              </div>
+            )}
+          </div>
+
+          {/* FAQ 4 */}
+          <div className="rounded-xl border border-border-subtle bg-surface-container-low overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleFaq("nvda")}
+              aria-expanded={expandedFaq["nvda"] ?? false}
+              aria-controls="faq-ans-nvda"
+              className={`w-full flex items-center justify-between p-4 text-left font-bold text-sm text-primary hover:bg-surface-container transition-colors ${focusRing}`}
+            >
+              <span>Comment faire un émargement rapide avec NVDA ou JAWS ?</span>
+              {expandedFaq["nvda"] ? <ChevronUp className="h-5 w-5 text-secondary shrink-0" /> : <ChevronDown className="h-5 w-5 text-secondary shrink-0" />}
+            </button>
+            {expandedFaq["nvda"] && (
+              <div id="faq-ans-nvda" className="p-4 pt-1 text-xs sm:text-sm text-on-surface-variant border-t border-border-subtle bg-surface-container-lowest">
+                En entrant sur la page d&apos;émargement, appuyez sur <kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">B</kbd> pour atteindre le bouton « Marquer tous présents », ou naviguez dans la liste des stagiaires avec <kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">Tab</kbd> et pressez la touche <kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">P</kbd> pour valider un présent. Le lecteur vocal vous confirme immédiatement la validation.
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export default function GuidePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="p-8 text-center text-on-surface-variant font-bold">
+          Chargement du guide…
+        </div>
+      }
+    >
+      <GuidePageContent />
+    </Suspense>
+  );
+}

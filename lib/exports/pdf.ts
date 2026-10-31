@@ -157,11 +157,14 @@ export async function buildPdfReport(report: MonthlyReport): Promise<Uint8Array>
     y -= ROW_HEIGHT;
   }
 
-  if (y < MARGIN + 90) newPage();
+  if (y < MARGIN + 120) newPage();
   y -= 12;
   if (report.closedDays.length) {
+    const closedList = report.closedDays
+      .map((d) => (report.holidayTitles?.[d] ? `${formatShortDate(d)} (${report.holidayTitles[d]})` : formatShortDate(d)))
+      .join(", ");
     text(
-      `Jours de fermeture exclus : ${report.closedDays.map(formatShortDate).join(", ")}`,
+      `Jours fériés légaux et fermetures exclus (0 heure comptabilisée) : ${closedList}`,
       MARGIN,
       8,
       font,
@@ -170,15 +173,27 @@ export async function buildPdfReport(report: MonthlyReport): Promise<Uint8Array>
     y -= 14;
   }
   text(
-    "Retards déduits à la minute. Total absences = absences non justifiées + justifiées + retards.",
+    "Règles de décompte : retards déduits à la minute. Absences injustifiées + retards = assiette de déduction ASP.",
     MARGIN,
     8,
     font,
     grey,
   );
-  y -= 30;
-  text("Signature et cachet du responsable pédagogique :", MARGIN, 10);
-  text(`Édité le ${formatShortDate(todayIso())}`, 600, 10);
+  y -= 14;
+  text(
+    `Cadre Déclaration ASP (RSFP) : Heures nettes exigibles = ${formatHours(report.netTheoreticalHours ?? report.theoreticalHours)} | Total déductible ASP = ${formatHours(report.totals.aspDeductibleHours ?? report.totals.absentHours)} | Absences justifiées = ${formatHours(report.totals.excusedHours)} | Dispensées centre = ${formatHours(report.totals.exemptedHours ?? 0)}`,
+    MARGIN,
+    8,
+    bold,
+    grey,
+  );
+  y -= 26;
+  text("Attestation sur l'honneur et visa de l'organisme payeur (ASP) :", MARGIN, 10, bold);
+  y -= 12;
+  text("Relevé certifié conforme aux feuilles d'émargement et aux dispositions relatives à la rémunération des stagiaires.", MARGIN, 8, font, grey);
+  y -= 14;
+  text("Signature et cachet du CFRP Valentin Haüy :", MARGIN, 9, bold);
+  text(`Fait à Paris, le ${formatShortDate(todayIso())}`, 600, 10);
 
   const pages = pdf.getPages();
   pages.forEach((p, i) =>

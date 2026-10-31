@@ -15,6 +15,7 @@ export function AccessibilityToolbar() {
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
         <button
+          id="btn-accessibilite"
           type="button"
           aria-label="Options d'accessibilité visuelle (taille du texte, contrastes, espacements)"
           className={`inline-flex min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-high px-3 py-2 text-sm font-bold text-on-surface transition-colors hover:bg-surface-variant ${focusRing}`}

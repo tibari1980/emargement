@@ -8,6 +8,7 @@ import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PasswordField, SelectField, TextField } from "@/components/ui/Field";
+import { Pagination } from "@/components/ui/Pagination";
 import { accountErrorMessage, createStaffAccount } from "@/lib/data/accounts";
 import type { Actor } from "@/lib/data/audit";
 import {
@@ -29,11 +30,16 @@ export function UserManager({ actor }: { actor: Actor }) {
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  // Dynamic real-time subscription to Firestore
+  // Pagination state (10 users per page by default)
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Targeted Firestore subscription (filters by role on server side to minimize Firestore reads)
   useEffect(() => {
     let isSubscribed = true;
     const unsubscribe = subscribeUsers(
-      (list) => {
+      filter ? { role: filter } : undefined,
+      (list: UserProfile[]) => {
         if (isSubscribed) {
           setUsers(list);
           setError(null);
@@ -41,7 +47,7 @@ export function UserManager({ actor }: { actor: Actor }) {
       },
       (err) => {
         console.warn("UserManager: live subscription error, falling back to one-time fetch", err);
-        listUsers()
+        listUsers(filter || undefined)
           .then((res) => {
             if (isSubscribed) {
               setUsers(res);
@@ -57,14 +63,14 @@ export function UserManager({ actor }: { actor: Actor }) {
       isSubscribed = false;
       unsubscribe();
     };
-  }, []);
+  }, [filter]);
 
   if (error) return <Alert tone="error">{error}</Alert>;
   if (!users) return <Loading label="Chargement des utilisateurs en temps réel…" />;
 
   const reload = async () => {
     try {
-      const fresh = await listUsers();
+      const fresh = await listUsers(filter || undefined);
       setUsers(fresh);
     } catch {
       // Ignored: real-time listener will eventually sync
@@ -80,6 +86,13 @@ export function UserManager({ actor }: { actor: Actor }) {
     const q = search.toLowerCase();
     return u.fullName.toLowerCase().includes(q) || (u.email && u.email.toLowerCase().includes(q));
   });
+
+  // Calculate paginated slice
+  const totalItems = visible.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const paginatedUsers = visible.slice(startIndex, startIndex + pageSize);
 
   const run = async (action: () => Promise<unknown>, success: string) => {
     try {
@@ -156,6 +169,7 @@ export function UserManager({ actor }: { actor: Actor }) {
                 setFilter("");
                 setStatusFilter("all");
                 setSearch("");
+                setPage(1);
               }}
               className="inline-flex items-center gap-1.5 text-xs font-bold text-secondary hover:underline cursor-pointer"
             >
@@ -170,7 +184,10 @@ export function UserManager({ actor }: { actor: Actor }) {
           <SelectField
             label="Filtrer par rôle"
             value={filter}
-            onChange={(e) => setFilter(e.target.value as Role | "")}
+            onChange={(e) => {
+              setFilter(e.target.value as Role | "");
+              setPage(1);
+            }}
           >
             <option value="">Tous les rôles ({users.length})</option>
             {ROLES.map((r) => (
@@ -183,7 +200,10 @@ export function UserManager({ actor }: { actor: Actor }) {
           <SelectField
             label="Statut du compte"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as "all" | "active" | "inactive")}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as "all" | "active" | "inactive");
+              setPage(1);
+            }}
           >
             <option value="all">Tous les statuts ({users.length})</option>
             <option value="active">Actifs ({users.filter(isActive).length})</option>
@@ -194,12 +214,15 @@ export function UserManager({ actor }: { actor: Actor }) {
             label="Rechercher"
             placeholder="Nom ou email..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
             hint={search ? `${visible.length} résultat(s)` : undefined}
           />
         </div>
 
-        {/* Vue bureau (Tableau) */}
+        {/* Vue bureau (Tableau paginé) */}
         <div
           tabIndex={0}
           role="region"
@@ -218,14 +241,14 @@ export function UserManager({ actor }: { actor: Actor }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-surface-container">
-              {visible.length === 0 ? (
+              {paginatedUsers.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="p-8 text-center text-on-surface-variant">
                     Aucun utilisateur ne correspond aux critères de recherche.
                   </td>
                 </tr>
               ) : (
-                visible.map((u) => (
+                paginatedUsers.map((u) => (
                   <UserRow
                     key={u.id}
                     user={u}
@@ -254,12 +277,12 @@ export function UserManager({ actor }: { actor: Actor }) {
 
         {/* Vue mobile & tablette (< 768px) en cartes accessibles */}
         <div className="md:hidden flex flex-col gap-3">
-          {visible.length === 0 ? (
+          {paginatedUsers.length === 0 ? (
             <div className="p-6 rounded-xl border border-border-subtle bg-surface-container-lowest text-center text-on-surface-variant text-sm">
               Aucun utilisateur ne correspond aux critères de recherche.
             </div>
           ) : (
-            visible.map((u) => (
+            paginatedUsers.map((u) => (
               <UserCard
                 key={u.id}
                 user={u}
@@ -283,6 +306,22 @@ export function UserManager({ actor }: { actor: Actor }) {
             ))
           )}
         </div>
+
+        {/* Contrôles de pagination accessibles */}
+        <Pagination
+          currentPage={safePage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setPage(1);
+          }}
+          pageSizeOptions={[10, 25, 50, 100]}
+          itemName="utilisateurs"
+          ariaLabel="Pagination des utilisateurs"
+        />
       </section>
     </div>
   );

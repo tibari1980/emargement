@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  BookOpen,
+  LogIn,
   LogOut,
   Menu,
   User,
@@ -14,6 +16,7 @@ import { isActive } from "@/lib/data/users";
 import { ROLE_LABELS } from "@/lib/domain/types";
 import { AccessibilityToolbar } from "./AccessibilityToolbar";
 import { useAuth } from "./AuthProvider";
+import { BrandLogoEye } from "./BrandLogoEye";
 import { Button, focusRing } from "./ui/Button";
 
 const CATEGORY_LABELS: Record<ModuleCategory, string> = {
@@ -79,14 +82,9 @@ export function AppHeader() {
             <Link
               href="/"
               className={`flex items-center gap-2 sm:gap-3 rounded-xl p-1 text-primary ${focusRing}`}
-              aria-label="Accueil émargement CFRP Valentin Haüy"
+              aria-label="Accueil émargement CFRP Valentin Haüy — Retour à la page d'accueil"
             >
-              <div
-                className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-primary-container text-white shadow-xs font-bold text-sm sm:text-base tracking-wider"
-                aria-hidden="true"
-              >
-                VH
-              </div>
+              <BrandLogoEye size="md" />
               <div className="flex flex-col">
                 <div className="flex items-center gap-2">
                   <span className="text-sm sm:text-lg font-bold text-primary tracking-tight">
@@ -107,6 +105,17 @@ export function AppHeader() {
           {/* Quick Controls & Profile */}
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             <AccessibilityToolbar />
+
+            {!profile && (
+              <Link
+                href="/login"
+                className={`inline-flex min-h-10 items-center gap-1.5 sm:gap-2 rounded-xl bg-primary-container px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold text-on-primary shadow-xs hover:opacity-95 transition-opacity ${focusRing}`}
+                aria-label="Accéder à l'espace de connexion sécurisé"
+              >
+                <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>Connexion</span>
+              </Link>
+            )}
 
             {profile && (
               <>
@@ -138,6 +147,17 @@ export function AppHeader() {
                       <User className="h-3.5 w-3.5 text-secondary shrink-0" aria-hidden="true" />
                       <span>Mon profil</span>
                     </span>
+                  </Link>
+
+                  {/* Guide d'utilisation */}
+                  <Link
+                    href={`/guide?role=${profile.role}`}
+                    className={`inline-flex min-h-10 items-center gap-1.5 sm:gap-2 rounded-xl border border-secondary/30 bg-surface-container-high px-2.5 sm:px-3 py-1 text-xs sm:text-sm font-bold text-primary hover:bg-surface-variant transition-colors ${focusRing}`}
+                    aria-label={`Consulter le guide d'utilisation pas-à-pas pour votre espace (${ROLE_LABELS[profile.role]})`}
+                    title="Consulter le guide d'utilisation pas-à-pas"
+                  >
+                    <BookOpen className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+                    <span className="hidden sm:inline">Guide</span>
                   </Link>
 
                   {/* Sign Out Button */}
@@ -181,9 +201,7 @@ export function AppHeader() {
             className="flex flex-wrap items-center gap-1 sm:gap-1.5 py-1.5 sm:py-2 border-t border-surface-container outline-none"
           >
             {items.map((item) => {
-              const current =
-                pathname === item.href ||
-                (item.href.startsWith("/secretary/") && pathname.replace("/admin/", "/secretary/") === item.href);
+              const current = pathname === item.href;
               return (
                 <Link
                   key={item.href}
@@ -276,6 +294,14 @@ export function AppHeader() {
 
             {/* Drawer Footer Actions */}
             <div className="border-t border-border-subtle pt-4 flex flex-col gap-2">
+              <Link
+                href={profile?.role ? `/guide?role=${profile.role}` : "/guide"}
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full !min-h-11 justify-center inline-flex items-center gap-2 rounded-xl text-sm font-bold bg-surface-container-high text-primary border border-secondary/30 p-3 hover:bg-surface-container transition-colors"
+              >
+                <BookOpen className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+                <span>Guide d&apos;utilisation pas-à-pas</span>
+              </Link>
               <Link
                 href="/profile"
                 onClick={() => setMobileMenuOpen(false)}

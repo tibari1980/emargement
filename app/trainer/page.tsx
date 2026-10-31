@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, CheckCircle2 } from "lucide-react";
+import { BookOpen, CalendarDays, CheckCircle2 } from "lucide-react";
 import { ProtectedPage } from "@/components/ProtectedPage";
 import { focusRing } from "@/components/ui/Button";
 
@@ -17,10 +17,18 @@ const TRAINER_MODULES = [
   {
     title: "Mon planning hebdomadaire",
     description: "Consultez vos horaires de cours, vos salles attribuées et les promotions de stagiaires.",
-    href: "/trainer/planning",
+    href: "/planning",
     icon: CalendarDays,
     badge: "Emploi du temps",
     color: "bg-surface-container text-secondary border-border-subtle",
+  },
+  {
+    title: "Guide d'utilisation Formateur",
+    description: "Manuel étape par étape : règles temporelles d'émargement, raccourcis clavier NVDA/JAWS et astuces.",
+    href: "/guide?role=trainer",
+    icon: BookOpen,
+    badge: "Assistance",
+    color: "bg-secondary/15 text-secondary border-secondary/30",
   },
 ];
 
@@ -33,7 +41,7 @@ export default function TrainerHubPage() {
     >
       {() => (
         <div className="flex flex-col gap-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {TRAINER_MODULES.map((mod) => {
               const Icon = mod.icon;
               return (

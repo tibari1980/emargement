@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   findConflicts,
+  getSessionTemporalStatus,
   isSlotActiveOn,
   sessionsOn,
   slotMinutes,
@@ -129,5 +130,54 @@ describe("schedule: conflicts detection", () => {
     };
 
     expect(findConflicts(candidate, existing)).toHaveLength(0);
+  });
+});
+
+describe("schedule: getSessionTemporalStatus (anti-fraud & timing enforcement)", () => {
+  const slot = {
+    startTime: "09:00",
+    endTime: "12:00",
+  };
+
+  it("locks future dates for trainers", () => {
+    const res = getSessionTemporalStatus(slot, "2026-11-05", "10:00", "2026-11-01");
+    expect(res.status).toBe("future");
+    expect(res.isUnlockedForTrainer).toBe(false);
+    expect(res.message).toContain("Émargement non ouvert");
+  });
+
+  it("locks past dates for trainers", () => {
+    const res = getSessionTemporalStatus(slot, "2026-10-25", "10:00", "2026-11-01");
+    expect(res.status).toBe("past");
+    expect(res.isUnlockedForTrainer).toBe(false);
+    expect(res.message).toContain("Séance passée");
+  });
+
+  it("locks today before start time (e.g. at 08:30 for a 09:00 slot)", () => {
+    const res = getSessionTemporalStatus(slot, "2026-11-01", "08:30", "2026-11-01");
+    expect(res.status).toBe("future");
+    expect(res.isUnlockedForTrainer).toBe(false);
+    expect(res.message).toContain("commence à 09:00");
+  });
+
+  it("unlocks today during the slot (e.g. at 10:15 for a 09:00-12:00 slot)", () => {
+    const res = getSessionTemporalStatus(slot, "2026-11-01", "10:15", "2026-11-01");
+    expect(res.status).toBe("current");
+    expect(res.isUnlockedForTrainer).toBe(true);
+    expect(res.message).toContain("Séance en cours");
+  });
+
+  it("allows finalization grace period right after end time (e.g. 12:10 with 15min grace)", () => {
+    const res = getSessionTemporalStatus(slot, "2026-11-01", "12:10", "2026-11-01", 15);
+    expect(res.status).toBe("current");
+    expect(res.isUnlockedForTrainer).toBe(true);
+    expect(res.message).toContain("Période de finalisation");
+  });
+
+  it("locks today after slot and grace period (e.g. at 12:30 for a 12:00 end)", () => {
+    const res = getSessionTemporalStatus(slot, "2026-11-01", "12:30", "2026-11-01", 15);
+    expect(res.status).toBe("ended_today");
+    expect(res.isUnlockedForTrainer).toBe(false);
+    expect(res.message).toContain("Séance clôturée");
   });
 });

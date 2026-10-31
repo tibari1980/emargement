@@ -93,14 +93,46 @@ export async function setUserActive(actor: Actor, user: UserProfile, active: boo
 
 /**
  * Real-time dynamic Firestore subscription to users collection.
- * Automatically notifies when any account is added, updated, or modified.
+ * Supports optional role or active filtering to reduce Firestore read costs.
  */
 export function subscribeUsers(
   onData: (users: UserProfile[]) => void,
   onError?: (err: unknown) => void,
+): Unsubscribe;
+export function subscribeUsers(
+  options: { role?: Role | ""; active?: boolean } | undefined,
+  onData: (users: UserProfile[]) => void,
+  onError?: (err: unknown) => void,
+): Unsubscribe;
+export function subscribeUsers(
+  optionsOrOnData?:
+    | { role?: Role | ""; active?: boolean }
+    | ((users: UserProfile[]) => void),
+  onDataOrOnError?: ((users: UserProfile[]) => void) | ((err: unknown) => void),
+  maybeOnError?: (err: unknown) => void,
 ): Unsubscribe {
+  let options: { role?: Role | ""; active?: boolean } | undefined;
+  let onData: (users: UserProfile[]) => void;
+  let onError: ((err: unknown) => void) | undefined;
+
+  if (typeof optionsOrOnData === "function") {
+    onData = optionsOrOnData;
+    onError = onDataOrOnError as ((err: unknown) => void) | undefined;
+  } else {
+    options = optionsOrOnData;
+    onData = (onDataOrOnError as (users: UserProfile[]) => void) || (() => {});
+    onError = maybeOnError;
+  }
+
+  let q = query(users());
+  if (options?.role) {
+    q = query(users(), where("role", "==", options.role));
+  } else if (options?.active !== undefined) {
+    q = query(users(), where("active", "==", options.active));
+  }
+
   return onSnapshot(
-    users(),
+    q,
     (snap) => {
       const list = snap.docs.map((d) => withId<UserProfile>(d)).sort(byName);
       onData(list);

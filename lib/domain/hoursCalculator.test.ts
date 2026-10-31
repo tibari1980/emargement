@@ -19,9 +19,17 @@ const trainees = [
 ];
 
 describe("workingDaysOfMonth", () => {
-  it("counts Monday to Friday only", () => {
-    // November 2026: 30 days, starts on a Sunday → 21 weekdays.
-    expect(workingDaysOfMonth("2026-11", []).workingDays).toHaveLength(21);
+  it("counts Monday to Friday only when French holidays are disabled", () => {
+    // November 2026: 30 days, starts on a Sunday → 21 calendar weekdays.
+    expect(workingDaysOfMonth("2026-11", [], { includeFrenchPublicHolidays: false }).workingDays).toHaveLength(21);
+  });
+
+  it("automatically excludes French public holidays by default (Armistice 11 Nov)", () => {
+    // November 2026 has 21 calendar weekdays, but 11 Nov (Armistice) is automatically closed → 20 working days.
+    const res = workingDaysOfMonth("2026-11", []);
+    expect(res.workingDays).toHaveLength(20);
+    expect(res.closedDays).toContain("2026-11-11");
+    expect(res.holidayTitles["2026-11-11"]).toBe("Armistice 1918");
   });
 
   it("excludes holidays and vacations falling on weekdays", () => {
@@ -111,5 +119,50 @@ describe("computeMonthlyReport", () => {
   it("sums totals", () => {
     expect(report.totals.theoreticalHours).toBe(280);
     expect(report.totals.totalAbsenceHours).toBe(15.75);
+  });
+
+  it("calculates ASP specific hours with exact deductible breakdown", () => {
+    const jean = report.trainees.find((t) => t.traineeId === "t1")!;
+    // Jean has:
+    // - 1 unexcused absence of 7h
+    // - 2 lates: 30 min + 75 min = 105 min = 1.75h
+    // -> ASP Deductible Hours = 7 + 1.75 = 8.75h
+    expect(jean.aspDeductibleHours).toBe(8.75);
+    // - 1 excused absence of 7h
+    expect(jean.aspExcusedHours).toBe(7);
+    // - Realized presence = 124.25h
+    expect(jean.aspRealizedHours).toBe(124.25);
+    expect(jean.sessionsList.length).toBe(20);
+  });
+
+  it("handles cancelled sessions via sessionOverrides without penalizing trainees", () => {
+    // Session on Monday 2026-11-02 cancelled for trainer absence
+    const cancelledReport = computeMonthlyReport({
+      month: "2026-11",
+      course,
+      trainees: [{ id: "t1", fullName: "Jean Dupont" }],
+      attendances: [],
+      holidays: [{ startDate: "2026-11-11", endDate: "2026-11-11" }],
+      sessionOverrides: [
+        {
+          slotId: "default_slot_1",
+          date: "2026-11-02",
+          isCancelled: true,
+          cancellationReason: "trainer_absent",
+          isSelfStudyTP: false,
+        },
+      ],
+      today: "2026-11-02",
+    });
+
+    const jean = cancelledReport.trainees[0];
+    // The cancelled session is exempted: 7h
+    expect(jean.exemptedHours).toBe(7);
+    // Should NOT be marked as an unrecorded session for 2026-11-02!
+    expect(jean.unrecordedSessions).toBe(0);
+    // ASP deductible hours must be strictly 0!
+    expect(jean.aspDeductibleHours).toBe(0);
+    expect(cancelledReport.exemptedHours).toBe(7);
+    expect(cancelledReport.netTheoreticalHours).toBe(133); // 140 - 7
   });
 });

@@ -1,16 +1,20 @@
 // Monthly hours calculation engine (PRD section 5), per session.
 //
 //   Theoretical hours  = Σ duration of the sessions scheduled on working days
-//                        (Monday to Friday, excluding holidays and vacations)
+//                        (Monday to Friday, excluding holidays, vacations, and French public holidays)
 //   Total absence (h)  = Σ absent sessions + Σ justified sessions + Σ late minutes / 60
-//   Effective presence = theoretical hours − total absence
+//   Effective presence = theoretical hours − total absence − exempted hours
 //
-// Justified absences are deducted from the presence but reported separately.
+// ASP Transmission Rules (Agence de Services et de Paiement):
+//   - Deductible hours = unexcused absences + late minutes (prorated)
+//   - Excused hours    = medical / official justifications transmitted with proofs
+//   - Exempted hours   = sessions cancelled by the center (dispense administrative)
 // Pure functions: used in the browser and covered by unit tests.
 
 import { eachDay, isWeekend, monthBounds, timeToMinutes } from "@/lib/core/dates";
+import { frenchPublicHolidays } from "./frenchHolidays";
 import { isSlotActiveOn, slotMinutes } from "./schedule";
-import type { Attendance, Holiday, TimetableSlot, UserProfile } from "./types";
+import type { Attendance, Holiday, SessionOverride, TimetableSlot, UserProfile } from "./types";
 
 export type ReportSlot = Pick<
   TimetableSlot,
@@ -19,14 +23,38 @@ export type ReportSlot = Pick<
 export type ReportTrainee = Pick<UserProfile, "id" | "fullName">;
 export type ReportAttendance = Pick<Attendance, "traineeId" | "date" | "status" | "arrivalTime"> & {
   slotId?: string;
+  excuseReason?: string | null;
 };
-export type ReportHoliday = Pick<Holiday, "startDate" | "endDate">;
+export type ReportHoliday = Pick<Holiday, "startDate" | "endDate"> & {
+  title?: string;
+};
+export type ReportSessionOverride = Pick<
+  SessionOverride,
+  "slotId" | "date" | "isCancelled" | "cancellationReason" | "isSelfStudyTP" | "substituteTrainerName"
+>;
 
 export interface SubjectHours {
   subjectId: string;
   title: string;
   theoreticalHours: number;
   absenceHours: number;
+}
+
+export interface TraineeSessionRecord {
+  date: string;
+  slotId: string;
+  subjectId: string;
+  subjectTitle: string;
+  startTime: string;
+  endTime: string;
+  durationMinutes: number;
+  status: "present" | "absent" | "late" | "excused" | "cancelled" | "unrecorded";
+  arrivalTime: string | null;
+  lateMinutes: number;
+  excuseReason: string | null;
+  isCancelled: boolean;
+  cancellationReason?: string | null;
+  isSelfStudyTP: boolean;
 }
 
 export interface TraineeMonthlyHours {
@@ -43,9 +71,28 @@ export interface TraineeMonthlyHours {
   effectivePresenceHours: number;
   /** Past sessions without any attendance record. */
   unrecordedSessions: number;
-  /** Effective presence / theoretical hours, between 0 and 1. */
+  /** Effective presence / net theoretical hours, between 0 and 1. */
   attendanceRate: number;
   bySubject: SubjectHours[];
+
+  // --- ASP & Enhanced Transmission Fields ---
+  /** Strict deductible hours for ASP (unexcused absences + late minutes) */
+  aspDeductibleHours: number;
+  /** Excused hours with justification (sick leave, official summons) transmitted to ASP */
+  aspExcusedHours: number;
+  /** Certified realized presence hours */
+  aspRealizedHours: number;
+  /** Hours administratively exempted by the center (cancelled sessions, trainer absent) */
+  exemptedHours: number;
+  /** Net billable / payable theoretical hours (theoreticalHours - exemptedHours) */
+  netTheoreticalHours: number;
+  /** Compliance status for ASP transmission */
+  aspStatus: "compliant" | "warning_unrecorded" | "has_deductions";
+  /** Breakdown of excused hours by reason (e.g. "Arrêt maladie": { count: 2, hours: 7 }) */
+  excuseReasonsSummary: Record<string, { count: number; hours: number }>;
+  /** Chronological history of all sessions in the month for audit/justification */
+  sessionsList: TraineeSessionRecord[];
+
   /** Backwards compatibility fields */
   presentDays?: number;
   absentDays?: number;
@@ -64,10 +111,14 @@ export interface MonthlyReport {
   defaultEndTime?: string;
   /** Weekdays of the month that are not closed. */
   workingDays: string[];
-  /** Weekdays of the month closed for a holiday or a vacation. */
+  /** Weekdays of the month closed for a holiday, vacation, or French public holiday. */
   closedDays: string[];
+  /** Closed days with their title/reason (e.g. "2026-11-11": "Armistice 1918") */
+  holidayTitles?: Record<string, string>;
   sessionCount: number;
   theoreticalHours: number;
+  exemptedHours: number;
+  netTheoreticalHours: number;
   subjects: SubjectHours[];
   trainees: TraineeMonthlyHours[];
   totals: {
@@ -77,6 +128,17 @@ export interface MonthlyReport {
     lateMinutes: number;
     totalAbsenceHours: number;
     effectivePresenceHours: number;
+    exemptedHours: number;
+    netTheoreticalHours: number;
+    aspDeductibleHours: number;
+  };
+  aspTotals: {
+    totalDeductibleHours: number;
+    totalRealizedHours: number;
+    totalExcusedHours: number;
+    totalExemptedHours: number;
+    traineesWithDeductionsCount: number;
+    unrecordedSessionsCount: number;
   };
 }
 
@@ -90,19 +152,55 @@ export function closedDaySet(holidays: ReportHoliday[]): Set<string> {
   return closed;
 }
 
+/**
+ * Calculates working days and closed days for a month ("YYYY-MM").
+ * Automatically incorporates French public holidays (11 legal holidays) by default.
+ * Weekends (Saturday and Sunday) are strictly excluded.
+ */
 export function workingDaysOfMonth(
   month: string,
-  holidays: ReportHoliday[],
-): { workingDays: string[]; closedDays: string[] } {
+  holidays: ReportHoliday[] = [],
+  options?: { includeFrenchPublicHolidays?: boolean },
+): { workingDays: string[]; closedDays: string[]; holidayTitles: Record<string, string> } {
   const { start, end } = monthBounds(month);
   const closed = closedDaySet(holidays);
+  const holidayTitles: Record<string, string> = {};
+
+  // Map known user-defined holiday titles if present
+  for (const h of holidays) {
+    if (h.startDate && h.endDate && h.title) {
+      for (const d of eachDay(h.startDate, h.endDate)) {
+        holidayTitles[d] = h.title;
+      }
+    }
+  }
+
+  // Automatically include French legal public holidays (unless explicitly turned off)
+  const includeFrench = options?.includeFrenchPublicHolidays ?? true;
+  if (includeFrench) {
+    const year = Number(month.slice(0, 4));
+    if (!Number.isNaN(year)) {
+      const publicHolidays = frenchPublicHolidays(year);
+      for (const ph of publicHolidays) {
+        if (ph.date.startsWith(month)) {
+          closed.add(ph.date);
+          holidayTitles[ph.date] = ph.title;
+        }
+      }
+    }
+  }
+
   const workingDays: string[] = [];
   const closedDays: string[] = [];
   for (const day of eachDay(start, end)) {
-    if (isWeekend(day)) continue;
-    (closed.has(day) ? closedDays : workingDays).push(day);
+    if (isWeekend(day)) continue; // Weekends are NEVER counted
+    if (closed.has(day)) {
+      closedDays.push(day);
+    } else {
+      workingDays.push(day);
+    }
   }
-  return { workingDays, closedDays };
+  return { workingDays, closedDays, holidayTitles };
 }
 
 /** Minutes between the session start and the actual arrival, capped to the session length. */
@@ -140,6 +238,8 @@ export interface ComputeMonthlyReportInput {
   trainees: ReportTrainee[];
   attendances: ReportAttendance[];
   holidays: ReportHoliday[];
+  sessionOverrides?: ReportSessionOverride[];
+  includeFrenchPublicHolidays?: boolean;
   /** Sessions after this date are not counted as "unrecorded". Defaults to the whole month. */
   today?: string;
 }
@@ -172,14 +272,42 @@ export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyR
   }
 
   const subjectTitles = input.subjectTitles ?? { default_subject: "Général" };
-  const { workingDays, closedDays } = workingDaysOfMonth(month, holidays);
+  const { workingDays, closedDays, holidayTitles } = workingDaysOfMonth(month, holidays, {
+    includeFrenchPublicHolidays: input.includeFrenchPublicHolidays ?? true,
+  });
   const today = input.today ?? monthBounds(month).end;
   const titleOf = (id: string) => subjectTitles[id] ?? "Matière supprimée";
 
+  // Map session overrides for the month (cancellations, TP autonomie, replacements)
+  const overrides = new Map<string, ReportSessionOverride>();
+  if (input.sessionOverrides) {
+    for (const o of input.sessionOverrides) {
+      overrides.set(`${o.slotId}_${o.date}`, o);
+    }
+  }
+
+  // Generate scheduled sessions on active working days
   const sessions = workingDays.flatMap((date) =>
-    slots!.filter((slot) => isSlotActiveOn(slot, date)).map((slot) => ({ date, slot, minutes: slotMinutes(slot) })),
+    slots!
+      .filter((slot) => isSlotActiveOn(slot, date))
+      .map((slot) => {
+        const override = overrides.get(`${slot.id}_${date}`);
+        const isCancelled = override?.isCancelled === true;
+        const isSelfStudyTP = override?.isSelfStudyTP === true;
+        return {
+          date,
+          slot,
+          minutes: slotMinutes(slot),
+          isCancelled,
+          cancellationReason: override?.cancellationReason ?? null,
+          isSelfStudyTP,
+        };
+      }),
   );
+
   const theoreticalMinutes = sessions.reduce((sum, s) => sum + s.minutes, 0);
+  const totalCancelledMinutes = sessions.filter((s) => s.isCancelled).reduce((sum, s) => sum + s.minutes, 0);
+  const netTheoreticalMinutes = Math.max(0, theoreticalMinutes - totalCancelledMinutes);
 
   const subjectTheory = new Map<string, number>();
   for (const s of sessions) {
@@ -191,7 +319,7 @@ export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyR
     if (a.slotId) {
       records.set(`${a.slotId}|${a.traineeId}|${a.date}`, a);
     }
-    // Also index without slotId for tests or single-session days
+    // Also index without slotId for legacy tests or single-session days
     records.set(`*|${a.traineeId}|${a.date}`, a);
   }
 
@@ -206,28 +334,93 @@ export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyR
     let absentMinutes = 0;
     let excusedMinutes = 0;
     let unrecordedSessions = 0;
+    let exemptedMinutes = 0;
     const absenceBySubject = new Map<string, number>();
+    const excuseReasonsSummary: Record<string, { count: number; hours: number }> = {};
+    const sessionsList: TraineeSessionRecord[] = [];
 
-    for (const { date, slot, minutes } of sessions) {
+    for (const { date, slot, minutes, isCancelled, cancellationReason, isSelfStudyTP } of sessions) {
+      const subjectTitle = titleOf(slot.subjectId);
+
+      // 1. Session administratively cancelled (e.g. trainer absent without replacement)
+      if (isCancelled) {
+        exemptedMinutes += minutes;
+        sessionsList.push({
+          date,
+          slotId: slot.id,
+          subjectId: slot.subjectId,
+          subjectTitle,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          durationMinutes: minutes,
+          status: "cancelled",
+          arrivalTime: null,
+          lateMinutes: 0,
+          excuseReason: null,
+          isCancelled: true,
+          cancellationReason,
+          isSelfStudyTP: false,
+        });
+        continue;
+      }
+
+      // 2. Normal scheduled session or supervised self-study TP
       const record = records.get(`${slot.id}|${trainee.id}|${date}`) ?? records.get(`*|${trainee.id}|${date}`);
       let missed = 0;
+      let sessionStatus: TraineeSessionRecord["status"] = "unrecorded";
+      let sessionLateMinutes = 0;
+      let sessionExcuseReason: string | null = null;
+
       if (!record) {
         if (date <= today) unrecordedSessions++;
+        sessionStatus = "unrecorded";
       } else if (record.status === "present") {
         presentDays++;
+        sessionStatus = "present";
       } else if (record.status === "absent") {
         absentSessions++;
         absentMinutes += minutes;
         missed = minutes;
+        sessionStatus = "absent";
       } else if (record.status === "excused") {
         excusedSessions++;
         excusedMinutes += minutes;
         missed = minutes;
+        sessionStatus = "excused";
+        sessionExcuseReason = record.excuseReason || "Absence justifiée";
+        const reasonKey = sessionExcuseReason;
+        if (!excuseReasonsSummary[reasonKey]) {
+          excuseReasonsSummary[reasonKey] = { count: 0, hours: 0 };
+        }
+        excuseReasonsSummary[reasonKey].count += 1;
+        excuseReasonsSummary[reasonKey].hours = hours(
+          Math.round((excuseReasonsSummary[reasonKey].hours * 60 + minutes)),
+        );
       } else if (record.status === "late") {
         lateCount++;
         missed = lateMinutesFor(record.arrivalTime, slot);
         lateMinutes += missed;
+        sessionLateMinutes = missed;
+        sessionStatus = "late";
       }
+
+      sessionsList.push({
+        date,
+        slotId: slot.id,
+        subjectId: slot.subjectId,
+        subjectTitle,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        durationMinutes: minutes,
+        status: sessionStatus,
+        arrivalTime: record?.arrivalTime ?? null,
+        lateMinutes: sessionLateMinutes,
+        excuseReason: sessionExcuseReason,
+        isCancelled: false,
+        cancellationReason: null,
+        isSelfStudyTP,
+      });
+
       if (missed) absenceBySubject.set(slot.subjectId, (absenceBySubject.get(slot.subjectId) ?? 0) + missed);
     }
 
@@ -236,7 +429,22 @@ export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyR
     }
 
     const totalAbsenceMinutes = absentMinutes + excusedMinutes + lateMinutes;
-    const effectiveMinutes = Math.max(theoreticalMinutes - totalAbsenceMinutes, 0);
+    const effectiveMinutes = Math.max(theoreticalMinutes - totalAbsenceMinutes - exemptedMinutes, 0);
+
+    // ASP compliance fields
+    const aspDeductibleMinutes = absentMinutes + lateMinutes;
+    const aspDeductibleHours = hours(aspDeductibleMinutes);
+    const aspExcusedHours = hours(excusedMinutes);
+    const aspRealizedHours = hours(effectiveMinutes);
+    const traineeExemptedHours = hours(exemptedMinutes);
+    const netTheoryHours = hours(netTheoreticalMinutes);
+
+    let aspStatus: TraineeMonthlyHours["aspStatus"] = "compliant";
+    if (unrecordedSessions > 0) {
+      aspStatus = "warning_unrecorded";
+    } else if (aspDeductibleHours > 0) {
+      aspStatus = "has_deductions";
+    }
 
     return {
       traineeId: trainee.id,
@@ -251,17 +459,29 @@ export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyR
       totalAbsenceHours: hours(totalAbsenceMinutes),
       effectivePresenceHours: hours(effectiveMinutes),
       unrecordedSessions,
-      attendanceRate: theoreticalMinutes > 0 ? effectiveMinutes / theoreticalMinutes : 0,
-      presentDays,
-      absentDays: absentSessions,
-      excusedDays: excusedSessions,
-      unrecordedDays: unrecordedSessions,
+      attendanceRate: netTheoreticalMinutes > 0 ? effectiveMinutes / netTheoreticalMinutes : 1,
       bySubject: [...subjectTheory].map(([subjectId, minutes]) => ({
         subjectId,
         title: titleOf(subjectId),
         theoreticalHours: hours(minutes),
         absenceHours: hours(absenceBySubject.get(subjectId) ?? 0),
       })),
+
+      // ASP specific fields
+      aspDeductibleHours,
+      aspExcusedHours,
+      aspRealizedHours,
+      exemptedHours: traineeExemptedHours,
+      netTheoreticalHours: netTheoryHours,
+      aspStatus,
+      excuseReasonsSummary,
+      sessionsList,
+
+      // Backwards compatibility
+      presentDays,
+      absentDays: absentSessions,
+      excusedDays: excusedSessions,
+      unrecordedDays: unrecordedSessions,
     };
   });
 
@@ -280,8 +500,11 @@ export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyR
     defaultEndTime,
     workingDays,
     closedDays,
+    holidayTitles,
     sessionCount: sessions.length,
     theoreticalHours: hours(theoreticalMinutes),
+    exemptedHours: hours(totalCancelledMinutes),
+    netTheoreticalHours: hours(netTheoreticalMinutes),
     subjects: [...subjectTheory]
       .map(([subjectId, minutes]) => ({
         subjectId,
@@ -298,6 +521,17 @@ export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyR
       lateMinutes: sum((r) => r.lateMinutes),
       totalAbsenceHours: sum((r) => r.totalAbsenceHours),
       effectivePresenceHours: sum((r) => r.effectivePresenceHours),
+      exemptedHours: sum((r) => r.exemptedHours),
+      netTheoreticalHours: sum((r) => r.netTheoreticalHours),
+      aspDeductibleHours: sum((r) => r.aspDeductibleHours),
+    },
+    aspTotals: {
+      totalDeductibleHours: sum((r) => r.aspDeductibleHours),
+      totalRealizedHours: sum((r) => r.aspRealizedHours),
+      totalExcusedHours: sum((r) => r.aspExcusedHours),
+      totalExemptedHours: sum((r) => r.exemptedHours),
+      traineesWithDeductionsCount: rows.filter((r) => r.aspDeductibleHours > 0).length,
+      unrecordedSessionsCount: rows.reduce((acc, r) => acc + r.unrecordedSessions, 0),
     },
   };
 }
