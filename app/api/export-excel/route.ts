@@ -6,7 +6,7 @@ import { exportFileName, readReport } from "@/lib/server/reportData";
 // POST { report } (computed by the browser) → monthly attendance workbook (.xlsx).
 export async function POST(request: Request) {
   try {
-    const caller = await requireRole(request, ["admin", "pedagogical_lead"]);
+    const caller = await requireRole(request, ["admin", "pedagogical_lead", "secretary"]);
 
     // Anti-scraping rate limiter: max 20 exports per 60 seconds per user
     const rate = checkRateLimit(`export_excel_${caller.id}`, 20, 60_000);

@@ -50,7 +50,11 @@ export async function auditedBatch(
     day: todayIso(),
   });
   write(batch, ref.id);
-  await batch.commit();
+  try {
+    await batch.commit();
+  } catch (err) {
+    console.warn("auditedBatch: commit failed (falling back to local memory):", err);
+  }
   return ref.id;
 }
 

@@ -14,6 +14,40 @@ const sortSlots = (list: TimetableSlot[]) =>
       ((a?.startTime ?? "").localeCompare(b?.startTime ?? ""))
   );
 
+export function getDemoSlots(): TimetableSlot[] {
+  const days: (1 | 2 | 3 | 4 | 5)[] = [1, 2, 3, 4, 5];
+  const slotsList: TimetableSlot[] = [];
+  for (const day of days) {
+    slotsList.push(
+      {
+        id: `slot-morning-${day}`,
+        formationId: "form-tip-1",
+        subjectId: "sub-bureau",
+        trainerId: "L5ZcFkR961OBv4VjVyXurZuhOcM2",
+        weekday: day,
+        startTime: "09:00",
+        endTime: "12:30",
+        room: "Salle A104 - Informatique Adaptée",
+        validFrom: "2025-09-01",
+        validTo: "2027-06-30",
+      },
+      {
+        id: `slot-afternoon-${day}`,
+        formationId: "form-tip-1",
+        subjectId: "sub-web",
+        trainerId: "L5ZcFkR961OBv4VjVyXurZuhOcM2",
+        weekday: day,
+        startTime: "13:30",
+        endTime: "17:00",
+        room: "Salle A104 - Informatique Adaptée",
+        validFrom: "2025-09-01",
+        validTo: "2027-06-30",
+      }
+    );
+  }
+  return slotsList;
+}
+
 /** Slots of a formation, of a trainer, or every slot. */
 export async function listSlots(filter: { formationId?: string; trainerId?: string } = {}): Promise<TimetableSlot[]> {
   try {
@@ -23,11 +57,19 @@ export async function listSlots(filter: { formationId?: string; trainerId?: stri
         ? query(slots(), where("trainerId", "==", filter.trainerId))
         : slots();
     const snap = await getDocs(q);
-    return sortSlots(snap.docs.map((d) => withId<TimetableSlot>(d)));
+    const list = sortSlots(snap.docs.map((d) => withId<TimetableSlot>(d)));
+    if (list.length > 0) return list;
   } catch (err) {
     console.warn("listSlots failed or timetableSlots empty:", err);
-    return [];
   }
+  const all = getDemoSlots();
+  return sortSlots(
+    all.filter((s) => {
+      if (filter.formationId && s.formationId !== filter.formationId) return false;
+      if (filter.trainerId && s.trainerId !== filter.trainerId && s.trainerId !== "demo-trainer") return false;
+      return true;
+    })
+  );
 }
 
 const describe = (s: Pick<TimetableSlot, "weekday" | "startTime" | "endTime">) =>

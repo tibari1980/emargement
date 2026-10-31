@@ -20,7 +20,7 @@ export const PERMISSIONS = {
   "formations.manage": ["admin", "pedagogical_lead"],
   "subjects.manage": ["admin", "pedagogical_lead"],
   "timetable.manage": ["admin", "pedagogical_lead"],
-  "reports.view": ["admin", "pedagogical_lead"],
+  "reports.view": ["admin", "pedagogical_lead", "secretary"],
   "users.manage": ["admin"],
   "audit.read": ["admin"],
 } as const satisfies Record<string, readonly Role[]>;

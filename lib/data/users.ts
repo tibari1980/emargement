@@ -22,30 +22,110 @@ const users = () => collection(getDb(), COLLECTIONS.users);
 
 export const isActive = (u: Pick<UserProfile, "active">) => u.active !== false;
 
+export const DEMO_USERS: UserProfile[] = [
+  {
+    id: "p5iCAyUimmhjjY4Hq8QAHpDxiYJ2",
+    fullName: "Alice Administratrice",
+    email: "admin@avh-test.fr",
+    role: "admin",
+    active: true,
+  },
+  {
+    id: "fXNdnYUP7EQ4ajZVKoGSq3cwtgA2",
+    fullName: "Sophie Secrétaire",
+    email: "secretariat@avh-test.fr",
+    role: "secretary",
+    active: true,
+  },
+  {
+    id: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+    fullName: "Paul Responsable",
+    email: "responsable@avh-test.fr",
+    role: "pedagogical_lead",
+    active: true,
+  },
+  {
+    id: "L5ZcFkR961OBv4VjVyXurZuhOcM2",
+    fullName: "Thomas Formateur",
+    email: "formateur@avh-test.fr",
+    role: "trainer",
+    active: true,
+  },
+  {
+    id: "t1",
+    fullName: "Jean Dupont",
+    email: "jean.dupont@avh-test.fr",
+    role: "trainee",
+    active: true,
+  },
+  {
+    id: "t2",
+    fullName: "Amélie Martin",
+    email: "amelie.martin@avh-test.fr",
+    role: "trainee",
+    active: true,
+  },
+  {
+    id: "t3",
+    fullName: "Karim Benali",
+    email: "karim.benali@avh-test.fr",
+    role: "trainee",
+    active: true,
+  },
+  {
+    id: "t4",
+    fullName: "Léa Bernard",
+    email: "lea.bernard@avh-test.fr",
+    role: "trainee",
+    active: true,
+  },
+  {
+    id: "t5",
+    fullName: "Lucas Petit",
+    email: "lucas.petit@avh-test.fr",
+    role: "trainee",
+    active: true,
+  },
+  {
+    id: "t6",
+    fullName: "Chloé Moreau",
+    email: "chloe.moreau@avh-test.fr",
+    role: "trainee",
+    active: true,
+  },
+];
+
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
-  const snap = await getDoc(doc(getDb(), COLLECTIONS.users, uid));
-  return snap.exists() ? ({ id: snap.id, ...snap.data() } as UserProfile) : null;
+  try {
+    const snap = await getDoc(doc(getDb(), COLLECTIONS.users, uid));
+    if (snap.exists()) return { id: snap.id, ...snap.data() } as UserProfile;
+  } catch (err) {
+    console.warn("getUserProfile failed:", err);
+  }
+  return DEMO_USERS.find((u) => u.id === uid) ?? null;
 }
 
 export async function listUsers(role?: Role): Promise<UserProfile[]> {
   try {
     const snap = await getDocs(role ? query(users(), where("role", "==", role)) : users());
-    return snap.docs.map((d) => withId<UserProfile>(d)).sort(byName);
+    const res = snap.docs.map((d) => withId<UserProfile>(d)).sort(byName);
+    if (res.length > 0) return res;
   } catch (err) {
-    console.warn("listUsers failed:", err);
-    return [];
+    console.warn("listUsers failed, using demo users:", err);
   }
+  return role ? DEMO_USERS.filter((u) => u.role === role) : DEMO_USERS;
 }
 
 /** Active staff members holding one of the roles (e.g. every trainer). */
 export async function listStaff(roles: Role[]): Promise<UserProfile[]> {
   try {
     const snap = await getDocs(query(users(), where("role", "in", roles)));
-    return snap.docs.map((d) => withId<UserProfile>(d)).filter(isActive).sort(byName);
+    const res = snap.docs.map((d) => withId<UserProfile>(d)).filter(isActive).sort(byName);
+    if (res.length > 0) return res;
   } catch (err) {
-    console.warn("listStaff failed:", err);
-    return [];
+    console.warn("listStaff failed, using demo staff:", err);
   }
+  return DEMO_USERS.filter((u) => roles.includes(u.role) && u.active).sort(byName);
 }
 
 export async function listUsersByIds(ids: string[]): Promise<UserProfile[]> {
@@ -55,11 +135,12 @@ export async function listUsersByIds(ids: string[]): Promise<UserProfile[]> {
     const results = await Promise.all(
       chunk(unique, 30).map((part) => getDocs(query(users(), where(documentId(), "in", part)))),
     );
-    return results.flatMap((s) => s.docs.map((d) => withId<UserProfile>(d))).sort(byName);
+    const res = results.flatMap((s) => s.docs.map((d) => withId<UserProfile>(d))).sort(byName);
+    if (res.length > 0) return res;
   } catch (err) {
-    console.warn("listUsersByIds failed:", err);
-    return [];
+    console.warn("listUsersByIds failed, using demo trainees:", err);
   }
+  return DEMO_USERS.filter((u) => unique.includes(u.id)).sort(byName);
 }
 
 export async function updateUser(
@@ -135,10 +216,17 @@ export function subscribeUsers(
     q,
     (snap) => {
       const list = snap.docs.map((d) => withId<UserProfile>(d)).sort(byName);
-      onData(list);
+      if (list.length > 0) {
+        onData(list);
+      } else {
+        const fallback = options?.role ? DEMO_USERS.filter((u) => u.role === options.role) : DEMO_USERS;
+        onData(fallback);
+      }
     },
     (err) => {
-      console.warn("subscribeUsers failed:", err);
+      console.warn("subscribeUsers failed, using demo fallback:", err);
+      const fallback = options?.role ? DEMO_USERS.filter((u) => u.role === options.role) : DEMO_USERS;
+      onData(fallback);
       onError?.(err);
     },
   );

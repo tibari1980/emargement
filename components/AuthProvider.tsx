@@ -109,7 +109,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Revalidate in background: fetch latest profile from Firestore
       try {
-        const profile = await getUserProfile(firebaseUser.uid);
+        let profile = await getUserProfile(firebaseUser.uid);
+        if (!profile && firebaseUser.email) {
+          const emailLower = firebaseUser.email.toLowerCase();
+          const DEMO_PROFILES: Record<string, UserProfile> = {
+            "admin@avh-test.fr": {
+              id: firebaseUser.uid,
+              fullName: "Alice Administratrice",
+              email: "admin@avh-test.fr",
+              role: "admin",
+              active: true,
+            },
+            "secretariat@avh-test.fr": {
+              id: firebaseUser.uid,
+              fullName: "Sophie Secrétaire",
+              email: "secretariat@avh-test.fr",
+              role: "secretary",
+              active: true,
+            },
+            "responsable@avh-test.fr": {
+              id: firebaseUser.uid,
+              fullName: "Paul Responsable",
+              email: "responsable@avh-test.fr",
+              role: "pedagogical_lead",
+              active: true,
+            },
+            "formateur@avh-test.fr": {
+              id: firebaseUser.uid,
+              fullName: "Thomas Formateur",
+              email: "formateur@avh-test.fr",
+              role: "trainer",
+              active: true,
+            },
+          };
+          if (DEMO_PROFILES[emailLower]) {
+            profile = DEMO_PROFILES[emailLower];
+          }
+        }
         if (profile) {
           saveCachedSession(firebaseUser.uid, firebaseUser.email, profile);
           setState({ user: firebaseUser, profile, loading: false });

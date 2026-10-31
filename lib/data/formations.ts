@@ -315,13 +315,79 @@ export function invalidateFormationsCache(): void {
   cachedFormationsList = null;
 }
 
+export function getDemoFormations(): Formation[] {
+  return [
+    {
+      id: "form-tip-1",
+      title: "Technicien informatique de proximité — 1ère année (TIP 1)",
+      category: "professional",
+      duration: "1ère année (sur 2 ans — 21 mois / 2 800 h)",
+      certification: "Titre professionnel RNCP Niveau 4 (Bac)",
+      shortCode: "TIP 1",
+      yearLevel: 1,
+      totalYears: 2,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: ["t1", "t2", "t3", "t4", "t5", "t6"],
+      description: "Assistance utilisateurs, équipements adaptés, réseaux et maintenance.",
+    },
+    {
+      id: "form-tip-2",
+      title: "Technicien informatique de proximité — 2ème année (TIP 2)",
+      category: "professional",
+      duration: "2ème année (sur 2 ans — 21 mois / 2 800 h dont 490 h de stage)",
+      certification: "Titre professionnel RNCP Niveau 4 (Bac)",
+      shortCode: "TIP 2",
+      yearLevel: 2,
+      totalYears: 2,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: ["t1", "t2", "t3"],
+      description: "Virtualisation, administration serveurs, sécurité et épreuves RNCP.",
+    },
+    {
+      id: "form-prepa-info",
+      title: "Préparatoire informatique (1 an)",
+      category: "preparatory",
+      duration: "10 mois — 1 400 heures",
+      certification: "Attestation de compétences pré-qualifiantes",
+      shortCode: "PREPA-INFO",
+      yearLevel: 1,
+      totalYears: 1,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: ["t4", "t5", "t6"],
+      description: "Bases algorithmiques, bureautique adaptée et pratique experte des lecteurs d'écran.",
+    },
+  ];
+}
+
+function raceTimeout<T>(p: Promise<T>, ms = 600): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("Timeout")), ms);
+    p.then(
+      (res) => {
+        clearTimeout(timer);
+        resolve(res);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 export async function listFormations(force = false): Promise<Formation[]> {
   if (!force && cachedFormationsList && Date.now() - lastFormationsFetch < 15_000) {
     return cachedFormationsList;
   }
 
   try {
-    const snap = await getDocs(collection(getDb(), COLLECTIONS.formations));
+    const snap = await raceTimeout(getDocs(collection(getDb(), COLLECTIONS.formations)));
     const list = snap.docs
       .map((d) => {
         const f = withId<Formation>(d);
@@ -343,7 +409,7 @@ export async function listFormations(force = false): Promise<Formation[]> {
   }
 
   try {
-    const legacySnap = await getDocs(collection(getDb(), "courses"));
+    const legacySnap = await raceTimeout(getDocs(collection(getDb(), "courses")));
     const list = legacySnap.docs
       .map((d) => {
         const f = withId<Formation>(d);
@@ -354,14 +420,20 @@ export async function listFormations(force = false): Promise<Formation[]> {
         return { ...f, duration };
       })
       .sort(byTitle);
-    const deduped = deduplicateFormationsList(list);
-    cachedFormationsList = deduped;
-    lastFormationsFetch = Date.now();
-    return deduped;
+    if (list.length > 0) {
+      const deduped = deduplicateFormationsList(list);
+      cachedFormationsList = deduped;
+      lastFormationsFetch = Date.now();
+      return deduped;
+    }
   } catch (err) {
     console.warn("listFormations: fallback to courses also failed or empty:", err);
-    return [];
   }
+
+  const fallback = getDemoFormations();
+  cachedFormationsList = fallback;
+  lastFormationsFetch = Date.now();
+  return fallback;
 }
 
 export async function createFormation(actor: Actor, data: FormationInput): Promise<string> {

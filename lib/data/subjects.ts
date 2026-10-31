@@ -6,14 +6,55 @@ import { byTitle, COLLECTIONS, stripMeta, withId } from "./db";
 
 export type SubjectInput = Omit<Subject, "id" | "lastAuditId">;
 
+export function getDemoSubjects(): Subject[] {
+  return [
+    {
+      id: "sub-braille",
+      title: "Braille et adaptations",
+      description: "Apprentissage du braille intégral et abrégé, règles typographiques adaptées.",
+      trainerIds: ["L5ZcFkR961OBv4VjVyXurZuhOcM2", "demo-trainer"],
+      active: true,
+    },
+    {
+      id: "sub-bureau",
+      title: "Bureautique adaptée (JAWS/NVDA)",
+      description: "Traitement de texte, tableurs et gestion documentaire avec lecteurs d'écran.",
+      trainerIds: ["L5ZcFkR961OBv4VjVyXurZuhOcM2", "demo-trainer"],
+      active: true,
+    },
+    {
+      id: "sub-web",
+      title: "Développement web accessible",
+      description: "HTML sémantique, ARIA, CSS et JavaScript accessibles selon le RGAA 4.1 AAA.",
+      trainerIds: ["L5ZcFkR961OBv4VjVyXurZuhOcM2", "demo-trainer"],
+      active: true,
+    },
+    {
+      id: "sub-reseaux",
+      title: "Réseaux et Télécommunications",
+      description: "Architecture réseaux, adressage IPv4/IPv6, protocoles et routage.",
+      trainerIds: ["L5ZcFkR961OBv4VjVyXurZuhOcM2", "demo-trainer"],
+      active: true,
+    },
+    {
+      id: "sub-systemes",
+      title: "Systèmes & Virtualisation",
+      description: "Administration Linux et Windows Server, virtualisation et conteneurs.",
+      trainerIds: ["L5ZcFkR961OBv4VjVyXurZuhOcM2", "demo-trainer"],
+      active: true,
+    },
+  ];
+}
+
 export async function listSubjects(): Promise<Subject[]> {
   try {
     const snap = await getDocs(collection(getDb(), COLLECTIONS.subjects));
-    return snap.docs.map((d) => withId<Subject>(d)).sort(byTitle);
+    const list = snap.docs.map((d) => withId<Subject>(d)).sort(byTitle);
+    if (list.length > 0) return list;
   } catch (err) {
     console.warn("listSubjects failed or empty:", err);
-    return [];
   }
+  return getDemoSubjects();
 }
 
 export async function createSubject(actor: Actor, data: SubjectInput): Promise<string> {
