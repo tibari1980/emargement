@@ -810,6 +810,7 @@ function GuidePageContent() {
                 <li><strong>Liens d&apos;évitement (Skip links) :</strong> Dès la première tabulation sur la page, des raccourcis visibles permettent d&apos;aller directement au contenu principal, au menu ou aux réglages d&apos;accessibilité.</li>
                 <li><strong>Annonces vocales dynamiques :</strong> Lorsqu&apos;un émargement est validé ou qu&apos;un rapport est calculé, une annonce vocale discrète (<code>aria-live=&quot;polite&quot;</code>) informe l&apos;utilisateur sans interrompre sa lecture.</li>
                 <li><strong>Navigation sans souris :</strong> Toutes les fenêtres modales piègent le focus et se ferment avec la touche <kbd className="px-1.5 py-0.5 rounded bg-surface-container border text-[11px] font-mono">Échap</kbd> en replaçant le curseur sur le bouton déclencheur.</li>
+                <li><strong>Centre de notifications (<kbd className="px-1.5 py-0.5 rounded bg-surface-container border text-[11px] font-mono">Alt + N</kbd>) :</strong> Le raccourci universel <kbd className="px-1.5 py-0.5 rounded bg-surface-container border text-[11px] font-mono">Alt + N</kbd> ouvre directement le centre d&apos;alertes pour consulter séances en attente, justificatifs et rappels ASP sans chercher l&apos;icône.</li>
               </ul>
             </div>
           </article>

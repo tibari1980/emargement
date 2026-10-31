@@ -18,6 +18,7 @@ import { AccessibilityToolbar } from "./AccessibilityToolbar";
 import { useAuth } from "./AuthProvider";
 import { BrandLogoEye } from "./BrandLogoEye";
 import { Button, focusRing } from "./ui/Button";
+import { NotificationBell } from "./notifications/NotificationBell";
 
 const CATEGORY_LABELS: Record<ModuleCategory, string> = {
   trainer: "Espace Formateur",
@@ -119,6 +120,7 @@ export function AppHeader() {
 
             {profile && (
               <>
+                <NotificationBell />
                 <div className="h-6 w-px bg-border-subtle hidden sm:block mx-1" aria-hidden="true" />
 
                 <div className="flex items-center gap-2">

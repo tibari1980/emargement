@@ -9,6 +9,7 @@ export const COLLECTIONS = {
   holidays: "holidays",
   attendances: "attendances",
   sessionOverrides: "sessionOverrides",
+  notifications: "notifications",
   auditLogs: "auditLogs",
   settings: "settings",
 } as const;

@@ -213,6 +213,7 @@ export const AUDIT_ENTITY_TYPES = [
   "holiday",
   "attendance",
   "sessionOverride",
+  "notification",
   "application",
 ] as const;
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
@@ -225,6 +226,7 @@ export const AUDIT_ENTITY_LABELS: Record<AuditEntityType, string> = {
   holiday: "Calendrier",
   attendance: "Émargement",
   sessionOverride: "Gestion de séance & Remplacement",
+  notification: "Notifications",
   application: "Application",
 };
 
@@ -249,4 +251,31 @@ export interface AuditLog {
   at?: { toDate(): Date } | null;
   /** "YYYY-MM-DD" (local), used to query a period without composite index. */
   day: string;
+}
+
+/* ------------------------------------------------------------ notifications */
+
+export const NOTIFICATION_TYPES = ["info", "warning", "urgent", "success"] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
+  info: "Information",
+  warning: "Avertissement",
+  urgent: "Urgent",
+  success: "Succès",
+};
+
+export interface AppNotification extends Audited {
+  id: string;
+  userId?: string | null;
+  targetRole?: Role | null;
+  title: string;
+  message: string;
+  type: NotificationType;
+  actionUrl?: string | null;
+  actionLabel?: string | null;
+  read: boolean;
+  createdAt: string; // ISO 8601
+  sourceEvent?: string | null;
+  updatedAt?: unknown;
 }
