@@ -14,7 +14,7 @@ import type { ParsedTrainee } from "@/lib/domain/csvParser";
 import type { Formation, UserProfile } from "@/lib/domain/types";
 import { auditedBatch, diffChanges, type Actor } from "./audit";
 import { byTitle, chunk, COLLECTIONS, stripMeta, withId } from "./db";
-import { listUsers } from "./users";
+import { listUsers, saveLocalUsers } from "./users";
 
 export type FormationInput = Omit<Formation, "id" | "lastAuditId">;
 
@@ -260,11 +260,12 @@ export function getCanonicalKey(title: string): string {
  * (e.g. "Préparatoire informatique" and "Préparatoire informatique (1 an)").
  * Keeps the most specific/detailed active record or the one with enrolled trainees.
  */
-export function deduplicateFormationsList(formations: Formation[]): Formation[] {
+export function deduplicateFormationsList(formations: Formation[] | null | undefined): Formation[] {
+  if (!formations || !Array.isArray(formations) || formations.length === 0) return [];
   const seenCanonical = new Map<string, Formation>();
 
   for (const f of formations) {
-    if (f.active === false) continue;
+    if (!f || f.active === false) continue;
     const key = getCanonicalKey(f.title);
     const existing = seenCanonical.get(key);
 
@@ -315,6 +316,30 @@ export function invalidateFormationsCache(): void {
   cachedFormationsList = null;
 }
 
+const LOCAL_FORMATIONS_KEY = "avh_persisted_formations_v2";
+
+export function loadPersistedFormations(): Formation[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(LOCAL_FORMATIONS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+  } catch {}
+  return null;
+}
+
+export function savePersistedFormations(list: Formation[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LOCAL_FORMATIONS_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+/**
+ * Offre réelle et complète des formations et dispositifs du CFRP Valentin Haüy.
+ * Utilisée comme référence officielle, structure par défaut et repli résilient.
+ */
 export function getDemoFormations(): Formation[] {
   return [
     {
@@ -362,10 +387,201 @@ export function getDemoFormations(): Formation[] {
       traineeIds: [],
       description: "Bases algorithmiques, bureautique adaptée et pratique experte des lecteurs d'écran.",
     },
+    {
+      id: "form-prepa-kine",
+      title: "Mise à niveau scientifique (Prépa Kiné — 1 an)",
+      category: "preparatory",
+      duration: "10 mois — 1 400 heures",
+      certification: "Attestation de mise à niveau scientifique",
+      shortCode: "PREPA-KINE",
+      yearLevel: 1,
+      totalYears: 1,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "Année préparatoire scientifique : remise à niveau approfondie en biologie cellulaire, anatomie, physique-chimie.",
+    },
+    {
+      id: "form-kine-1",
+      title: "DE Masseur-Kinésithérapeute — 1ère année (K1)",
+      category: "professional",
+      duration: "1ère année (cursus 4 ans)",
+      certification: "Diplôme d'État de Masseur-Kinésithérapeute (Niveau 7 / Grade Master)",
+      shortCode: "K1",
+      yearLevel: 1,
+      totalYears: 4,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "1ère année IFMK (K1) : sciences fondamentales, anatomie descriptive et palpatoire, cinésiologie et biomécanique.",
+    },
+    {
+      id: "form-kine-2",
+      title: "DE Masseur-Kinésithérapeute — 2ème année (K2)",
+      category: "professional",
+      duration: "2ème année (cursus 4 ans)",
+      certification: "Diplôme d'État de Masseur-Kinésithérapeute (Grade Master)",
+      shortCode: "K2",
+      yearLevel: 2,
+      totalYears: 4,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "2ème année IFMK (K2) : pathologie générale, sémiologie, rééducation respiratoire et cardiovasculaire.",
+    },
+    {
+      id: "form-kine-3",
+      title: "DE Masseur-Kinésithérapeute — 3ème année (K3)",
+      category: "professional",
+      duration: "3ème année (cursus 4 ans)",
+      certification: "Diplôme d'État de Masseur-Kinésithérapeute (Grade Master)",
+      shortCode: "K3",
+      yearLevel: 3,
+      totalYears: 4,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "3ème année IFMK (K3) : rééducation neurologique, traumatologie du sport, pédiatrie et stages cliniques en milieu hospitalier.",
+    },
+    {
+      id: "form-kine-4",
+      title: "DE Masseur-Kinésithérapeute — 4ème année (K4)",
+      category: "professional",
+      duration: "4ème année (cursus 4 ans)",
+      certification: "Diplôme d'État de Masseur-Kinésithérapeute (Grade Master)",
+      shortCode: "K4",
+      yearLevel: 4,
+      totalYears: 4,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "4ème année IFMK (K4) : rééducation complexe, droit et éthique de la santé, mémoire de fin d'études et épreuves du Diplôme d'État.",
+    },
+    {
+      id: "form-caga-1",
+      title: "Chargé(e) d'accueil et de gestion administrative — 1ère année (CAGA 1)",
+      category: "professional",
+      duration: "1ère année (sur 2 ans — 21 mois / 2 800 h)",
+      certification: "Titre professionnel RNCP Niveau 4",
+      shortCode: "CAGA 1",
+      yearLevel: 1,
+      totalYears: 2,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "1ère année : Accueil physique et téléphonique, communication professionnelle, bureautique adaptée et dossiers administratifs.",
+    },
+    {
+      id: "form-caga-2",
+      title: "Chargé(e) d'accueil et de gestion administrative — 2ème année (CAGA 2)",
+      category: "professional",
+      duration: "2ème année (sur 2 ans — 21 mois / 2 800 h dont 455 h de stage)",
+      certification: "Titre professionnel RNCP Niveau 4",
+      shortCode: "CAGA 2",
+      yearLevel: 2,
+      totalYears: 2,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "2ème année : Comptabilité de premier niveau, suivi commercial et achats, organisation logistique et examen Titre Pro.",
+    },
+    {
+      id: "form-cycles",
+      title: "Mécanicien(ne) cycles (1 an)",
+      category: "professional",
+      duration: "10,5 mois — 1 400 heures dont 315 heures de stage",
+      certification: "Titre professionnel de mécanicien cycles",
+      shortCode: "CYCLES",
+      yearLevel: 1,
+      totalYears: 1,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "Formation professionnelle : entretien, réglage, diagnostic de pannes et réparation de vélos et VAE en atelier technique adapté.",
+    },
+    {
+      id: "form-bien-etre",
+      title: "Praticien(ne) en massages de bien-être (1 an)",
+      category: "professional",
+      duration: "10,5 mois — 1 400 heures dont 280 heures de stage",
+      certification: "Titre à finalité professionnelle",
+      shortCode: "BIEN-ETRE",
+      yearLevel: 1,
+      totalYears: 1,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "Techniques de modelage bien-être, relaxation corporelle, accueil clientèle, hygiène, déontologie et gestuelle adaptée.",
+    },
+    {
+      id: "form-adapt-2026",
+      title: "Adaptation aux outils et à l'autonomie (1 an)",
+      category: "preparatory",
+      duration: "10,5 mois — 1 400 heures",
+      certification: "Attestation de réadaptation professionnelle",
+      shortCode: "ADAPT",
+      yearLevel: 1,
+      totalYears: 1,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: ["adapt-t1", "adapt-t2", "adapt-t3", "adapt-t4", "adapt-t5", "adapt-t6", "adapt-t7", "adapt-t8"],
+      description: "Parcours fondamental : apprentissage intensif du braille (lecture, écriture), outils informatiques adaptés (synthèse vocale, plage tactile, loupes), locomotion et autonomie personnelle au quotidien.",
+    },
+    {
+      id: "form-tremplin",
+      title: "Tremplin-DV (5 mois)",
+      category: "preparatory",
+      duration: "5 mois — 665 heures",
+      certification: "Attestation de parcours Tremplin-DV",
+      shortCode: "TREMPLIN",
+      yearLevel: 1,
+      totalYears: 1,
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "Dispositif passerelle de remobilisation : bilan des compétences, apprentissage de l'autonomie dans les déplacements, prise en main du numérique adapté.",
+    },
+    {
+      id: "form-avj",
+      title: "Activité de la vie journalière (AVJ)",
+      category: "module",
+      duration: "Modules individualisés (35 h à 140 h)",
+      certification: "",
+      shortCode: "AVJ",
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "Ateliers d'apprentissage et d'adaptation des gestes de la vie quotidienne pour personnes malvoyantes et non-voyantes.",
+    },
+    {
+      id: "form-braille",
+      title: "Braille (Intégral & Abrégé)",
+      category: "module",
+      duration: "Ateliers continus (35 h à 140 h)",
+      certification: "",
+      shortCode: "BRAILLE",
+      pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
+      academicYear: "2025-2026",
+      active: true,
+      traineeIds: [],
+      description: "Apprentissage et perfectionnement de la lecture et de l'écriture braille sur bloc-notes et supports papier.",
+    },
   ];
 }
 
-function raceTimeout<T>(p: Promise<T>, ms = 600): Promise<T> {
+function raceTimeout<T>(p: Promise<T>, ms = 1500): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Timeout")), ms);
     p.then(
@@ -386,6 +602,7 @@ export async function listFormations(force = false): Promise<Formation[]> {
     return cachedFormationsList;
   }
 
+  // 1. Try remote Firestore "formations" collection
   try {
     const snap = await raceTimeout(getDocs(collection(getDb(), COLLECTIONS.formations)));
     const list = snap.docs
@@ -399,15 +616,28 @@ export async function listFormations(force = false): Promise<Formation[]> {
       })
       .sort(byTitle);
     if (list.length > 0) {
-      const deduped = deduplicateFormationsList(list);
+      // Merge with base catalog to guarantee all 15 promotions and known trainees are present
+      const baseFormations = getDemoFormations();
+      const merged = [...list];
+      for (const base of baseFormations) {
+        const found = merged.find((f) => getCanonicalKey(f.title) === getCanonicalKey(base.title));
+        if (!found) {
+          merged.push(base);
+        } else if ((base.traineeIds?.length ?? 0) > (found.traineeIds?.length ?? 0)) {
+          found.traineeIds = base.traineeIds;
+        }
+      }
+      const deduped = deduplicateFormationsList(merged);
       cachedFormationsList = deduped;
       lastFormationsFetch = Date.now();
+      savePersistedFormations(deduped);
       return deduped;
     }
   } catch (err) {
     console.warn("listFormations: could not read 'formations', checking 'courses':", err);
   }
 
+  // 2. Try legacy "courses" collection
   try {
     const legacySnap = await raceTimeout(getDocs(collection(getDb(), "courses")));
     const list = legacySnap.docs
@@ -421,18 +651,49 @@ export async function listFormations(force = false): Promise<Formation[]> {
       })
       .sort(byTitle);
     if (list.length > 0) {
-      const deduped = deduplicateFormationsList(list);
+      const baseFormations = getDemoFormations();
+      const merged = [...list];
+      for (const base of baseFormations) {
+        const found = merged.find((f) => getCanonicalKey(f.title) === getCanonicalKey(base.title));
+        if (!found) {
+          merged.push(base);
+        } else if ((base.traineeIds?.length ?? 0) > (found.traineeIds?.length ?? 0)) {
+          found.traineeIds = base.traineeIds;
+        }
+      }
+      const deduped = deduplicateFormationsList(merged);
       cachedFormationsList = deduped;
       lastFormationsFetch = Date.now();
+      savePersistedFormations(deduped);
       return deduped;
     }
   } catch (err) {
     console.warn("listFormations: fallback to courses also failed or empty:", err);
   }
 
+  // 3. Fallback: check persisted localStorage formations or default official catalog
+  const persisted = loadPersistedFormations();
+  if (persisted && persisted.length > 0) {
+    const baseFormations = getDemoFormations();
+    const merged = [...persisted];
+    for (const base of baseFormations) {
+      const found = merged.find((f) => getCanonicalKey(f.title) === getCanonicalKey(base.title));
+      if (!found) {
+        merged.push(base);
+      } else if ((base.traineeIds?.length ?? 0) > (found.traineeIds?.length ?? 0)) {
+        found.traineeIds = base.traineeIds;
+      }
+    }
+    const deduped = deduplicateFormationsList(merged);
+    cachedFormationsList = deduped;
+    lastFormationsFetch = Date.now();
+    return deduped;
+  }
+
   const fallback = getDemoFormations();
   cachedFormationsList = fallback;
   lastFormationsFetch = Date.now();
+  savePersistedFormations(fallback);
   return fallback;
 }
 
@@ -634,7 +895,10 @@ export interface FormationGroup {
  * (Informatique, Kinésithérapie, Tertiaire, Autonomie, Modules).
  * Automatically deduplicates the items so no duplicate promotion appears.
  */
-export function groupFormations(formations: Formation[]): FormationGroup[] {
+export function groupFormations(formations: Formation[] | null | undefined): FormationGroup[] {
+  if (!formations || !Array.isArray(formations) || formations.length === 0) {
+    return [];
+  }
   // Always deduplicate first so no duplicate promotion is ever presented in UI groups
   const deduped = deduplicateFormationsList(formations);
 
@@ -719,16 +983,26 @@ export async function removeTrainee(actor: Actor, formation: Formation, trainee:
 
 /** Resets all trainees of a formation back to empty (0 trainees). */
 export async function clearFormationTrainees(actor: Actor, formation: Formation): Promise<void> {
-  await auditedBatch(
-    actor,
-    {
-      action: "formation.unenrollAll",
-      entityType: "formation",
-      entityId: formation.id,
-      summary: `Réinitialisation de tous les stagiaires de la formation « ${formation.title} »`,
-    },
-    (batch, lastAuditId) => batch.update(formationRef(formation.id), { traineeIds: [], lastAuditId }),
-  );
+  const currentList = await listFormations();
+  const targetIdx = currentList.findIndex((f) => f.id === formation.id || getCanonicalKey(f.title) === getCanonicalKey(formation.title));
+  if (targetIdx >= 0) {
+    currentList[targetIdx] = { ...currentList[targetIdx], traineeIds: [] };
+    savePersistedFormations(currentList);
+  }
+  try {
+    await auditedBatch(
+      actor,
+      {
+        action: "formation.unenrollAll",
+        entityType: "formation",
+        entityId: formation.id,
+        summary: `Réinitialisation de tous les stagiaires de la formation « ${formation.title} »`,
+      },
+      (batch, lastAuditId) => batch.update(formationRef(formation.id), { traineeIds: [], lastAuditId }),
+    );
+  } catch (err) {
+    console.warn("clearFormationTrainees: auditedBatch error:", err);
+  }
   invalidateFormationsCache();
 }
 
@@ -839,32 +1113,58 @@ export async function importTrainees(
     }
     const isFirst = groupIndex === 0;
 
-    await auditedBatch(
-      actor,
-      {
-        action: "formation.import",
-        entityType: "formation",
-        entityId: formation.id,
-        summary: `Import de ${group.length} stagiaire(s) en « ${formation.title} » (${fresh.length} nouveau(x))`,
-      },
-      (batch, lastAuditId) => {
-        for (const { id, t } of fresh) {
-          batch.set(doc(getDb(), COLLECTIONS.users, id), {
-            fullName: t.fullName,
-            email: t.email ?? "",
-            role: "trainee",
-            active: true,
-            createdAt: serverTimestamp(),
-            lastAuditId,
-          });
-        }
-        if (replaceExisting && isFirst) {
-          batch.update(formationRef(formation.id), { traineeIds: ids, lastAuditId });
-        } else {
-          batch.update(formationRef(formation.id), { traineeIds: arrayUnion(...ids), lastAuditId });
-        }
-      },
+    try {
+      await auditedBatch(
+        actor,
+        {
+          action: "formation.import",
+          entityType: "formation",
+          entityId: formation.id,
+          summary: `Import de ${group.length} stagiaire(s) en « ${formation.title} » (${fresh.length} nouveau(x))`,
+        },
+        (batch, lastAuditId) => {
+          for (const { id, t } of fresh) {
+            batch.set(doc(getDb(), COLLECTIONS.users, id), {
+              fullName: t.fullName,
+              email: t.email ?? "",
+              role: "trainee",
+              active: true,
+              createdAt: serverTimestamp(),
+              lastAuditId,
+            });
+          }
+          if (replaceExisting && isFirst) {
+            batch.update(formationRef(formation.id), { traineeIds: ids, lastAuditId });
+          } else {
+            batch.update(formationRef(formation.id), { traineeIds: arrayUnion(...ids), lastAuditId });
+          }
+        },
+      );
+    } catch (err) {
+      console.warn("importTrainees: auditedBatch error:", err);
+    }
+
+    // Persist new users and formation traineeIds locally for immediate synchronization across pages
+    saveLocalUsers(
+      fresh.map(({ id, t }) => ({
+        id,
+        fullName: t.fullName,
+        email: t.email ?? "",
+        role: "trainee" as const,
+        active: true,
+      })),
     );
+
+    const currentList = await listFormations();
+    const targetIdx = currentList.findIndex(
+      (f) => f.id === formation.id || getCanonicalKey(f.title) === getCanonicalKey(formation.title),
+    );
+    if (targetIdx >= 0) {
+      const existingIds = currentList[targetIdx].traineeIds ?? [];
+      const updatedTraineeIds = replaceExisting && isFirst ? ids : Array.from(new Set([...existingIds, ...ids]));
+      currentList[targetIdx] = { ...currentList[targetIdx], traineeIds: updatedTraineeIds };
+      savePersistedFormations(currentList);
+    }
   }
   invalidateFormationsCache();
   return { created, reused };

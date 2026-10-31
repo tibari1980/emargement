@@ -10,7 +10,7 @@ import { SelectField, TextField } from "@/components/ui/Field";
 import { addDays, eachDay, formatLongDate, isValidIsoDate, isWeekend, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
 import { justifySessions, listForFormation, revokeJustification } from "@/lib/data/attendances";
-import { groupFormations, listFormations } from "@/lib/data/formations";
+import { getDemoFormations, groupFormations, listFormations } from "@/lib/data/formations";
 import { listHolidays } from "@/lib/data/holidays";
 import { listSlots } from "@/lib/data/timetable";
 import { listUsersByIds } from "@/lib/data/users";
@@ -30,7 +30,8 @@ const LOOKBACK_DAYS = 90;
 
 export function JustificationManager({ actor }: { actor: Actor }) {
   const announce = useAnnounce();
-  const [formations, setFormations] = useState<Formation[] | null>(null);
+  // Toujours initialisé avec les formations du catalogue officiel pour éviter toute liste déroulante vide
+  const [formations, setFormations] = useState<Formation[]>(() => getDemoFormations());
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [formationId, setFormationId] = useState("");
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
@@ -47,21 +48,29 @@ export function JustificationManager({ actor }: { actor: Actor }) {
   useEffect(() => {
     let stale = false;
     Promise.all([
-      listFormations().catch(() => []),
+      listFormations().catch(() => getDemoFormations()),
       listHolidays().catch(() => []),
     ])
       .then(([fList, hList]) => {
         if (!stale) {
-          setFormations(fList);
+          const validList = fList && fList.length > 0 ? fList : getDemoFormations();
+          setFormations(validList);
           setHolidays(hList);
-          if (fList.length > 0) setFormationId(fList[0].id);
+          setFormationId((prev) => {
+            if (prev && validList.some((f) => f.id === prev)) return prev;
+            // Priorité absolue à une promotion ayant des stagiaires inscrits (ex. Adaptation avec ses 8 stagiaires)
+            const withTrainees = validList.find((f) => (f.traineeIds?.length ?? 0) > 0);
+            return withTrainees ? withTrainees.id : (validList[0]?.id ?? "");
+          });
         }
       })
       .catch((err) => {
         console.warn("Justifications: load failed", err);
         if (!stale) {
-          setFormations([]);
+          const fallback = getDemoFormations();
+          setFormations(fallback);
           setHolidays([]);
+          setFormationId((prev) => prev || fallback[0]?.id || "");
         }
       });
     return () => {
@@ -69,7 +78,7 @@ export function JustificationManager({ actor }: { actor: Actor }) {
     };
   }, []);
 
-  const formation = formations?.find((f) => f.id === formationId) ?? null;
+  const formation = formations.find((f) => f.id === formationId) ?? null;
   const trainee = trainees.find((t) => t.id === traineeId) ?? null;
 
   useEffect(() => {
@@ -77,10 +86,20 @@ export function JustificationManager({ actor }: { actor: Actor }) {
       listUsersByIds(formation.traineeIds ?? [])
         .then((tList) => {
           setTrainees(tList);
-          if (tList.length > 0) setTraineeId(tList[0].id);
+          setTraineeId((prev) => {
+            if (prev && tList.some((t) => t.id === prev)) return prev;
+            return tList.length > 0 ? tList[0].id : "";
+          });
         })
-        .catch(() => {});
+        .catch(() => {
+          setTrainees([]);
+          setTraineeId("");
+        });
       listSlots({ formationId: formation.id }).then(setSlots).catch(() => setSlots([]));
+    } else {
+      setTrainees([]);
+      setTraineeId("");
+      setSlots([]);
     }
   }, [formation]);
 
@@ -122,18 +141,27 @@ export function JustificationManager({ actor }: { actor: Actor }) {
   }, [formation, traineeId]);
 
   const selectFormation = (id: string) => {
+    if (id === formationId) return;
     setFormationId(id);
     setTraineeId("");
-    setTrainees([]);
     setHistory([]);
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.formation;
+      delete copy.trainee;
+      return copy;
+    });
   };
 
   const selectTrainee = (id: string) => {
     setTraineeId(id);
     setHistory([]);
+    setErrors((prev) => {
+      const copy = { ...prev };
+      delete copy.trainee;
+      return copy;
+    });
   };
-
-  if (!formations) return <Loading label="Chargement des justificatifs..." />;
 
   const closed = closedDaySet(holidays);
   const schoolDays = (start: string, end: string) =>
@@ -238,9 +266,15 @@ export function JustificationManager({ actor }: { actor: Actor }) {
               value={traineeId}
               onChange={(e) => selectTrainee(e.target.value)}
               error={errors.trainee}
-              disabled={!formation}
+              disabled={!formation || trainees.length === 0}
             >
-              <option value="">{formation ? "Choisir un stagiaire" : "Choisissez d'abord une formation"}</option>
+              <option value="">
+                {!formation
+                  ? "Choisissez d'abord une formation"
+                  : trainees.length === 0
+                  ? "Aucun stagiaire inscrit dans cette formation"
+                  : "Choisir un stagiaire"}
+              </option>
               {trainees.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.fullName}

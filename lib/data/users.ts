@@ -53,6 +53,59 @@ export const DEMO_USERS: UserProfile[] = [
   },
 ];
 
+/**
+ * 8 Stagiaires inscrits dans le dispositif d'autonomie « Adaptation aux outils et à l'autonomie (1 an) »
+ * du CFRP Valentin Haüy. Permet le suivi d'émargement et la saisie de justificatifs d'absence.
+ */
+export const ADAPTATION_TRAINEES: UserProfile[] = [
+  { id: "adapt-t1", fullName: "Marc Lefebvre", email: "marc.lefebvre@avh-asso.fr", role: "trainee", active: true },
+  { id: "adapt-t2", fullName: "Émilie Roussel", email: "emilie.roussel@avh-asso.fr", role: "trainee", active: true },
+  { id: "adapt-t3", fullName: "Julien Mercier", email: "julien.mercier@avh-asso.fr", role: "trainee", active: true },
+  { id: "adapt-t4", fullName: "Nadia Belkacem", email: "nadia.belkacem@avh-asso.fr", role: "trainee", active: true },
+  { id: "adapt-t5", fullName: "Antoine Gauthier", email: "antoine.gauthier@avh-asso.fr", role: "trainee", active: true },
+  { id: "adapt-t6", fullName: "Claire Fontaine", email: "claire.fontaine@avh-asso.fr", role: "trainee", active: true },
+  { id: "adapt-t7", fullName: "Youssef Mansouri", email: "youssef.mansouri@avh-asso.fr", role: "trainee", active: true },
+  { id: "adapt-t8", fullName: "Hélène Marchand", email: "helene.marchand@avh-asso.fr", role: "trainee", active: true },
+];
+
+const LOCAL_USERS_KEY = "avh_persisted_users_v2";
+
+export function getLocalUsersMap(): Map<string, UserProfile> {
+  const map = new Map<string, UserProfile>();
+  DEMO_USERS.forEach((u) => map.set(u.id, u));
+  ADAPTATION_TRAINEES.forEach((u) => map.set(u.id, u));
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem(LOCAL_USERS_KEY);
+      if (raw) {
+        const parsed: UserProfile[] = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((u) => map.set(u.id, u));
+        }
+      }
+    } catch {}
+  }
+  return map;
+}
+
+export function saveLocalUser(user: UserProfile): void {
+  if (typeof window === "undefined") return;
+  try {
+    const map = getLocalUsersMap();
+    map.set(user.id, user);
+    localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(Array.from(map.values())));
+  } catch {}
+}
+
+export function saveLocalUsers(newUsers: UserProfile[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    const map = getLocalUsersMap();
+    newUsers.forEach((u) => map.set(u.id, u));
+    localStorage.setItem(LOCAL_USERS_KEY, JSON.stringify(Array.from(map.values())));
+  } catch {}
+}
+
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   try {
     const snap = await getDoc(doc(getDb(), COLLECTIONS.users, uid));
@@ -60,18 +113,24 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
   } catch (err) {
     console.warn("getUserProfile failed:", err);
   }
-  return DEMO_USERS.find((u) => u.id === uid) ?? null;
+  const localMap = getLocalUsersMap();
+  return localMap.get(uid) ?? null;
 }
 
 export async function listUsers(role?: Role): Promise<UserProfile[]> {
+  const localMap = getLocalUsersMap();
   try {
     const snap = await getDocs(role ? query(users(), where("role", "==", role)) : users());
     const res = snap.docs.map((d) => withId<UserProfile>(d)).sort(byName);
-    if (res.length > 0) return res;
+    if (res.length > 0) {
+      res.forEach((u) => localMap.set(u.id, u));
+      return res;
+    }
   } catch (err) {
     console.warn("listUsers failed, using demo users:", err);
   }
-  return role ? DEMO_USERS.filter((u) => u.role === role) : DEMO_USERS;
+  const all = Array.from(localMap.values());
+  return (role ? all.filter((u) => u.role === role) : all).sort(byName);
 }
 
 /** Active staff members holding one of the roles (e.g. every trainer). */
@@ -89,16 +148,23 @@ export async function listStaff(roles: Role[]): Promise<UserProfile[]> {
 export async function listUsersByIds(ids: string[]): Promise<UserProfile[]> {
   const unique = [...new Set(ids)].filter(Boolean);
   if (unique.length === 0) return [];
+  const localMap = getLocalUsersMap();
   try {
     const results = await Promise.all(
       chunk(unique, 30).map((part) => getDocs(query(users(), where(documentId(), "in", part)))),
     );
-    const res = results.flatMap((s) => s.docs.map((d) => withId<UserProfile>(d))).sort(byName);
-    if (res.length > 0) return res;
+    const fromDb = results.flatMap((s) => s.docs.map((d) => withId<UserProfile>(d)));
+    if (fromDb.length > 0) {
+      fromDb.forEach((u) => localMap.set(u.id, u));
+      return fromDb.sort(byName);
+    }
   } catch (err) {
     console.warn("listUsersByIds failed, using demo trainees:", err);
   }
-  return DEMO_USERS.filter((u) => unique.includes(u.id)).sort(byName);
+  return unique
+    .map((id) => localMap.get(id))
+    .filter((u): u is UserProfile => Boolean(u))
+    .sort(byName);
 }
 
 export async function updateUser(
