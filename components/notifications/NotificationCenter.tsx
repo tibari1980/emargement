@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Bell,
   CheckCheck,
@@ -82,18 +83,23 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
     }
   }, [notifications, activeTab]);
 
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  return (
+  if (!isOpen || !mounted) return null;
+
+  return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Centre de notifications Valentin Haüy"
-      className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
+      className="fixed inset-0 z-[100] flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200"
     >
       {/* Backdrop overlay */}
       <div
-        className="flex-1"
+        className="flex-1 cursor-pointer"
         onClick={onClose}
         aria-hidden="true"
       />
@@ -101,7 +107,7 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
       {/* Slide-over panel */}
       <div
         ref={dialogRef}
-        className="relative flex flex-col w-full max-w-lg bg-surface-container-lowest h-full shadow-2xl border-l border-border-subtle animate-in slide-in-from-right duration-250"
+        className="relative flex flex-col w-full max-w-lg bg-surface-container-lowest h-screen max-h-screen shadow-2xl border-l-2 border-border-subtle animate-in slide-in-from-right duration-250 z-[101]"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border-subtle p-4 sm:px-6 bg-surface-container/30">
@@ -210,7 +216,7 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
           tabIndex={0}
           role="region"
           aria-label="Liste des notifications"
-          className="flex-1 overflow-y-auto p-4 sm:px-6 space-y-3 outline-none"
+          className="flex-1 min-h-0 overflow-y-auto p-4 sm:px-6 space-y-3 outline-none"
         >
           {filteredNotifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center text-on-surface-variant">
@@ -242,7 +248,7 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
         </div>
 
         {/* Footer with keyboard hint */}
-        <div className="border-t border-border-subtle p-3 px-4 sm:px-6 bg-surface-container/20 flex items-center justify-between text-xs text-on-surface-variant">
+        <div className="border-t border-border-subtle p-3 px-4 sm:px-6 bg-surface-container/20 flex items-center justify-between text-xs text-on-surface-variant shrink-0">
           <span>
             Raccourci clavier : <kbd className="px-1.5 py-0.5 rounded bg-surface-container font-mono text-[11px] font-bold">Alt + N</kbd>
           </span>
@@ -255,6 +261,7 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

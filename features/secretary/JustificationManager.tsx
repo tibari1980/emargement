@@ -44,6 +44,12 @@ export function JustificationManager({ actor }: { actor: Actor }) {
   const [otherReason, setOtherReason] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [successFeedback, setSuccessFeedback] = useState<{
+    traineeName: string;
+    daysCount: number;
+    dates: string[];
+    reason: string;
+  } | null>(null);
 
   useEffect(() => {
     let stale = false;
@@ -103,25 +109,31 @@ export function JustificationManager({ actor }: { actor: Actor }) {
     }
   }, [formation]);
 
+  const getRelevantMonths = useCallback(() => {
+    const today = todayIso();
+    const pastMonths = eachDay(addDays(today, -LOOKBACK_DAYS), today).map((d) => d.slice(0, 7));
+    const futureMonths = eachDay(today, addDays(today, 60)).map((d) => d.slice(0, 7));
+    const selectedMonths = [startDate.slice(0, 7), endDate.slice(0, 7)].filter(Boolean);
+    return [...new Set([...pastMonths, ...futureMonths, ...selectedMonths])];
+  }, [startDate, endDate]);
+
   const refreshHistory = useCallback(async () => {
     if (!formation || !traineeId) return;
-    const today = todayIso();
-    const months = [...new Set(eachDay(addDays(today, -LOOKBACK_DAYS), today).map((d) => d.slice(0, 7)))];
+    const months = getRelevantMonths();
     const records = await listForFormation(formation.id, months);
     setHistory(
       records
         .filter((r) => r.traineeId === traineeId && (r.status === "absent" || r.status === "excused"))
         .sort((a, b) => b.date.localeCompare(a.date)),
     );
-  }, [formation, traineeId]);
+  }, [formation, traineeId, getRelevantMonths]);
 
   useEffect(() => {
     let ignore = false;
     if (!formation || !traineeId) {
       return;
     }
-    const today = todayIso();
-    const months = [...new Set(eachDay(addDays(today, -LOOKBACK_DAYS), today).map((d) => d.slice(0, 7)))];
+    const months = getRelevantMonths();
     listForFormation(formation.id, months)
       .then((records) => {
         if (!ignore) {
@@ -138,13 +150,14 @@ export function JustificationManager({ actor }: { actor: Actor }) {
     return () => {
       ignore = true;
     };
-  }, [formation, traineeId]);
+  }, [formation, traineeId, getRelevantMonths]);
 
   const selectFormation = (id: string) => {
     if (id === formationId) return;
     setFormationId(id);
     setTraineeId("");
     setHistory([]);
+    setSuccessFeedback(null);
     setErrors((prev) => {
       const copy = { ...prev };
       delete copy.formation;
@@ -156,6 +169,7 @@ export function JustificationManager({ actor }: { actor: Actor }) {
   const selectTrainee = (id: string) => {
     setTraineeId(id);
     setHistory([]);
+    setSuccessFeedback(null);
     setErrors((prev) => {
       const copy = { ...prev };
       delete copy.trainee;
@@ -172,6 +186,7 @@ export function JustificationManager({ actor }: { actor: Actor }) {
   const apply = async (dates: string[]) => {
     if (!formation || !trainee) return;
     setBusy(true);
+    setSuccessFeedback(null);
     try {
       const activeSessions: { slot: TimetableSlot; date: string }[] = [];
       for (const d of dates) {
@@ -208,6 +223,12 @@ export function JustificationManager({ actor }: { actor: Actor }) {
       await refreshHistory();
       const plural = dates.length > 1 ? "s" : "";
       announce(`${dates.length} jour${plural} justifié${plural} pour ${trainee.fullName} : ${finalReason}.`);
+      setSuccessFeedback({
+        traineeName: trainee.fullName,
+        daysCount: dates.length,
+        dates,
+        reason: finalReason,
+      });
     } catch {
       announce("L'enregistrement du justificatif a échoué.", "assertive");
     } finally {
@@ -240,6 +261,24 @@ export function JustificationManager({ actor }: { actor: Actor }) {
           <span>Nouveau justificatif</span>
         </h2>
         <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+          {successFeedback && (
+            <Alert tone="success" onClose={() => setSuccessFeedback(null)}>
+              <div className="flex flex-col gap-1.5">
+                <span className="font-bold text-sm">
+                  Justificatif enregistré avec succès pour {successFeedback.traineeName}
+                </span>
+                <span className="text-xs">
+                  {successFeedback.daysCount} jour{successFeedback.daysCount > 1 ? "s" : ""} de formation justifié{successFeedback.daysCount > 1 ? "s" : ""} pour le motif « <strong>{successFeedback.reason}</strong> ».
+                </span>
+                <span className="text-xs opacity-90 font-mono">
+                  Dates appliquées : {successFeedback.dates.map((d) => formatLongDate(d)).join(", ")}
+                </span>
+                <span className="text-[11px] opacity-75 italic">
+                  Note : Les samedis, dimanches et jours fériés de la période sont automatiquement exclus.
+                </span>
+              </div>
+            </Alert>
+          )}
           {Object.keys(errors).length > 0 && (
             <Alert tone="error">Le formulaire contient des erreurs. Corrigez les champs signalés.</Alert>
           )}
@@ -324,10 +363,12 @@ export function JustificationManager({ actor }: { actor: Actor }) {
         <section aria-labelledby="history-heading" className="flex flex-col gap-4">
           <h2 id="history-heading" className="text-xl font-bold text-primary flex items-center gap-2">
             <History className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
-            <span>Absences de {trainee.fullName} sur les {LOOKBACK_DAYS} derniers jours</span>
+            <span>Historique des absences et justificatifs de {trainee.fullName}</span>
           </h2>
           {history.length === 0 ? (
-            <Alert tone="info">Aucune absence enregistrée sur cette période.</Alert>
+            <Alert tone="info">
+              Aucune absence ni justificatif enregistré pour {trainee.fullName} sur la période courante ({LOOKBACK_DAYS} derniers jours et 60 prochains jours).
+            </Alert>
           ) : (
             <ul className="divide-y divide-surface-container rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs overflow-hidden">
               {history.map((h) => (

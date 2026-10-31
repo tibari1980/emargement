@@ -13,13 +13,31 @@ const TONES: Record<Tone, string> = {
  * Visible message box. Errors use role="alert" (announced immediately);
  * other tones are static text — dynamic feedback goes through useAnnounce().
  */
-export function Alert({ tone = "info", children }: { tone?: Tone; children: React.ReactNode }) {
+export function Alert({
+  tone = "info",
+  children,
+  onClose,
+}: {
+  tone?: Tone;
+  children: React.ReactNode;
+  onClose?: () => void;
+}) {
   return (
     <div
-      role={tone === "error" ? "alert" : undefined}
-      className={`rounded-xl border-l-4 border-y border-r border-border-subtle p-4 text-sm sm:text-base shadow-xs ${TONES[tone]}`}
+      role={tone === "error" ? "alert" : "status"}
+      className={`relative rounded-xl border-l-4 border-y border-r border-border-subtle p-4 text-sm sm:text-base shadow-xs ${TONES[tone]}`}
     >
-      {children}
+      <div className={onClose ? "pr-8" : undefined}>{children}</div>
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Fermer ce message"
+          className="absolute top-3 right-3 p-1 rounded-lg text-current opacity-70 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/10 transition-opacity"
+        >
+          <span aria-hidden="true" className="text-base font-bold leading-none">✕</span>
+        </button>
+      )}
     </div>
   );
 }
