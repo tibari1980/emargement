@@ -51,48 +51,6 @@ export const DEMO_USERS: UserProfile[] = [
     role: "trainer",
     active: true,
   },
-  {
-    id: "t1",
-    fullName: "Jean Dupont",
-    email: "jean.dupont@avh-test.fr",
-    role: "trainee",
-    active: true,
-  },
-  {
-    id: "t2",
-    fullName: "Amélie Martin",
-    email: "amelie.martin@avh-test.fr",
-    role: "trainee",
-    active: true,
-  },
-  {
-    id: "t3",
-    fullName: "Karim Benali",
-    email: "karim.benali@avh-test.fr",
-    role: "trainee",
-    active: true,
-  },
-  {
-    id: "t4",
-    fullName: "Léa Bernard",
-    email: "lea.bernard@avh-test.fr",
-    role: "trainee",
-    active: true,
-  },
-  {
-    id: "t5",
-    fullName: "Lucas Petit",
-    email: "lucas.petit@avh-test.fr",
-    role: "trainee",
-    active: true,
-  },
-  {
-    id: "t6",
-    fullName: "Chloé Moreau",
-    email: "chloe.moreau@avh-test.fr",
-    role: "trainee",
-    active: true,
-  },
 ];
 
 export async function getUserProfile(uid: string): Promise<UserProfile | null> {

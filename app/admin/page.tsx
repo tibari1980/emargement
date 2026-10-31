@@ -23,7 +23,6 @@ import { ProtectedPage } from "@/components/ProtectedPage";
 import { Alert } from "@/components/ui/Alert";
 import { focusRing } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { purgeAllTestData } from "@/lib/data/maintenance";
 import { syncCatalogFormations } from "@/lib/data/formations";
 
 const ADMIN_SECTIONS = [
@@ -126,20 +125,6 @@ export default function AdminHubPage() {
       permission="audit.read"
     >
       {(actor) => {
-        const handlePurge = async () => {
-          setBusy(true);
-          try {
-            const res = await purgeAllTestData(actor);
-            const msg = `Base de données réinitialisée pour la production : ${res.slotsDeleted} créneaux fictifs supprimés, ${res.attendancesDeleted} émargements test purgés, ${res.traineesPurged} stagiaires supprimés.`;
-            setMaintenanceMsg(msg);
-            announce(msg);
-          } catch {
-            announce("Échec de la réinitialisation de la base.", "assertive");
-          } finally {
-            setBusy(false);
-          }
-        };
-
         const handleSync = async () => {
           setBusy(true);
           try {
@@ -187,15 +172,6 @@ export default function AdminHubPage() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <ConfirmDialog
-                    triggerLabel={busy ? "Traitement…" : "Purger toutes les données de test"}
-                    triggerAccessibleLabel="Purger toutes les données fictives et réinitialiser pour la production"
-                    title="Purger toutes les données fictives de test ?"
-                    description="Cette opération supprime définitivement tous les anciens créneaux horaires de test (notamment ceux affichant « Formation inconnue »), vide les émargements de test et purge les stagiaires fictifs. Vos comptes du personnel (administrateur, secrétariat, formateurs) sont strictement préservés."
-                    confirmLabel="Confirmer la purge définitive"
-                    onConfirm={handlePurge}
-                  />
-
                   <ConfirmDialog
                     triggerLabel={busy ? "Synchronisation…" : "Synchroniser les promotions officielles CFRP"}
                     triggerAccessibleLabel="Synchroniser les promotions officielles du catalogue CFRP Valentin Haüy"

@@ -5,10 +5,8 @@ import { useEffect, useState } from "react";
 import {
   BookOpen,
   Calendar,
-  CheckCircle2,
   GraduationCap,
   Info,
-  Sparkles,
   Trash2,
   UserCheck,
   Users,
@@ -17,12 +15,10 @@ import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { ApplicationGuide } from "@/components/ApplicationGuide";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SelectField } from "@/components/ui/Field";
 import { formatHours, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
 import { deduplicateFormationsList, groupFormations } from "@/lib/data/formations";
-import { purgeAllTestData } from "@/lib/data/maintenance";
 import { listSlots } from "@/lib/data/timetable";
 import { isActive } from "@/lib/data/users";
 import { slotMinutes } from "@/lib/domain/schedule";
@@ -44,8 +40,6 @@ export function Plannings({ actor }: { actor: Actor }) {
   const [view, setView] = useState<View>(actor.role === "trainer" ? "trainer" : "formation");
   const [trainerId, setTrainerId] = useState(actor.role === "trainer" ? actor.id : "");
   const [formationId, setFormationId] = useState("");
-  const [purging, setPurging] = useState(false);
-  const [purgeSuccess, setPurgeSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     listSlots()
@@ -113,64 +107,10 @@ export function Plannings({ actor }: { actor: Actor }) {
 
   const groupedFormations = groupFormations(data.formations);
 
-  const hasOrphanOrTestData = slots.some(
-    (s) => !lookups.formation(s.formationId) || lookups.formation(s.formationId)?.active === false
-  );
-
-  const handlePurgeTestData = async () => {
-    setPurging(true);
-    setPurgeSuccess(null);
-    try {
-      const res = await purgeAllTestData(actor);
-      await reload();
-      const freshSlots = await listSlots();
-      setSlots(freshSlots);
-      const msg = `Purge effectuée : ${res.slotsDeleted} créneaux supprimés, ${res.subjectsCleaned} matières nettoyées.`;
-      setPurgeSuccess(msg);
-      announce(msg);
-    } catch {
-      announce("La purge des données de test a échoué.", "assertive");
-    } finally {
-      setPurging(false);
-    }
-  };
-
   return (
     <div className="flex flex-col gap-6">
       {/* Guide pratique officiel pas-à-pas pour la mise en service du centre */}
       <ApplicationGuide />
-
-      {purgeSuccess && (
-        <Alert tone="success">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-status-present shrink-0" aria-hidden="true" />
-            <span className="font-semibold">{purgeSuccess}</span>
-          </div>
-        </Alert>
-      )}
-
-      {/* Alerte si des créneaux orphelins de test subsistent en base */}
-      {hasOrphanOrTestData && (actor.role === "admin" || actor.role === "secretary") && (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl border-2 border-secondary/40 bg-surface-container-low shadow-xs">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
-              <h3 className="font-bold text-base text-primary">Données fictives de test détectées</h3>
-            </div>
-            <p className="text-xs text-on-surface-variant max-w-2xl">
-              Votre base contient d&apos;anciens créneaux de test (ex. matières ou cours avec « Formation inconnue »). Purgez toutes les données de test en 1 clic pour repartir d&apos;une base 100 % propre et prête pour vos vrais tests.
-            </p>
-          </div>
-          <ConfirmDialog
-            triggerLabel={purging ? "Purge en cours…" : "Purger toutes les données de test"}
-            triggerAccessibleLabel="Purger toutes les données fictives de test de l'application"
-            title="Purger toutes les données de test ?"
-            description="Cette opération supprime définitivement tous les anciens créneaux horaires de test (notamment ceux affichant « Formation inconnue »), réinitialise les matières sur le catalogue officiel du CFRP Valentin Haüy et vide les présences fictives. Les comptes utilisateurs du personnel sont préservés."
-            confirmLabel="Confirmer la purge définitive"
-            onConfirm={handlePurgeTestData}
-          />
-        </div>
-      )}
 
       {/* 1. SÉLECTEUR DU PLANNING */}
       <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-5 shadow-xs flex flex-col gap-4">

@@ -325,28 +325,6 @@ export function TraineeImporter({ actor }: { actor: Actor }) {
               />
             </div>
           )}
-
-          {/* Action globale de purge pour supprimer toutes les données de test */}
-          {formations.some((f) => (f.traineeIds?.length ?? 0) > 0) && (
-            <div className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl border border-secondary/30 bg-surface-container-low text-xs">
-              <span className="text-on-surface">
-                Vous souhaitez supprimer tous les stagiaires de test existants de toutes les formations ?
-              </span>
-              <ConfirmDialog
-                triggerLabel="Purger toutes les données fictives"
-                triggerAccessibleLabel="Purger tous les stagiaires de test de toutes les formations"
-                title="Purger toutes les données de test ?"
-                description="Cette action va vider la liste des stagiaires de toutes les formations (remise à zéro) et supprimer les profils de stagiaires fictifs de la base de données. Les comptes du personnel (administrateur, formateurs, secrétariat) sont préservés."
-                confirmLabel="Purger et remettre à zéro"
-                onConfirm={async () => {
-                  const res = await purgeAllTrainees(actor);
-                  const fresh = await listFormations();
-                  setFormations(fresh);
-                  announce(`Purge terminée : ${res.formationsReset} formations réinitialisées, ${res.traineesDeleted} stagiaires supprimés.`);
-                }}
-              />
-            </div>
-          )}
         </div>
 
         {/* Zone de glisser-déposer de fichier */}

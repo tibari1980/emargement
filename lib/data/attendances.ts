@@ -16,66 +16,6 @@ const attendances = () => collection(getDb(), COLLECTIONS.attendances);
 
 const localAttendancesMap = new Map<string, Attendance>();
 
-// Initialize with demonstration attendance data for the current month
-function initDemoAttendances() {
-  if (localAttendancesMap.size > 0) return;
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const currentMonth = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
-  const days = [1, 2, 3, 4, 5];
-
-  for (const day of days) {
-    const dateStr = `${currentMonth}-${pad(day)}`;
-    const slotMorningId = "slot-morning-1";
-    const slotAfternoonId = "slot-afternoon-1";
-
-    const trainees = [
-      { id: "t1", status: (day === 2 ? "late" : "present") as AttendanceStatus, arrivalTime: day === 2 ? "09:15" : null },
-      { id: "t2", status: (day === 3 ? "absent" : "present") as AttendanceStatus, arrivalTime: null },
-      { id: "t3", status: (day === 4 ? "excused" : "present") as AttendanceStatus, arrivalTime: null, excuseReason: day === 4 ? "Arrêt maladie" : null },
-      { id: "t4", status: "present" as AttendanceStatus, arrivalTime: null },
-      { id: "t5", status: "present" as AttendanceStatus, arrivalTime: null },
-      { id: "t6", status: "present" as AttendanceStatus, arrivalTime: null },
-    ];
-
-    for (const t of trainees) {
-      const idMorning = attendanceId(slotMorningId, t.id, dateStr);
-      localAttendancesMap.set(idMorning, {
-        id: idMorning,
-        formationId: "form-tip-1",
-        slotId: slotMorningId,
-        subjectId: "sub-bureau",
-        trainerId: "L5ZcFkR961OBv4VjVyXurZuhOcM2",
-        traineeId: t.id,
-        date: dateStr,
-        month: currentMonth,
-        status: t.status,
-        arrivalTime: t.arrivalTime,
-        excuseReason: t.excuseReason ?? null,
-        recordedBy: "system",
-      });
-
-      const idAfternoon = attendanceId(slotAfternoonId, t.id, dateStr);
-      localAttendancesMap.set(idAfternoon, {
-        id: idAfternoon,
-        formationId: "form-tip-1",
-        slotId: slotAfternoonId,
-        subjectId: "sub-web",
-        trainerId: "L5ZcFkR961OBv4VjVyXurZuhOcM2",
-        traineeId: t.id,
-        date: dateStr,
-        month: currentMonth,
-        status: t.status,
-        arrivalTime: null,
-        excuseReason: t.excuseReason ?? null,
-        recordedBy: "system",
-      });
-    }
-  }
-}
-
-initDemoAttendances();
-
 /** Records of one session (slot × date). */
 export async function listForSession(slotId: string, date: string): Promise<Attendance[]> {
   try {

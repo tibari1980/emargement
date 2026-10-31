@@ -329,7 +329,7 @@ export function getDemoFormations(): Formation[] {
       pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
       academicYear: "2025-2026",
       active: true,
-      traineeIds: ["t1", "t2", "t3", "t4", "t5", "t6"],
+      traineeIds: [],
       description: "Assistance utilisateurs, équipements adaptés, réseaux et maintenance.",
     },
     {
@@ -344,7 +344,7 @@ export function getDemoFormations(): Formation[] {
       pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
       academicYear: "2025-2026",
       active: true,
-      traineeIds: ["t1", "t2", "t3"],
+      traineeIds: [],
       description: "Virtualisation, administration serveurs, sécurité et épreuves RNCP.",
     },
     {
@@ -359,7 +359,7 @@ export function getDemoFormations(): Formation[] {
       pedagogicalLeadId: "tdbL2rH5LTTHagluHiXbzvCcGjk2",
       academicYear: "2025-2026",
       active: true,
-      traineeIds: ["t4", "t5", "t6"],
+      traineeIds: [],
       description: "Bases algorithmiques, bureautique adaptée et pratique experte des lecteurs d'écran.",
     },
   ];

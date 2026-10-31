@@ -33,7 +33,6 @@ import { listForFormation } from "@/lib/data/attendances";
 import type { Actor } from "@/lib/data/audit";
 import { deduplicateFormationsList, groupFormations, listFormations } from "@/lib/data/formations";
 import { listHolidays } from "@/lib/data/holidays";
-import { purgeAllTestData } from "@/lib/data/maintenance";
 import { listSessionOverridesForMonth } from "@/lib/data/sessionOverrides";
 import { listSubjects } from "@/lib/data/subjects";
 import { listSlots } from "@/lib/data/timetable";
@@ -121,8 +120,6 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
   const [selectedTrainee, setSelectedTrainee] = useState<TraineeMonthlyHours | null>(null);
   const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [purging, setPurging] = useState(false);
-  const [purgeSuccess, setPurgeSuccess] = useState<string | null>(null);
 
   // View mode switcher: General consolidated (DGEFP) vs ASP official transmission
   const [viewMode, setViewMode] = useState<"general" | "asp">("general");
@@ -135,7 +132,6 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
-  const canPurge = actor.role === "admin" || actor.role === "pedagogical_lead";
   const month = `${year}-${monthNumber}`;
   const formation = formations?.find((f) => f.id === formationId) ?? null;
   const key = formation ? `${formation.id}|${month}` : null;
@@ -174,7 +170,6 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    setPurgeSuccess(null);
     try {
       const list = await listFormations(true);
       const deduped = deduplicateFormationsList(list);
@@ -185,23 +180,6 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
       announce("L'actualisation a échoué.", "assertive");
     } finally {
       setRefreshing(false);
-    }
-  };
-
-  const handlePurge = async () => {
-    setPurging(true);
-    setPurgeSuccess(null);
-    try {
-      const res = await purgeAllTestData(actor);
-      const msg = `Purge effectuée : ${res.slotsDeleted} créneau(x), ${res.attendancesDeleted} émargement(s) fictif(s) et ${res.traineesPurged} stagiaire(s) de test supprimés.`;
-      setPurgeSuccess(msg);
-      announce(msg);
-      await handleRefresh();
-    } catch (e) {
-      console.error(e);
-      announce("La purge des données fictives a échoué.", "assertive");
-    } finally {
-      setPurging(false);
     }
   };
 
@@ -326,18 +304,6 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
 
           {/* Boutons d'actions et d'exportation */}
           <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2 sm:gap-3 self-stretch lg:self-center shrink-0 w-full sm:w-auto">
-            {canPurge && (
-              <ConfirmDialog
-                triggerLabel="Purger données fictives"
-                triggerAccessibleLabel="Purger toutes les données fictives de test de l'application"
-                title="Purger définitivement les données de test fictives ?"
-                description="Cette opération va supprimer définitivement les créneaux orphelins, les émargements fictifs et les stagiaires de démonstration, tout en conservant vos formations officielles et vos comptes professionnels. Confirmez-vous la purge ?"
-                confirmLabel="Purger définitivement"
-                triggerVariant="danger"
-                onConfirm={handlePurge}
-              />
-            )}
-
             <Button
               variant="secondary"
               onClick={handleRefresh}
@@ -475,15 +441,6 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
           })()}
         </div>
       </header>
-
-      {purgeSuccess && (
-        <Alert tone="success">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-5 w-5 text-status-present shrink-0" aria-hidden="true" />
-            <span>{purgeSuccess}</span>
-          </div>
-        </Alert>
-      )}
 
       {current?.error && <Alert tone="error">{current.error}</Alert>}
       {loading && <Loading label="Calcul du rapport en cours…" />}
