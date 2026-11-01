@@ -2,7 +2,7 @@
 
 import * as Dialog from "@radix-ui/react-dialog";
 import { Accessibility } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccessibility, type ContrastMode, type FontSize, type SpacingMode } from "./AccessibilityProvider";
 import { Button, focusRing } from "./ui/Button";
 
@@ -11,13 +11,35 @@ export function AccessibilityToolbar() {
   const { fontSize, contrast, spacing, setFontSize, setContrast, setSpacing, resetPreferences } =
     useAccessibility();
 
+  // Raccourci clavier Alt + A pour ouvrir/fermer le panneau d'accessibilité
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "a" || e.key === "A")) {
+        e.preventDefault();
+        setOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
       <Dialog.Trigger asChild>
         <button
           id="btn-accessibilite"
           type="button"
-          aria-label="Options d'accessibilité visuelle (taille du texte, contrastes, espacements)"
+          aria-label="Options d'accessibilité visuelle. Raccourcis : Alt + M pour basculer en mode sombre, Alt + A pour ouvrir ce menu"
+          title="Options d'accessibilité (Alt + A) · Mode sombre (Alt + M)"
           className={`inline-flex min-h-10 items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-border-subtle bg-surface-container-high px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-on-surface transition-colors hover:bg-surface-variant shrink-0 ${focusRing}`}
         >
           <Accessibility className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
@@ -91,23 +113,30 @@ export function AccessibilityToolbar() {
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 {(
                   [
-                    { id: "standard", label: "Standard", desc: "Couleurs officielles" },
-                    { id: "high-contrast", label: "Contraste renforcé", desc: "Jaune sur fond noir" },
-                    { id: "dark", label: "Mode sombre", desc: "Fond noir / texte blanc" },
+                    { id: "standard", label: "Standard", desc: "Couleurs officielles", shortcut: undefined },
+                    { id: "high-contrast", label: "Contraste renforcé", desc: "Jaune sur fond noir", shortcut: undefined },
+                    { id: "dark", label: "Mode sombre", desc: "Fond noir / texte blanc", shortcut: "Alt + M" },
                   ] as const
-                ).map(({ id, label, desc }) => (
+                ).map(({ id, label, desc, shortcut }) => (
                   <button
                     key={id}
                     type="button"
                     onClick={() => setContrast(id as ContrastMode)}
                     aria-pressed={contrast === id}
-                    className={`flex min-h-14 flex-col items-center justify-center rounded-xl border-2 p-2.5 text-center font-bold transition-all ${
+                    className={`flex min-h-14 flex-col items-center justify-center rounded-xl border-2 p-2.5 text-center font-bold transition-all relative ${
                       contrast === id
                         ? "border-primary bg-primary-container text-on-primary shadow-xs"
                         : "border-border-subtle bg-surface-container-low text-on-surface hover:bg-surface-container"
                     } ${focusRing}`}
                   >
-                    <span className="text-sm">{label}</span>
+                    <span className="text-sm flex items-center gap-1.5">
+                      <span>{label}</span>
+                      {shortcut && (
+                        <kbd className="text-[10px] font-mono px-1 py-0.5 rounded bg-surface-container-highest text-on-surface border border-border-subtle font-bold">
+                          {shortcut}
+                        </kbd>
+                      )}
+                    </span>
                     <span className="text-xs font-normal opacity-90">{desc}</span>
                   </button>
                 ))}

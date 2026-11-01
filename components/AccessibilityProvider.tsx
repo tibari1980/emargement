@@ -14,6 +14,7 @@ interface AccessibilityState {
   setFontSize: (size: FontSize) => void;
   setContrast: (contrast: ContrastMode) => void;
   setSpacing: (spacing: SpacingMode) => void;
+  toggleDarkMode: () => void;
   resetPreferences: () => void;
 }
 
@@ -56,6 +57,7 @@ const AccessibilityContext = createContext<AccessibilityState>({
   setFontSize: () => {},
   setContrast: () => {},
   setSpacing: () => {},
+  toggleDarkMode: () => {},
   resetPreferences: () => {},
 });
 
@@ -111,6 +113,39 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
     announce(labels[mode]);
   };
 
+  const toggleDarkMode = () => {
+    setContrast(contrast === "dark" ? "standard" : "dark");
+  };
+
+  // Raccourci clavier global d'accessibilité :
+  // Alt + M (Mode sombre / clair) ou Alt + Shift + D
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ne pas déclencher si l'utilisateur saisit dans un champ de formulaire
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      // Alt + M ou Alt + Shift + D : bascule entre mode standard et mode sombre
+      const isAltM = e.altKey && !e.ctrlKey && !e.metaKey && (e.key === "m" || e.key === "M");
+      const isAltShiftD = e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && (e.key === "d" || e.key === "D");
+
+      if (isAltM || isAltShiftD) {
+        e.preventDefault();
+        setContrast(contrast === "dark" ? "standard" : "dark");
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [contrast]);
+
   const setSpacing = (mode: SpacingMode) => {
     setPrefs((prev) => ({ ...prev, spacing: mode }));
     const labels: Record<SpacingMode, string> = {
@@ -134,6 +169,7 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
         setFontSize,
         setContrast,
         setSpacing,
+        toggleDarkMode,
         resetPreferences,
       }}
     >
