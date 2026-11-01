@@ -26,8 +26,11 @@ export const metadata: Metadata = {
   description:
     "Plateforme officielle d'émargement et de suivi pédagogique du Centre de Formation et de Réadaptation Professionnelle (CFRP) Valentin Haüy. 100% accessible RGAA 4.1 niveau AAA pour les personnes aveugles et malvoyantes.",
   applicationName: "Émargement Valentin Haüy",
-  authors: [{ name: "Association Valentin Haüy", url: "https://www.avh.asso.fr" }],
-  creator: "ESRP / CFRP Valentin Haüy",
+  authors: [
+    { name: "Tibari Zeroual — Ingénieur de développement" },
+    { name: "Association Valentin Haüy", url: "https://www.avh.asso.fr" },
+  ],
+  creator: "Tibari Zeroual — Ingénieur de développement (ESRP / CFRP Valentin Haüy)",
   publisher: "Association Valentin Haüy",
   keywords: [
     "Valentin Haüy",
