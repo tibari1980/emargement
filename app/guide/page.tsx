@@ -831,6 +831,103 @@ function GuidePageContent() {
             </div>
           </article>
 
+          {/* Référentiel complet des raccourcis clavier */}
+          <article className="rounded-2xl border border-secondary/30 bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-3 border-b border-border-subtle pb-3">
+              <h3 className="text-lg sm:text-xl font-bold text-primary flex items-center gap-2">
+                <Keyboard className="h-5 w-5 text-secondary" aria-hidden="true" />
+                <span>Référentiel complet des raccourcis clavier de l&apos;application</span>
+              </h3>
+              <span className="text-xs font-bold text-secondary bg-surface-container px-2.5 py-1 rounded-full shrink-0">
+                Navigation 100% sans souris
+              </span>
+            </div>
+
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              Pour garantir une efficacité maximale aux personnes aveugles, malvoyantes ou naviguant exclusivement au clavier,
+              l&apos;application dispose de raccourcis universels et métier directement actifs :
+            </p>
+
+            <div className="overflow-x-auto rounded-xl border border-border-subtle">
+              <table className="w-full text-left border-collapse text-xs sm:text-sm min-w-[620px]">
+                <thead>
+                  <tr className="bg-surface-container border-b border-border-subtle font-bold text-primary">
+                    <th scope="col" className="p-3">Raccourci clavier</th>
+                    <th scope="col" className="p-3">Contexte</th>
+                    <th scope="col" className="p-3">Action exécutée</th>
+                    <th scope="col" className="p-3">Retour vocal (Lecteur d&apos;écran)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-subtle bg-surface-container-lowest">
+                  <tr>
+                    <td className="p-3 whitespace-nowrap font-mono font-bold text-primary">
+                      <kbd className="px-2 py-1 rounded bg-surface-container border text-xs">Alt + M</kbd>
+                    </td>
+                    <td className="p-3 font-semibold text-secondary">Global (Toutes pages)</td>
+                    <td className="p-3 text-on-surface">Bascule instantanément entre le <strong>Mode Standard</strong> et le <strong>Mode Sombre</strong>.</td>
+                    <td className="p-3 text-on-surface-variant italic">« Thème sombre à fort contraste activé » / « Contraste standard activé »</td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 whitespace-nowrap font-mono font-bold text-primary">
+                      <kbd className="px-2 py-1 rounded bg-surface-container border text-xs">Alt + A</kbd>
+                    </td>
+                    <td className="p-3 font-semibold text-secondary">Global (Toutes pages)</td>
+                    <td className="p-3 text-on-surface">Ouvre la boîte de dialogue des <strong>Options d&apos;accessibilité</strong> (taille 100%, 125%, 140%, contrastes, espacements).</td>
+                    <td className="p-3 text-on-surface-variant italic">Ouvre le dialogue avec focus automatique sur la fermeture.</td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 whitespace-nowrap font-mono font-bold text-primary">
+                      <kbd className="px-2 py-1 rounded bg-surface-container border text-xs">Alt + N</kbd>
+                    </td>
+                    <td className="p-3 font-semibold text-secondary">Global (Toutes pages)</td>
+                    <td className="p-3 text-on-surface">Ouvre ou referme le <strong>Centre de notifications</strong> (alertes d&apos;émargement, justificatifs en attente).</td>
+                    <td className="p-3 text-on-surface-variant italic">Vocalise le nombre d&apos;alertes non lues.</td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 whitespace-nowrap font-mono font-bold text-primary">
+                      <kbd className="px-2 py-1 rounded bg-surface-container border text-xs">Échap (Escape)</kbd>
+                    </td>
+                    <td className="p-3 font-semibold text-secondary">Modales &amp; Menus</td>
+                    <td className="p-3 text-on-surface">Ferme immédiatement la fenêtre modale, le tiroir mobile ou le menu ouvert et replace le focus sur le déclencheur.</td>
+                    <td className="p-3 text-on-surface-variant italic">Fermeture propre avec repositionnement du focus.</td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 whitespace-nowrap font-mono font-bold text-status-present">
+                      <kbd className="px-2 py-1 rounded bg-status-present-bg text-status-present border border-status-present-border text-xs">P</kbd>
+                    </td>
+                    <td className="p-3 font-semibold text-primary">Feuille d&apos;émargement</td>
+                    <td className="p-3 text-on-surface">Sur une ligne ou carte stagiaire : valide instantanément la présence (<strong>Présent</strong>).</td>
+                    <td className="p-3 text-on-surface-variant italic">« [Nom du stagiaire] marqué présent »</td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 whitespace-nowrap font-mono font-bold text-status-late">
+                      <kbd className="px-2 py-1 rounded bg-status-late-bg text-status-late border border-status-late-border text-xs">R</kbd>
+                    </td>
+                    <td className="p-3 font-semibold text-primary">Feuille d&apos;émargement</td>
+                    <td className="p-3 text-on-surface">Sur une ligne ou carte stagiaire : marque le stagiaire <strong>En retard</strong> et active la saisie de l&apos;heure d&apos;arrivée.</td>
+                    <td className="p-3 text-on-surface-variant italic">« [Nom du stagiaire] marqué en retard »</td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 whitespace-nowrap font-mono font-bold text-status-absent">
+                      <kbd className="px-2 py-1 rounded bg-status-absent-bg text-status-absent border border-status-absent-border text-xs">A</kbd>
+                    </td>
+                    <td className="p-3 font-semibold text-primary">Feuille d&apos;émargement</td>
+                    <td className="p-3 text-on-surface">Sur une ligne ou carte stagiaire : valide l&apos;absence injustifiée (<strong>Absent</strong>).</td>
+                    <td className="p-3 text-on-surface-variant italic">« [Nom du stagiaire] marqué absent »</td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 whitespace-nowrap font-mono font-bold text-primary">
+                      <kbd className="px-2 py-1 rounded bg-surface-container border text-xs">Tab</kbd> / <kbd className="px-2 py-1 rounded bg-surface-container border text-xs">Shift + Tab</kbd>
+                    </td>
+                    <td className="p-3 font-semibold text-secondary">Navigation séquentielle</td>
+                    <td className="p-3 text-on-surface">Passe à l&apos;élément interactif suivant ou précédent avec indicateur de focus haute visibilité (anneau double bicolore).</td>
+                    <td className="p-3 text-on-surface-variant italic">Vocalise l&apos;intitulé et le rôle de l&apos;élément sélectionné.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
           {/* Lecteurs d'écran */}
           <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
             <h3 className="text-lg font-bold text-primary flex items-center gap-2">
@@ -951,6 +1048,34 @@ function GuidePageContent() {
             {expandedFaq["nvda"] && (
               <div id="faq-ans-nvda" className="p-4 pt-1 text-xs sm:text-sm text-on-surface-variant border-t border-border-subtle bg-surface-container-lowest">
                 En entrant sur la page d&apos;émargement, appuyez sur <kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">B</kbd> pour atteindre le bouton « Marquer tous présents », ou naviguez dans la liste des stagiaires avec <kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">Tab</kbd> et pressez la touche <kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">P</kbd> pour valider un présent. Le lecteur vocal vous confirme immédiatement la validation.
+              </div>
+            )}
+          </div>
+
+          {/* FAQ 5 */}
+          <div className="rounded-xl border border-border-subtle bg-surface-container-low overflow-hidden">
+            <button
+              type="button"
+              onClick={() => toggleFaq("shortcuts")}
+              aria-expanded={expandedFaq["shortcuts"] ?? false}
+              aria-controls="faq-ans-shortcuts"
+              className={`w-full flex items-center justify-between p-4 text-left font-bold text-sm text-primary hover:bg-surface-container transition-colors ${focusRing}`}
+            >
+              <span>Quels sont les raccourcis clavier pour basculer en mode sombre et naviguer sans souris ?</span>
+              {expandedFaq["shortcuts"] ? <ChevronUp className="h-5 w-5 text-secondary shrink-0" /> : <ChevronDown className="h-5 w-5 text-secondary shrink-0" />}
+            </button>
+            {expandedFaq["shortcuts"] && (
+              <div id="faq-ans-shortcuts" className="p-4 pt-1 text-xs sm:text-sm text-on-surface-variant border-t border-border-subtle bg-surface-container-lowest flex flex-col gap-2">
+                <p>
+                  L&apos;application intègre des raccourcis universels utilisables depuis n&apos;importe quelle page :
+                </p>
+                <ul className="list-disc pl-5 flex flex-col gap-1 text-xs text-on-surface">
+                  <li><kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container border">Alt + M</kbd> : Bascule instantanément entre le <strong>Mode Standard</strong> et le <strong>Mode Sombre</strong> (avec annonce vocale).</li>
+                  <li><kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container border">Alt + A</kbd> : Ouvre la boîte de dialogue d&apos;accessibilité (contrastes, tailles de police 100%, 125%, 140%, interligne).</li>
+                  <li><kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container border">Alt + N</kbd> : Ouvre ou referme le centre de notifications et d&apos;alertes.</li>
+                  <li><kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container border">Échap</kbd> : Ferme toute boîte de dialogue ou fenêtre modale ouverte.</li>
+                  <li><kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container border">P</kbd>, <kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container border">R</kbd>, <kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container border">A</kbd> : Sur une feuille d&apos;émargement, valide directement un stagiaire Présent (P), Retard (R) ou Absent (A).</li>
+                </ul>
               </div>
             )}
           </div>

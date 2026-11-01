@@ -1,7 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { Accessibility } from "lucide-react";
+import { Accessibility, Keyboard } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAccessibility, type ContrastMode, type FontSize, type SpacingMode } from "./AccessibilityProvider";
 import { Button, focusRing } from "./ui/Button";
@@ -172,6 +172,39 @@ export function AccessibilityToolbar() {
                 ))}
               </div>
             </fieldset>
+            {/* Raccourcis clavier pratiques */}
+            <div className="rounded-xl border border-secondary/20 bg-surface-container-low p-3.5 flex flex-col gap-2.5">
+              <div className="flex items-center gap-2 text-xs sm:text-sm font-bold text-primary">
+                <Keyboard className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+                <span>Raccourcis clavier rapides de l&apos;application</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-surface-container-lowest border border-border-subtle">
+                  <span className="text-on-surface">Basculer Mode Sombre / Standard</span>
+                  <kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container text-primary border border-border-subtle text-[11px] shrink-0">Alt + M</kbd>
+                </div>
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-surface-container-lowest border border-border-subtle">
+                  <span className="text-on-surface">Centre de notifications</span>
+                  <kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container text-primary border border-border-subtle text-[11px] shrink-0">Alt + N</kbd>
+                </div>
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-surface-container-lowest border border-border-subtle">
+                  <span className="text-on-surface">Ouvrir ce menu d&apos;accessibilité</span>
+                  <kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container text-primary border border-border-subtle text-[11px] shrink-0">Alt + A</kbd>
+                </div>
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-surface-container-lowest border border-border-subtle">
+                  <span className="text-on-surface">Fermer dialogue ou modale</span>
+                  <kbd className="font-mono font-bold px-1.5 py-0.5 rounded bg-surface-container text-primary border border-border-subtle text-[11px] shrink-0">Échap</kbd>
+                </div>
+                <div className="flex items-center justify-between gap-2 p-2 rounded-lg bg-surface-container-lowest border border-border-subtle sm:col-span-2">
+                  <span className="text-on-surface">Feuille d&apos;émargement (sur une ligne stagiaire)</span>
+                  <div className="flex items-center gap-1 shrink-0 font-mono text-[11px]">
+                    <kbd className="font-bold px-1.5 py-0.5 rounded bg-status-present-bg text-status-present border border-status-present-border">P</kbd>
+                    <kbd className="font-bold px-1.5 py-0.5 rounded bg-status-late-bg text-status-late border border-status-late-border">R</kbd>
+                    <kbd className="font-bold px-1.5 py-0.5 rounded bg-status-absent-bg text-status-absent border border-status-absent-border">A</kbd>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-border-subtle pt-4">

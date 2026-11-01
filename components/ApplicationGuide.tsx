@@ -151,6 +151,22 @@ const STEPS: GuideStep[] = [
       "Export Excel (.xlsx) pour traitement administratif et comptabilité.",
     ],
   },
+  {
+    number: 9,
+    title: "Accessibilité universelle & Raccourcis clavier",
+    badge: "RGAA 4.1 AAA",
+    role: "Tous profils",
+    href: "/guide?role=accessibility",
+    description:
+      "L'application est 100% accessible au clavier et optimisée pour les lecteurs d'écran (NVDA, JAWS, VoiceOver, Orca).",
+    checklist: [
+      "Alt + M : Basculer instantanément entre le Mode Standard et le Mode Sombre.",
+      "Alt + A : Ouvrir les options d'accessibilité visuelle (taille du texte, contrastes, interligne).",
+      "Alt + N : Ouvrir et fermer le centre de notifications et d'alertes.",
+      "P, R, A : Sur une feuille d'émargement, marquer directement un stagiaire Présent (P), Retard (R) ou Absent (A).",
+      "Échap : Fermer immédiatement toute modale, menu ou panneau ouvert.",
+    ],
+  },
 ];
 
 export function ApplicationGuide({ defaultOpen = false }: { defaultOpen?: boolean }) {
