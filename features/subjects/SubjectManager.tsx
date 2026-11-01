@@ -131,11 +131,87 @@ export function SubjectManager({ actor }: { actor: Actor }) {
           <Alert tone="info">Aucune matière pour le moment.</Alert>
         ) : (
           <>
+            {/* Vue Cartes sur Smartphone (< 768px) */}
+            <div className="grid gap-3 md:hidden">
+              {paginatedSubjects.map((s) => (
+                <article
+                  key={s.id}
+                  className="rounded-xl border border-border-subtle bg-surface-container-lowest p-4 shadow-xs flex flex-col gap-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-on-surface text-base leading-snug">{s.title}</h3>
+                      {s.description && (
+                        <p className="text-xs text-on-surface-variant mt-0.5">{s.description}</p>
+                      )}
+                    </div>
+                    {s.active === false ? (
+                      <span className="inline-flex shrink-0 rounded bg-status-late-bg px-2 py-0.5 text-xs font-bold text-status-late">
+                        Archivée
+                      </span>
+                    ) : (
+                      <span className="inline-flex shrink-0 rounded bg-status-present-bg px-2 py-0.5 text-xs font-bold text-status-present">
+                        Active
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="rounded-lg bg-surface-container-low p-2.5 text-xs">
+                    <span className="font-semibold text-on-surface-variant">Formateurs habilités : </span>
+                    <span className="font-bold text-on-surface">
+                      {s.trainerIds?.length ? s.trainerIds.map(lookups.personName).join(", ") : "Tous les formateurs"}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                    <Button
+                      variant="secondary"
+                      className="flex-1 sm:flex-none !min-h-10 !px-3 text-xs rounded-xl"
+                      onClick={() => setEditing(s)}
+                      aria-label={`Modifier ${s.title}`}
+                    >
+                      Modifier
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="flex-1 sm:flex-none !min-h-10 !px-3 text-xs rounded-xl"
+                      aria-label={`${s.active === false ? "Réactiver" : "Archiver"} ${s.title}`}
+                      onClick={() =>
+                        run(
+                          () => updateSubject(actor, s, { active: s.active === false }),
+                          `Matière ${s.title} ${s.active === false ? "réactivée" : "archivée"}.`,
+                        )
+                      }
+                    >
+                      {s.active === false ? "Réactiver" : "Archiver"}
+                    </Button>
+                    {canDelete && (
+                      <ConfirmDialog
+                        triggerLabel="Supprimer"
+                        triggerAccessibleLabel={`Supprimer définitivement la matière ${s.title}`}
+                        triggerVariant="danger"
+                        title={`Supprimer définitivement « ${s.title} » ?`}
+                        description={`Attention : Cette action est irréversible. La matière « ${s.title} » sera définitivement supprimée de l'établissement ainsi que ses créneaux associés dans les emplois du temps.`}
+                        confirmLabel="Supprimer définitivement"
+                        onConfirm={async () => {
+                          await run(
+                            () => deleteSubject(actor, s),
+                            `Matière « ${s.title} » définitivement supprimée.`,
+                          );
+                        }}
+                      />
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {/* Vue Tableau sur Tablette & Ordinateur (>= 768px) */}
             <div
               tabIndex={0}
               role="region"
               aria-label="Tableau de la liste des matières"
-              className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
+              className="hidden md:block overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
             >
               <table className="w-full border-collapse text-left text-sm min-w-[550px]">
                 <caption className="sr-only">Liste des matières</caption>

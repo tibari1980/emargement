@@ -18,10 +18,12 @@ export function Button({
   type = "button",
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+  const hasDisplayClass = /\b(hidden|flex|inline-flex|block|grid|inline-block)\b/.test(className);
+  const displayClass = hasDisplayClass ? "" : "inline-flex";
   return (
     <button
       type={type}
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border-2 px-4 py-2 font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${focusRing} ${VARIANTS[variant]} ${className}`}
+      className={`${displayClass} min-h-11 items-center justify-center gap-2 rounded-xl border-2 px-4 py-2 font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${focusRing} ${VARIANTS[variant]} ${className}`}
       {...props}
     />
   );

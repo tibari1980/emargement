@@ -460,11 +460,44 @@ export function TraineeImporter({ actor }: { actor: Actor }) {
 
           {result.trainees.length > 0 ? (
             <>
+              {/* Vue Cartes sur Smartphone (< 768px) */}
               <div
                 tabIndex={0}
                 role="region"
                 aria-label={`Aperçu des ${result.trainees.length} stagiaires à inscrire`}
-                className="max-h-96 overflow-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
+                className="md:hidden max-h-96 overflow-y-auto grid gap-2.5 pr-1 focus:outline-none focus:ring-4 focus:ring-focus-outer"
+              >
+                {result.trainees.map((t: ParsedTrainee) => (
+                  <article
+                    key={t.line}
+                    className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex items-center justify-between gap-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[11px] font-bold px-1.5 py-0.5 rounded bg-surface-container text-on-surface-variant">
+                          L.{t.line}
+                        </span>
+                        <span className="font-bold text-sm text-on-surface truncate">
+                          {t.fullName}
+                        </span>
+                      </div>
+                      <p className="text-xs text-on-surface-variant mt-0.5 truncate">
+                        {t.email ?? <span className="italic">Email non renseigné</span>}
+                      </p>
+                    </div>
+                    <span className="inline-flex shrink-0 rounded-full bg-status-present-bg px-2.5 py-0.5 text-xs font-bold text-status-present">
+                      Prêt
+                    </span>
+                  </article>
+                ))}
+              </div>
+
+              {/* Vue Tableau sur Tablette & Ordinateur (>= 768px) */}
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label={`Aperçu des ${result.trainees.length} stagiaires à inscrire`}
+                className="hidden md:block max-h-96 overflow-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
               >
                 <table className="w-full border-collapse text-left text-sm min-w-[500px]">
                   <caption className="sr-only">Liste des stagiaires à inscrire</caption>
@@ -522,7 +555,7 @@ export function TraineeImporter({ actor }: { actor: Actor }) {
                 <Button
                   onClick={confirmImport}
                   disabled={!formation || busy}
-                  className="min-h-12 !px-6 text-sm font-bold shadow-sm"
+                  className="w-full sm:w-auto min-h-12 !px-6 text-sm font-bold shadow-sm"
                 >
                   {busy
                     ? "Inscription en cours…"

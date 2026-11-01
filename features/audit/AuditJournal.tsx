@@ -159,11 +159,57 @@ export function AuditJournal() {
               <Alert tone="info">Aucune action sur cette période.</Alert>
             ) : (
               <>
+                {/* Vue Cartes sur Smartphone (< 768px) */}
+                <div className="grid gap-3 md:hidden">
+                  {paginatedLogs.map((log) => (
+                    <article
+                      key={log.id}
+                      className="rounded-xl border border-border-subtle bg-surface-container-lowest p-4 shadow-xs flex flex-col gap-2.5"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-mono text-xs font-semibold text-on-surface-variant">
+                          {formatAt(log)}
+                        </span>
+                        <span className="inline-flex rounded-full bg-surface-container-high px-2.5 py-0.5 text-xs font-semibold text-primary">
+                          {AUDIT_ENTITY_LABELS[log.entityType] ?? log.entityType}
+                        </span>
+                      </div>
+
+                      <div className="text-xs">
+                        <span className="font-bold text-on-surface">{log.actorName}</span>
+                        <span className="text-on-surface-variant">
+                          {" "}
+                          ({ROLE_LABELS[log.actorRole] ?? log.actorRole})
+                        </span>
+                      </div>
+
+                      <div className="rounded-lg bg-surface-container-low p-2.5 text-xs sm:text-sm text-on-surface">
+                        <p className="font-medium leading-snug">{log.summary}</p>
+                        {log.changes && (
+                          <details className="mt-2 pt-1.5 border-t border-border-subtle/60">
+                            <summary className="cursor-pointer font-semibold text-secondary text-xs hover:underline">
+                              Détail des modifications
+                            </summary>
+                            <ul className="ml-4 mt-1.5 list-disc text-xs text-on-surface-variant space-y-0.5">
+                              {Object.entries(log.changes).map(([field, c]) => (
+                                <li key={field} className="break-words">
+                                  <strong>{field}</strong> : {formatValue(c.from)} → {formatValue(c.to)}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                {/* Vue Tableau sur Tablette & Ordinateur (>= 768px) */}
                 <div
                   tabIndex={0}
                   role="region"
                   aria-label={`Tableau du journal d'activité, ${logs.length} actions`}
-                  className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
+                  className="hidden md:block overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
                 >
                   <table className="w-full border-collapse text-left text-sm min-w-[650px]">
                     <caption className="sr-only">Journal d&apos;activité, du plus récent au plus ancien</caption>

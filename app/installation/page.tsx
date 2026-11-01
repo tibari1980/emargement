@@ -72,10 +72,10 @@ export default function InstallationPage() {
         </Alert>
       )}
       {initialised === false && (
-        <form onSubmit={submit} noValidate className="flex flex-col gap-5 rounded-lg border-2 border-gray-300 bg-white p-6">
+        <form onSubmit={submit} noValidate className="flex flex-col gap-5 rounded-2xl border border-border-subtle bg-surface-container-lowest p-4 sm:p-8 shadow-xs">
           {error && <Alert tone="error">{error}</Alert>}
           <TextField label="Nom complet" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" required />
-          <TextField label="Adresse email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
+          <TextField label="Adresse email" type="email" inputMode="email" autoCapitalize="none" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
           <PasswordField
             label="Mot de passe"
             value={password}
@@ -91,7 +91,7 @@ export default function InstallationPage() {
             autoComplete="new-password"
             required
           />
-          <Button type="submit" disabled={busy}>
+          <Button type="submit" disabled={busy} className="w-full min-h-12">
             {busy ? "Création du compte…" : "Créer le compte administrateur"}
           </Button>
         </form>

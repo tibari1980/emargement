@@ -125,13 +125,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="mx-auto max-w-md py-6 sm:py-12">
-      <div className="mb-6 flex flex-col items-center text-center">
+    <div className="mx-auto w-full max-w-md py-4 sm:py-10">
+      <div className="mb-5 sm:mb-6 flex flex-col items-center text-center">
         <BrandLogoEye size="lg" className="mb-3 shadow-md" />
-        <h1 className="text-2xl sm:text-3xl font-bold text-primary tracking-tight">
+        <h1 className="text-xl sm:text-3xl font-bold text-primary tracking-tight">
           ESRP / CFRP Valentin Haüy
         </h1>
-        <p className="mt-1 text-sm text-on-surface-variant">
+        <p className="mt-1 text-xs sm:text-sm text-on-surface-variant">
           Plateforme d&apos;Émargement &amp; Suivi Pédagogique
         </p>
       </div>
@@ -150,11 +150,11 @@ export default function LoginPage() {
 
       <form
         onSubmit={handleSubmit}
-        className="flex flex-col gap-5 rounded-2xl border border-border-subtle bg-surface-container-lowest p-6 sm:p-8 shadow-xs"
+        className="flex flex-col gap-5 rounded-2xl border border-border-subtle bg-surface-container-lowest p-4 sm:p-8 shadow-xs"
         noValidate
       >
         <div className="border-b border-border-subtle pb-3">
-          <h2 className="text-xl font-bold text-primary">Connexion à votre espace</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-primary">Connexion à votre espace</h2>
           <p className="text-xs text-on-surface-variant mt-0.5">
             Identifiez-vous avec votre adresse email professionnelle.
           </p>
@@ -166,6 +166,9 @@ export default function LoginPage() {
         <TextField
           label="Adresse email"
           type="email"
+          inputMode="email"
+          autoCapitalize="none"
+          autoCorrect="off"
           autoComplete="username"
           required
           value={email}
@@ -184,7 +187,7 @@ export default function LoginPage() {
           <Button
             type="submit"
             disabled={busy || lockoutSeconds > 0}
-            className="w-full"
+            className="w-full min-h-12"
             aria-live="polite"
           >
             {lockoutSeconds > 0
@@ -193,12 +196,17 @@ export default function LoginPage() {
                 ? "Connexion en cours…"
                 : "Se connecter"}
           </Button>
-          <Button variant="secondary" onClick={handleReset} className="w-full" disabled={busy || lockoutSeconds > 0}>
+          <Button
+            variant="secondary"
+            onClick={handleReset}
+            className="w-full min-h-11"
+            disabled={busy || lockoutSeconds > 0}
+          >
             Mot de passe oublié
           </Button>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-border-subtle text-center text-xs text-on-surface-variant">
+        <div className="mt-2 pt-3 border-t border-border-subtle text-center text-xs text-on-surface-variant">
           <Link
             href="/politique-confidentialite"
             className={`underline hover:text-primary ${focusRing}`}

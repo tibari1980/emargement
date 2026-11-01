@@ -98,12 +98,72 @@ export function CalendarManager({ actor }: { actor: Actor }) {
         {holidays.length === 0 ? (
           <Alert tone="info">Aucun jour de fermeture enregistré.</Alert>
         ) : (
-          <div
-            tabIndex={0}
-            role="region"
-            aria-label={`Tableau des ${holidays.length} jours de fermeture enregistrés`}
-            className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
-          >
+          <>
+            {/* Vue Cartes sur Smartphone (< 768px) */}
+            <div className="grid gap-3 md:hidden">
+              {holidays.map((h) => (
+                <article
+                  key={h.id}
+                  className="rounded-xl border border-border-subtle bg-surface-container-lowest p-4 shadow-xs flex flex-col gap-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-bold text-on-surface text-base leading-snug">{h.title}</h3>
+                    <span
+                      className={`inline-flex shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                        h.type === "holiday"
+                          ? "bg-status-late-bg text-status-late"
+                          : "bg-surface-container-high text-primary"
+                      }`}
+                    >
+                      {HOLIDAY_TYPE_LABELS[h.type]}
+                    </span>
+                  </div>
+
+                  <div className="rounded-lg bg-surface-container-low p-2.5 text-xs flex flex-col gap-1">
+                    <div>
+                      <span className="font-semibold text-on-surface-variant">Période : </span>
+                      <span className="font-bold text-on-surface">
+                        {h.startDate === h.endDate
+                          ? formatLongDate(h.startDate)
+                          : `du ${formatLongDate(h.startDate)} au ${formatLongDate(h.endDate)}`}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-on-surface-variant">Jours ouvrés exclus : </span>
+                      <span className="font-bold text-primary">{weekdaysCount(h)} j</span>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <ConfirmDialog
+                      triggerLabel="Supprimer"
+                      triggerAccessibleLabel={`Supprimer ${h.title}`}
+                      title="Supprimer ce jour de fermeture ?"
+                      description={`« ${h.title} » ne sera plus exclu des heures théoriques.`}
+                      confirmLabel="Supprimer"
+                      onConfirm={async () => {
+                        try {
+                          await deleteHoliday(actor, h);
+                          await reload();
+                          announce(`${h.title} supprimé du calendrier.`);
+                          setTimeout(() => listHeading.current?.focus(), 0);
+                        } catch {
+                          announce("Échec de la suppression.", "assertive");
+                        }
+                      }}
+                    />
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            {/* Vue Tableau sur Tablette & Ordinateur (>= 768px) */}
+            <div
+              tabIndex={0}
+              role="region"
+              aria-label={`Tableau des ${holidays.length} jours de fermeture enregistrés`}
+              className="hidden md:block overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
+            >
             <table className="w-full border-collapse text-left text-sm min-w-[500px]">
               <caption className="sr-only">Jours fériés et périodes de fermeture, par date</caption>
               <thead className="border-b border-border-subtle bg-surface-container text-xs font-bold uppercase text-on-surface">
@@ -156,6 +216,7 @@ export function CalendarManager({ actor }: { actor: Actor }) {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </section>
     </div>

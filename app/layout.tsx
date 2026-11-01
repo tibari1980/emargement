@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Atkinson_Hyperlegible } from "next/font/google";
 import Script from "next/script";
 import { AccessibleAnnouncer } from "@/components/AccessibleAnnouncer";
@@ -16,6 +16,12 @@ const atkinson = Atkinson_Hyperlegible({
 });
 
 const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://emargement-valentin-hauy.fr";
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+};
 
 export const metadata: Metadata = {
   metadataBase: new URL(baseUrl),
@@ -171,7 +177,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       {/* Browser extensions add attributes to <body> before React hydrates. */}
-      <body className="flex min-h-full flex-col bg-surface text-on-surface font-sans antialiased selection:bg-focus-outer selection:text-navy-deep" suppressHydrationWarning>
+      <body className="flex min-h-full w-full max-w-[100vw] overflow-x-hidden flex-col bg-surface text-on-surface font-sans antialiased selection:bg-focus-outer selection:text-navy-deep" suppressHydrationWarning>
         {/* Anti-FOUC script: Immediately applies user contrast and font size before paint to eliminate white flash on F5 */}
         <Script
           id="avh-a11y-init"
@@ -231,7 +237,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AccessibilityProvider>
             <AuthProvider>
               <AppHeader />
-              <main id="contenu" tabIndex={-1} className="mx-auto w-full max-w-[1440px] flex-1 px-4 sm:px-6 lg:px-8 py-6 outline-none">
+              <main id="contenu" tabIndex={-1} className="mx-auto w-full max-w-[1440px] flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 outline-none overflow-x-hidden">
                 {children}
               </main>
               <AppFooter />

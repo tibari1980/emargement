@@ -183,11 +183,97 @@ export function FormationManager({ actor }: { actor: Actor }) {
                 <GraduationCap className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
                 <span>{FORMATION_CATEGORY_LABELS[category]} ({list.length})</span>
               </h3>
+              {/* Vue Cartes sur Smartphone (< 768px) */}
+              <div className="grid gap-3 md:hidden">
+                {list.map((f) => (
+                  <article
+                    key={f.id}
+                    className="rounded-xl border border-border-subtle bg-surface-container-lowest p-4 shadow-xs flex flex-col gap-3"
+                  >
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {f.shortCode && (
+                        <span className="inline-flex rounded-md bg-primary-container px-2 py-0.5 text-xs font-bold text-on-primary">
+                          {f.shortCode}
+                        </span>
+                      )}
+                      {f.yearLevel && (
+                        <span className="inline-flex rounded-md bg-surface-container-high border border-border-subtle px-2 py-0.5 text-xs font-bold text-secondary">
+                          Année {f.yearLevel}{f.totalYears ? ` / ${f.totalYears}` : ""}
+                        </span>
+                      )}
+                      {f.academicYear && (
+                        <span className="inline-flex rounded-md bg-surface-container px-2 py-0.5 text-xs font-medium text-on-surface-variant">
+                          {f.academicYear}
+                        </span>
+                      )}
+                      {f.active === false && (
+                        <span className="inline-flex rounded bg-status-late-bg px-2 py-0.5 text-xs font-bold text-status-late">
+                          Archivée
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <h4 className="font-bold text-on-surface text-base leading-snug">{f.title}</h4>
+                      {f.certification && (
+                        <p className="text-xs text-on-surface-variant mt-0.5">{f.certification}</p>
+                      )}
+                    </div>
+
+                    <dl className="grid grid-cols-2 gap-2 rounded-lg bg-surface-container-low p-2.5 text-xs">
+                      <div>
+                        <dt className="font-semibold text-on-surface-variant">Durée</dt>
+                        <dd className="font-bold text-on-surface mt-0.5">
+                          {f.duration || getOfficialDuration(f.title)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="font-semibold text-on-surface-variant">Stagiaires inscrits</dt>
+                        <dd className="font-bold text-primary mt-0.5">
+                          {f.traineeIds?.length ?? 0} stagiaire{(f.traineeIds?.length ?? 0) > 1 ? "s" : ""}
+                        </dd>
+                      </div>
+                      <div className="col-span-2 border-t border-border-subtle/60 pt-1.5">
+                        <dt className="font-semibold text-on-surface-variant inline">Responsable : </dt>
+                        <dd className="font-bold text-on-surface inline">
+                          {f.pedagogicalLeadId ? lookups.personName(f.pedagogicalLeadId) : "Non attribué"}
+                        </dd>
+                      </div>
+                    </dl>
+
+                    <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
+                      <Button
+                        variant="secondary"
+                        className="flex-1 sm:flex-none !min-h-10 !px-3 text-xs rounded-xl"
+                        onClick={() => setEditing(f)}
+                        aria-label={`Modifier ${f.title}`}
+                      >
+                        Modifier
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="flex-1 sm:flex-none !min-h-10 !px-3 text-xs rounded-xl"
+                        aria-label={`${f.active === false ? "Réactiver" : "Archiver"} ${f.title}`}
+                        onClick={() =>
+                          run(
+                            () => updateFormation(actor, f, { active: f.active === false }),
+                            `Formation ${f.title} ${f.active === false ? "réactivée" : "archivée"}.`,
+                          )
+                        }
+                      >
+                        {f.active === false ? "Réactiver" : "Archiver"}
+                      </Button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              {/* Vue Tableau sur Tablette & Ordinateur (>= 768px) */}
               <div
                 tabIndex={0}
                 role="region"
                 aria-label={`Tableau des formations : ${FORMATION_CATEGORY_LABELS[category]}`}
-                className="overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
+                className="hidden md:block overflow-x-auto rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs focus:outline-none focus:ring-4 focus:ring-focus-outer"
               >
                 <table className="w-full border-collapse text-left text-sm min-w-[620px]">
                   <caption className="sr-only">{FORMATION_CATEGORY_LABELS[category]}</caption>

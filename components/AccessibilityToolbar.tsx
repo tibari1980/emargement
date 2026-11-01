@@ -18,42 +18,44 @@ export function AccessibilityToolbar() {
           id="btn-accessibilite"
           type="button"
           aria-label="Options d'accessibilité visuelle (taille du texte, contrastes, espacements)"
-          className={`inline-flex min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-high px-3 py-2 text-sm font-bold text-on-surface transition-colors hover:bg-surface-variant ${focusRing}`}
+          className={`inline-flex min-h-10 items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-border-subtle bg-surface-container-high px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-on-surface transition-colors hover:bg-surface-variant shrink-0 ${focusRing}`}
         >
           <Accessibility className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
-          <span className="text-xs sm:text-sm font-bold">A&#177;<span className="hidden sm:inline"> Accessibilité</span></span>
+          <span className="text-xs sm:text-sm font-bold whitespace-nowrap">
+            A&#177;<span className="hidden lg:inline"> Accessibilité</span>
+          </span>
         </button>
       </Dialog.Trigger>
 
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60" />
+        <Dialog.Overlay className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-xs" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[min(94vw,36rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-4 border-blue-900 bg-white p-5 sm:p-6 shadow-2xl focus:outline-none"
+          className="fixed left-1/2 top-1/2 z-[111] max-h-[90dvh] w-[min(94vw,36rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-4 sm:p-6 text-on-surface shadow-2xl focus:outline-none"
           aria-describedby="a11y-dialog-description"
         >
-          <div className="flex items-start justify-between gap-4 border-b-2 border-gray-200 pb-4">
-            <div>
-              <Dialog.Title className="text-2xl font-bold text-gray-950">
+          <div className="flex items-start justify-between gap-3 border-b border-border-subtle pb-4">
+            <div className="min-w-0">
+              <Dialog.Title className="text-lg sm:text-2xl font-bold text-primary">
                 Options d&apos;accessibilité visuelle
               </Dialog.Title>
-              <Dialog.Description id="a11y-dialog-description" className="mt-1 text-base text-gray-800">
+              <Dialog.Description id="a11y-dialog-description" className="mt-1 text-xs sm:text-sm text-on-surface-variant">
                 Adaptez l&apos;affichage de l&apos;application à vos besoins de lecture. Vos préférences sont conservées.
               </Dialog.Description>
             </div>
             <Dialog.Close asChild>
-              <Button variant="secondary" className="!min-h-10 text-sm">
+              <Button variant="secondary" className="!min-h-10 !px-3 text-xs sm:text-sm shrink-0">
                 Fermer
               </Button>
             </Dialog.Close>
           </div>
 
-          <div className="mt-6 flex flex-col gap-6">
+          <div className="mt-5 flex flex-col gap-5">
             {/* Taille de police */}
             <fieldset>
-              <legend className="mb-2 text-lg font-bold text-gray-950">
+              <legend className="mb-2 text-sm sm:text-base font-bold text-primary">
                 Taille du texte
               </legend>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {(
                   [
                     { id: "normal", label: "Standard (100%)", icon: "A" },
@@ -66,13 +68,13 @@ export function AccessibilityToolbar() {
                     type="button"
                     onClick={() => setFontSize(id as FontSize)}
                     aria-pressed={fontSize === id}
-                    className={`flex min-h-12 flex-col items-center justify-center rounded-lg border-2 p-2 font-bold transition-all ${
+                    className={`flex min-h-12 flex-row sm:flex-col items-center justify-between sm:justify-center gap-2 sm:gap-0.5 rounded-xl border-2 px-3 py-2 font-bold transition-all ${
                       fontSize === id
-                        ? "border-blue-900 bg-blue-900 text-white shadow-md ring-2 ring-blue-900 ring-offset-2"
-                        : "border-gray-400 bg-gray-50 text-gray-900 hover:bg-gray-100"
+                        ? "border-primary bg-primary-container text-on-primary shadow-xs"
+                        : "border-border-subtle bg-surface-container-low text-on-surface hover:bg-surface-container"
                     } ${focusRing}`}
                   >
-                    <span className="text-xl" aria-hidden="true">
+                    <span className="text-lg sm:text-xl font-extrabold" aria-hidden="true">
                       {icon}
                     </span>
                     <span className="text-xs">{label}</span>
@@ -83,7 +85,7 @@ export function AccessibilityToolbar() {
 
             {/* Contrastes */}
             <fieldset>
-              <legend className="mb-2 text-lg font-bold text-gray-950">
+              <legend className="mb-2 text-sm sm:text-base font-bold text-primary">
                 Contraste et couleurs
               </legend>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -99,10 +101,10 @@ export function AccessibilityToolbar() {
                     type="button"
                     onClick={() => setContrast(id as ContrastMode)}
                     aria-pressed={contrast === id}
-                    className={`flex min-h-14 flex-col items-center justify-center rounded-lg border-2 p-2 text-center font-bold transition-all ${
+                    className={`flex min-h-14 flex-col items-center justify-center rounded-xl border-2 p-2.5 text-center font-bold transition-all ${
                       contrast === id
-                        ? "border-blue-900 bg-blue-900 text-white shadow-md ring-2 ring-blue-900 ring-offset-2"
-                        : "border-gray-400 bg-gray-50 text-gray-900 hover:bg-gray-100"
+                        ? "border-primary bg-primary-container text-on-primary shadow-xs"
+                        : "border-border-subtle bg-surface-container-low text-on-surface hover:bg-surface-container"
                     } ${focusRing}`}
                   >
                     <span className="text-sm">{label}</span>
@@ -114,10 +116,10 @@ export function AccessibilityToolbar() {
 
             {/* Espacement de lecture */}
             <fieldset>
-              <legend className="mb-2 text-lg font-bold text-gray-950">
+              <legend className="mb-2 text-sm sm:text-base font-bold text-primary">
                 Espacement de lecture
               </legend>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {(
                   [
                     { id: "standard", label: "Standard", desc: "Interligne normal" },
@@ -129,10 +131,10 @@ export function AccessibilityToolbar() {
                     type="button"
                     onClick={() => setSpacing(id as SpacingMode)}
                     aria-pressed={spacing === id}
-                    className={`flex min-h-12 flex-col items-center justify-center rounded-lg border-2 p-2 font-bold transition-all ${
+                    className={`flex min-h-12 flex-col items-center justify-center rounded-xl border-2 p-2.5 font-bold transition-all ${
                       spacing === id
-                        ? "border-blue-900 bg-blue-900 text-white shadow-md ring-2 ring-blue-900 ring-offset-2"
-                        : "border-gray-400 bg-gray-50 text-gray-900 hover:bg-gray-100"
+                        ? "border-primary bg-primary-container text-on-primary shadow-xs"
+                        : "border-border-subtle bg-surface-container-low text-on-surface hover:bg-surface-container"
                     } ${focusRing}`}
                   >
                     <span className="text-sm">{label}</span>
@@ -143,12 +145,12 @@ export function AccessibilityToolbar() {
             </fieldset>
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t-2 border-gray-200 pt-4">
-            <Button variant="secondary" onClick={resetPreferences}>
+          <div className="mt-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 border-t border-border-subtle pt-4">
+            <Button variant="secondary" onClick={resetPreferences} className="w-full sm:w-auto">
               Rétablir les valeurs par défaut
             </Button>
             <Dialog.Close asChild>
-              <Button>Appliquer et fermer</Button>
+              <Button className="w-full sm:w-auto">Appliquer et fermer</Button>
             </Dialog.Close>
           </div>
         </Dialog.Content>

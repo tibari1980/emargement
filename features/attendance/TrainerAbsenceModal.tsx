@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertTriangle,
   BookOpen,
@@ -79,8 +80,22 @@ export function TrainerAbsenceModal({
   const [cancelNote, setCancelNote] = useState(override?.cancellationNote || "Absence imprévue du formateur titulaire");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
+  if (!isOpen || !mounted) return null;
 
   // Filter available substitute trainers (exclude primary trainer)
   const availableSubstitutes = trainers.filter((t) => t.id !== slot.trainerId);
@@ -183,14 +198,14 @@ export function TrainerAbsenceModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-xs"
       role="dialog"
       aria-modal="true"
       aria-labelledby="absence-modal-title"
     >
-      <div className="relative w-full max-w-2xl rounded-2xl border-2 border-border-subtle bg-surface-container-lowest p-6 shadow-2xl flex flex-col gap-5">
+      <div className="relative w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-4 sm:p-6 text-on-surface shadow-2xl flex flex-col gap-4 sm:gap-5">
         {/* En-tête */}
         <div className="flex items-start justify-between border-b border-border-subtle pb-4">
           <div className="flex items-center gap-3">
@@ -324,11 +339,11 @@ export function TrainerAbsenceModal({
               ))}
             </SelectField>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-border-subtle">
-              <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-border-subtle">
+              <Button type="button" variant="secondary" onClick={onClose} disabled={saving} className="w-full sm:w-auto">
                 Annuler
               </Button>
-              <Button type="submit" disabled={saving || !substituteId}>
+              <Button type="submit" disabled={saving || !substituteId} className="w-full sm:w-auto">
                 {saving ? "Enregistrement…" : "Confirmer le remplacement"}
               </Button>
             </div>
@@ -354,11 +369,11 @@ export function TrainerAbsenceModal({
               placeholder="Ex : Travaux pratiques en salle informatique adaptée / Exercices en autonomie"
             />
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-border-subtle">
-              <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-border-subtle">
+              <Button type="button" variant="secondary" onClick={onClose} disabled={saving} className="w-full sm:w-auto">
                 Annuler
               </Button>
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving} className="w-full sm:w-auto">
                 {saving ? "Activation en cours…" : "Activer les TP & Émarger"}
               </Button>
             </div>
@@ -396,17 +411,18 @@ export function TrainerAbsenceModal({
               placeholder="Ex : Formateur titulaire en arrêt maladie ce matin"
             />
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-border-subtle">
-              <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
+            <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 sm:gap-3 pt-3 border-t border-border-subtle">
+              <Button type="button" variant="secondary" onClick={onClose} disabled={saving} className="w-full sm:w-auto">
                 Retour
               </Button>
-              <Button type="submit" variant="danger" disabled={saving}>
+              <Button type="submit" variant="danger" disabled={saving} className="w-full sm:w-auto">
                 {saving ? "Annulation en cours…" : "Confirmer l'annulation du cours"}
               </Button>
             </div>
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

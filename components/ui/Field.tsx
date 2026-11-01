@@ -11,7 +11,7 @@ import {
 import { Eye, EyeOff } from "lucide-react";
 import { focusRing } from "./Button";
 
-const controlClass = `block w-full min-h-11 rounded-xl border-2 border-border-strong bg-surface-container-lowest px-3 py-2 text-on-surface shadow-xs ${focusRing} aria-[invalid=true]:border-status-absent aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-status-absent`;
+const controlClass = `block w-full min-w-0 min-h-11 rounded-xl border-2 border-border-strong bg-surface-container-lowest px-3 py-2 text-base sm:text-sm text-on-surface shadow-xs ${focusRing} aria-[invalid=true]:border-status-absent aria-[invalid=true]:ring-2 aria-[invalid=true]:ring-status-absent`;
 
 interface FieldProps {
   label: string;

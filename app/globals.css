@@ -2,6 +2,7 @@
 @import "tailwindcss";
 
 @theme {
+  --breakpoint-xs: 30rem;
   --font-sans: var(--font-atkinson), "Atkinson Hyperlegible", Verdana, Arial, Helvetica, sans-serif;
 
   /* Stitch Design Tokens (ESRP / CFRP Valentin Haüy) */
@@ -63,6 +64,8 @@
 /* Base font-size for low-vision readers, customizable via AccessibilityProvider */
 html {
   font-size: 112.5%;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 html.text-size-normal {
@@ -89,6 +92,17 @@ body {
   line-height: 1.5;
   background-color: var(--color-surface);
   color: var(--color-on-surface);
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Prevent iOS Safari auto-zoom on form fields on small viewports */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: max(1rem, 16px);
+  }
 }
 
 /* Material Symbols Outlined Icon Styling */
@@ -287,7 +301,10 @@ html.contrast-dark header,
 html.contrast-dark section,
 html.contrast-dark fieldset,
 html.contrast-dark table,
-html.contrast-dark div[class*="bg-white"] {
+html.contrast-dark dialog,
+html.contrast-dark [role="dialog"],
+html.contrast-dark div[class*="bg-white"],
+html.contrast-dark div[class*="bg-surface-container-lowest"] {
   background-color: #1e293b !important;
   color: #f8fafc !important;
   border-color: #475569 !important;

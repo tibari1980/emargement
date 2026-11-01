@@ -176,14 +176,14 @@ export function UserManager({ actor }: { actor: Actor }) {
     <div
       role="group"
       aria-label="Télécharger la liste des utilisateurs"
-      className="flex flex-wrap items-center gap-2"
+      className="grid grid-cols-1 xs:grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full sm:w-auto"
     >
       <button
         type="button"
         onClick={() => handleExportUsers("pdf")}
         disabled={exporting !== null || visible.length === 0}
         aria-label={`Télécharger la liste des ${visible.length} utilisateurs au format PDF`}
-        className={`inline-flex min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-lowest px-3.5 py-2 text-xs sm:text-sm font-bold text-primary shadow-xs hover:bg-surface-container transition-colors disabled:opacity-60 cursor-pointer ${focusRing}`}
+        className={`inline-flex w-full sm:w-auto justify-center min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-lowest px-3.5 py-2 text-xs sm:text-sm font-bold text-primary shadow-xs hover:bg-surface-container transition-colors disabled:opacity-60 cursor-pointer ${focusRing}`}
       >
         <FileText className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
         <span>{exporting === "pdf" ? "Génération PDF…" : "Télécharger PDF"}</span>
@@ -195,7 +195,7 @@ export function UserManager({ actor }: { actor: Actor }) {
         onClick={() => handleExportUsers("excel")}
         disabled={exporting !== null || visible.length === 0}
         aria-label={`Télécharger la liste des ${visible.length} utilisateurs au format Excel (.xlsx)`}
-        className={`inline-flex min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-lowest px-3.5 py-2 text-xs sm:text-sm font-bold text-primary shadow-xs hover:bg-surface-container transition-colors disabled:opacity-60 cursor-pointer ${focusRing}`}
+        className={`inline-flex w-full sm:w-auto justify-center min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-lowest px-3.5 py-2 text-xs sm:text-sm font-bold text-primary shadow-xs hover:bg-surface-container transition-colors disabled:opacity-60 cursor-pointer ${focusRing}`}
       >
         <FileSpreadsheet className="h-4 w-4 text-status-present shrink-0" aria-hidden="true" />
         <span>{exporting === "excel" ? "Génération Excel…" : "Télécharger Excel"}</span>
@@ -755,8 +755,8 @@ function CreateUserForm({
       aria-labelledby="create-user-heading"
       className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs"
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 id="create-user-heading" className="text-xl font-bold text-primary flex items-center gap-2">
+      <div className="mb-4 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-3">
+        <h2 id="create-user-heading" className="text-lg sm:text-xl font-bold text-primary flex items-center gap-2">
           <UserPlus className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
           <span>Créer un compte du personnel</span>
         </h2>

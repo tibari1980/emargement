@@ -47,11 +47,11 @@ export function ConfirmDialog({
         </Button>
       </Dialog.Trigger>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 max-h-[90vh] w-[min(94vw,32rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-5 sm:p-6 shadow-2xl">
-          <Dialog.Title className="text-xl sm:text-2xl font-bold text-primary">{title}</Dialog.Title>
-          <Dialog.Description className="mt-2 text-sm sm:text-base text-on-surface-variant">{description}</Dialog.Description>
-          <div className="mt-6 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3">
+        <Dialog.Overlay className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-xs" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[111] max-h-[90dvh] w-[min(94vw,32rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-4 sm:p-6 text-on-surface shadow-2xl">
+          <Dialog.Title className="text-lg sm:text-2xl font-bold text-primary">{title}</Dialog.Title>
+          <Dialog.Description className="mt-2 text-xs sm:text-base text-on-surface-variant">{description}</Dialog.Description>
+          <div className="mt-5 sm:mt-6 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-3">
             <Dialog.Close asChild>
               <Button variant="secondary" className="w-full sm:w-auto">Annuler</Button>
             </Dialog.Close>

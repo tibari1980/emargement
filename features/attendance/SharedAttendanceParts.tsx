@@ -191,12 +191,12 @@ export function ClosedOrWeekendBanner({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2.5 w-full md:w-auto shrink-0">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2.5 w-full md:w-auto shrink-0">
         <Button
           type="button"
           variant="secondary"
           onClick={() => onSelectDate(prevWorkDay)}
-          className="!min-h-11 !px-4 text-xs sm:text-sm font-bold inline-flex items-center gap-2"
+          className="w-full sm:w-auto justify-center !min-h-11 !px-4 text-xs sm:text-sm font-bold inline-flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           <span>Dernier jour ouvré ({formatLongDate(prevWorkDay)})</span>
@@ -204,7 +204,7 @@ export function ClosedOrWeekendBanner({
         <Button
           type="button"
           onClick={() => onSelectDate(nextWorkDay)}
-          className="!min-h-11 !px-4 text-xs sm:text-sm font-bold inline-flex items-center gap-2"
+          className="w-full sm:w-auto justify-center !min-h-11 !px-4 text-xs sm:text-sm font-bold inline-flex items-center gap-2"
         >
           <span>Prochain jour ouvré ({formatLongDate(nextWorkDay)})</span>
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
