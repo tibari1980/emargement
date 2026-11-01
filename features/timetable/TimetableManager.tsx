@@ -149,15 +149,6 @@ export function TimetableManager({ actor }: { actor: Actor }) {
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 <span>Ajouter un créneau</span>
               </Button>
-              <TimetableExportButtons
-                mode="formation"
-                targetId={formation.id}
-                targetTitle={formation.title}
-                slots={slots}
-                subjectTitle={lookups.subjectTitle}
-                formationTitle={lookups.formationTitle}
-                trainerName={lookups.trainerName}
-              />
             </div>
           )}
 

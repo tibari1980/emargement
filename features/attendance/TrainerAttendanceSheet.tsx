@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
@@ -43,10 +44,12 @@ import {
   getSessionTemporalStatus,
   nextWorkingDay,
   previousWorkingDay,
+  sessionsOn,
 } from "@/lib/domain/schedule";
 import {
   ROLE_LABELS,
   SESSION_CANCELLATION_LABELS,
+  WEEKDAY_LABELS,
   type Attendance,
   type AttendanceStatus,
   type SessionOverride,
@@ -57,7 +60,6 @@ import { useReferenceData } from "@/features/shared/useReferenceData";
 import {
   AttendanceKpiCards,
   AttendanceRosterSection,
-  buildDaySessions,
   ClosedOrWeekendBanner,
   defaultSession,
   LiveClock,
@@ -158,19 +160,25 @@ export function TrainerAttendanceSheet({ profile }: { profile: Actor }) {
     return deduplicateFormationsList(data.formations);
   }, [data]);
 
-  // Sessions du jour filtrées strictement pour ce formateur (titulaire ou remplaçant désigné)
+  // Tous les créneaux hebdomadaires attribués à ce formateur dans l'emploi du temps officiel
+  const myWeeklySlots = useMemo(() => {
+    if (!slots || !lookups) return [];
+    return slots
+      .filter((s) => lookups.formation(s.formationId)?.active !== false && s.trainerId === profile.id)
+      .sort((a, b) => {
+        if (a.weekday !== b.weekday) return a.weekday - b.weekday;
+        return a.startTime.localeCompare(b.startTime);
+      });
+  }, [slots, lookups, profile.id]);
+
+  // Sessions du jour filtrées strictement pour ce formateur (titulaire dans l'emploi du temps ou remplaçant désigné ce jour)
+  // Aucun créneau générique 09:00-17:00 d'autres filières n'est injecté dans l'espace d'un formateur.
   const allDaySessions = useMemo(() => {
     if (!slots || !lookups || !isValidIsoDate(date)) return [];
-    const combined = buildDaySessions({
-      slots,
-      date,
-      activeFormations,
-      defaultTrainerId: profile.id,
-      closedDays: lookups.closedDays,
-      formationLookup: lookups.formation,
-    });
+    const activeCustomSlots = slots.filter((s) => lookups.formation(s.formationId)?.active !== false);
+    const configuredOnDate = sessionsOn(activeCustomSlots, date, lookups.closedDays);
 
-    const trainerSessions = combined.filter((s) => {
+    const trainerSessions = configuredOnDate.filter((s) => {
       const ov = overrides.find((o) => o.slotId === s.id && o.date === date);
       const effectiveTrainer = ov?.substituteTrainerId || s.trainerId;
       return effectiveTrainer === profile.id || s.trainerId === profile.id;
@@ -185,13 +193,16 @@ export function TrainerAttendanceSheet({ profile }: { profile: Actor }) {
       if (a.startTime !== b.startTime) return a.startTime.localeCompare(b.startTime);
       return lookups.formationTitle(a.formationId).localeCompare(lookups.formationTitle(b.formationId), "fr");
     });
-  }, [slots, lookups, date, activeFormations, overrides, profile.id]);
+  }, [slots, lookups, date, overrides, profile.id]);
 
+  // Filières dans lesquelles ce formateur enseigne réellement (dans la semaine ou en remplacement ce jour)
   const availableFormations = useMemo(() => {
-    const allowedIds = new Set(allDaySessions.map((s) => s.formationId));
-    const filtered = activeFormations.filter((f) => allowedIds.has(f.id));
-    return filtered.length > 0 ? filtered : activeFormations;
-  }, [activeFormations, allDaySessions]);
+    const allowedIds = new Set<string>([
+      ...myWeeklySlots.map((s) => s.formationId),
+      ...allDaySessions.map((s) => s.formationId),
+    ]);
+    return activeFormations.filter((f) => allowedIds.has(f.id));
+  }, [activeFormations, myWeeklySlots, allDaySessions]);
 
   const groupedFormations = useMemo(() => groupFormations(availableFormations), [availableFormations]);
 
@@ -449,6 +460,20 @@ export function TrainerAttendanceSheet({ profile }: { profile: Actor }) {
   const overviewSessions = sessionsWithTrainees.length > 0 ? sessionsWithTrainees : allDaySessions;
   const firstPopulatedFormation = availableFormations.find((f) => (f.traineeIds?.length ?? 0) > 0);
 
+  // Recherche du jour de cours précédent et suivant dans l'emploi du temps du formateur
+  const findNearestTeachingDate = (direction: -1 | 1): string | null => {
+    if (!isValidIsoDate(date) || myWeeklySlots.length === 0) return null;
+    for (let step = 1; step <= 14; step++) {
+      const candidate = addDays(date, step * direction);
+      if (sessionsOn(myWeeklySlots, candidate, lookups.closedDays).length > 0) {
+        return candidate;
+      }
+    }
+    return null;
+  };
+  const prevTeachingDate = findNearestTeachingDate(-1);
+  const nextTeachingDate = findNearestTeachingDate(1);
+
   return (
     <div className="flex flex-col gap-6">
       {/* 1. BARRE DE CONTRÔLE FORMATEUR : FILIÈRE & DATE */}
@@ -658,6 +683,11 @@ export function TrainerAttendanceSheet({ profile }: { profile: Actor }) {
                         <Clock className="h-3 w-3" aria-hidden="true" />
                         En cours ({markedCount}/{totalInFormation})
                       </span>
+                    ) : temp.status === "future" ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-0.5 text-[11px] font-bold text-on-surface-variant shrink-0">
+                        <Lock className="h-3 w-3" aria-hidden="true" />
+                        Séance à venir
+                      </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 rounded-full bg-status-absent-bg px-2.5 py-0.5 text-[11px] font-bold text-status-absent shrink-0">
                         <AlertCircle className="h-3 w-3" aria-hidden="true" />
@@ -690,6 +720,91 @@ export function TrainerAttendanceSheet({ profile }: { profile: Actor }) {
                 </button>
               );
             })}
+          </div>
+        </section>
+      )}
+
+      {/* 3B. AUCUN COURS PROGRAMMÉ CE JOUR POUR CE FORMATEUR */}
+      {!isClosedOrWeekend && overviewSessions.length === 0 && (
+        <section
+          aria-labelledby="trainer-no-session-heading"
+          className="rounded-xl border border-border-subtle bg-surface-container-lowest p-6 sm:p-8 shadow-xs flex flex-col items-center text-center gap-5"
+        >
+          <div className="h-14 w-14 rounded-2xl bg-secondary/15 text-secondary flex items-center justify-center shrink-0">
+            <Calendar className="h-7 w-7" aria-hidden="true" />
+          </div>
+
+          <div className="max-w-2xl flex flex-col gap-2">
+            <h2 id="trainer-no-session-heading" className="text-xl sm:text-2xl font-bold text-primary">
+              Aucun cours programmé dans votre emploi du temps le {formatLongDate(date)}
+            </h2>
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              Vous n&apos;avez aucune séance d&apos;enseignement planifiée à cette date. Seules les séances où vous intervenez en tant que formateur titulaire ou remplaçant apparaissent dans votre espace d&apos;émargement.
+            </p>
+          </div>
+
+          {myWeeklySlots.length > 0 && (
+            <div className="w-full max-w-2xl rounded-xl border border-border-subtle bg-surface-container-low/60 p-4 text-left flex flex-col gap-2.5">
+              <div className="text-xs font-bold uppercase tracking-wider text-secondary flex items-center gap-2">
+                <Clock className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>Vos créneaux habituels de la semaine ({myWeeklySlots.length} cours / semaine)</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {myWeeklySlots.map((s) => {
+                  const f = lookups.formation(s.formationId);
+                  return (
+                    <div
+                      key={s.id}
+                      className="rounded-lg border border-border-subtle bg-surface-container-lowest p-2.5 text-xs flex flex-col gap-0.5"
+                    >
+                      <div className="font-bold text-primary flex items-center justify-between gap-2">
+                        <span>{WEEKDAY_LABELS[s.weekday]}</span>
+                        <span className="font-mono text-secondary">
+                          {s.startTime} – {s.endTime}
+                        </span>
+                      </div>
+                      <div className="font-semibold text-on-surface truncate">
+                        {lookups.subjectTitle(s.subjectId)}
+                      </div>
+                      <div className="text-on-surface-variant truncate">
+                        {f?.title ?? "Formation"} {s.room ? `• Salle ${s.room}` : ""}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+            {prevTeachingDate && (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setDate(prevTeachingDate)}
+                className="inline-flex items-center gap-2 !px-4"
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                <span>Cours précédent ({formatLongDate(prevTeachingDate)})</span>
+              </Button>
+            )}
+            {nextTeachingDate && (
+              <Button
+                type="button"
+                onClick={() => setDate(nextTeachingDate)}
+                className="inline-flex items-center gap-2 !px-4"
+              >
+                <span>Prochain cours ({formatLongDate(nextTeachingDate)})</span>
+                <ChevronRight className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            )}
+            <Link
+              href="/planning"
+              className={`inline-flex min-h-11 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-high px-4 py-2 text-sm font-bold text-primary hover:bg-surface-variant transition-colors ${focusRing}`}
+            >
+              <Calendar className="h-4 w-4 text-secondary" aria-hidden="true" />
+              <span>Consulter mon planning hebdomadaire</span>
+            </Link>
           </div>
         </section>
       )}

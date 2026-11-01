@@ -85,22 +85,6 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
             <Calendar className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
             <span>Supervision des plannings (Filières &amp; Formateurs)</span>
           </h2>
-
-          {(view === "trainer" ? selectedTrainerId : selectedFormationId) && (
-            <TimetableExportButtons
-              mode={view}
-              targetId={view === "trainer" ? selectedTrainerId : selectedFormationId}
-              targetTitle={
-                view === "trainer"
-                  ? (trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "Formateur")
-                  : lookups.formationTitle(selectedFormationId)
-              }
-              slots={selected}
-              subjectTitle={lookups.subjectTitle}
-              formationTitle={lookups.formationTitle}
-              trainerName={lookups.trainerName}
-            />
-          )}
         </div>
 
         <div className="grid max-w-3xl gap-4 md:grid-cols-2">

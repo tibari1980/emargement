@@ -86,20 +86,6 @@ export function TrainerPlanningView({ actor }: { actor: Actor }) {
             <Calendar className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
             <span>Consultation de votre planning</span>
           </h2>
-
-          <TimetableExportButtons
-            mode={view}
-            targetId={view === "trainer" ? actor.id : selectedFormationId}
-            targetTitle={
-              view === "trainer"
-                ? actor.fullName
-                : lookups.formationTitle(selectedFormationId)
-            }
-            slots={selected}
-            subjectTitle={lookups.subjectTitle}
-            formationTitle={lookups.formationTitle}
-            trainerName={lookups.trainerName}
-          />
         </div>
 
         <div className="grid max-w-3xl gap-4 md:grid-cols-2">
