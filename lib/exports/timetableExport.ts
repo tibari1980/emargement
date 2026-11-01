@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import { formatHours, formatShortDate, todayIso } from "@/lib/core/dates";
 import { WEEKDAYS, WEEKDAY_LABELS, type Weekday } from "@/lib/domain/types";
 import { sanitizeForSpreadsheet } from "@/lib/security/sanitize";
+import { drawOfficialPdfHeader, getAvhLogoPngBuffer } from "./brandHeader";
 
 export interface TimetableExportSlot {
   id: string;
@@ -157,36 +158,28 @@ export async function buildTimetablePdf(payload: TimetableExportPayload): Promis
 
   const newPage = () => {
     page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    y = PAGE_HEIGHT - MARGIN;
-
-    // Header banner
-    page.drawText(
-      safe("ESRP / CFRP Valentin Haüy — Plateforme d'Émargement & Suivi Pédagogique"),
-      { x: MARGIN, y, size: 10, font: bold, color: navy },
-    );
-    y -= 18;
-    page.drawText(safe(docTitle), { x: MARGIN, y, size: 14, font: bold, color: black });
-    y -= 16;
 
     const summaryLine = `Volume hebdomadaire : ${formatHours(totalMinutes / 60)} (${sorted.length} créneau${sorted.length > 1 ? "x" : ""})${
       payload.isStandardFallback ? " — Horaire réglementaire standard (09:00 - 17:00)" : ""
     }`;
-    page.drawText(safe(summaryLine), { x: MARGIN, y, size: 9.5, font: bold, color: grey });
-    y -= 13;
-
+    const subtitleLines = [summaryLine];
     if (subjects.length > 0) {
-      const subjLine = `Matières enseignées : ${subjects.join(", ")}`;
-      page.drawText(truncate(subjLine, font, 8.5, PAGE_WIDTH - 2 * MARGIN), {
-        x: MARGIN,
-        y,
-        size: 8.5,
-        font,
-        color: grey,
-      });
-      y -= 16;
-    } else {
-      y -= 6;
+      subtitleLines.push(
+        truncate(`Matières enseignées : ${subjects.join(", ")}`, font, 8.5, PAGE_WIDTH - 2 * MARGIN),
+      );
     }
+
+    y = drawOfficialPdfHeader({
+      page,
+      pageWidth: PAGE_WIDTH,
+      pageHeight: PAGE_HEIGHT,
+      margin: MARGIN,
+      font,
+      bold,
+      docTitle,
+      subtitleLines,
+      badgeText: payload.mode === "trainer" ? "PLANNING OFFICIEL FORMATEUR" : "PLANNING OFFICIEL FORMATION",
+    });
 
     drawTableHeader();
     drawFooter(page);
@@ -275,19 +268,19 @@ export async function buildTimetablePdf(payload: TimetableExportPayload): Promis
       font: bold,
       color: navy,
     });
-    page.drawText(safe(`${sorted.length} créneau(x)`), {
-      x: MARGIN + 5 + PDF_COLUMNS[0].width,
-      y: y - 7,
-      size: 9,
-      font: bold,
-      color: black,
-    });
     page.drawText(safe(formatHours(totalMinutes / 60)), {
       x: MARGIN + 5 + PDF_COLUMNS[0].width + PDF_COLUMNS[1].width,
       y: y - 7,
       size: 9,
       font: bold,
       color: navy,
+    });
+    page.drawText(safe(`${sorted.length} créneau${sorted.length > 1 ? "x" : ""} programmé${sorted.length > 1 ? "s" : ""}`), {
+      x: MARGIN + 5 + PDF_COLUMNS[0].width + PDF_COLUMNS[1].width + PDF_COLUMNS[2].width,
+      y: y - 7,
+      size: 8.5,
+      font: bold,
+      color: black,
     });
   }
 
@@ -346,6 +339,17 @@ export async function buildTimetableExcel(payload: TimetableExportPayload): Prom
     ]);
   }
   sheet.addRow([]);
+
+  try {
+    const logoId = workbook.addImage({
+      buffer: getAvhLogoPngBuffer() as any,
+      extension: "png",
+    });
+    sheet.addImage(logoId, {
+      tl: { col: 6.1, row: 0.1 },
+      ext: { width: 64, height: 64 },
+    });
+  } catch {}
 
   const tableHeader = sheet.addRow([
     "Jour",

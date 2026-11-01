@@ -3,6 +3,7 @@ import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf
 import { formatShortDate, todayIso } from "@/lib/core/dates";
 import { ROLES, ROLE_LABELS, type Role } from "@/lib/domain/types";
 import { sanitizeForSpreadsheet } from "@/lib/security/sanitize";
+import { drawOfficialPdfHeader, getAvhLogoPngBuffer } from "./brandHeader";
 
 export interface UserExportRow {
   id: string;
@@ -124,20 +125,21 @@ export async function buildUsersPdf(payload: UsersExportPayload): Promise<Uint8A
 
   const newPage = () => {
     page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    y = PAGE_HEIGHT - MARGIN;
-
-    page.drawText(
-      safe("ESRP / CFRP Valentin Haüy — Plateforme d'Émargement & Suivi Pédagogique"),
-      { x: MARGIN, y, size: 10, font: bold, color: navy },
-    );
-    y -= 18;
-    page.drawText(safe(docTitle), { x: MARGIN, y, size: 14, font: bold, color: black });
-    y -= 16;
 
     const filterInfo = payload.filterLabel ? ` — Filtre : ${payload.filterLabel}` : "";
     const summaryLine = `Total : ${sorted.length} compte(s) (${activeCount} actif(s), ${inactiveCount} désactivé(s))${filterInfo}`;
-    page.drawText(safe(summaryLine), { x: MARGIN, y, size: 9.5, font: bold, color: grey });
-    y -= 18;
+
+    y = drawOfficialPdfHeader({
+      page,
+      pageWidth: PAGE_WIDTH,
+      pageHeight: PAGE_HEIGHT,
+      margin: MARGIN,
+      font,
+      bold,
+      docTitle: "Répertoire des Utilisateurs & Habilitations",
+      subtitleLines: [summaryLine],
+      badgeText: "RÉPERTOIRE OFFICIEL PERSONNEL",
+    });
 
     drawTableHeader();
     drawFooter(page);
@@ -247,6 +249,17 @@ export async function buildUsersExcel(payload: UsersExportPayload): Promise<Buff
     formatShortDate(todayIso()),
   ]);
   sheet.addRow([]);
+
+  try {
+    const logoId = workbook.addImage({
+      buffer: getAvhLogoPngBuffer() as any,
+      extension: "png",
+    });
+    sheet.addImage(logoId, {
+      tl: { col: 5.1, row: 0.1 },
+      ext: { width: 58, height: 58 },
+    });
+  } catch {}
 
   const tableHeader = sheet.addRow([
     "N°",

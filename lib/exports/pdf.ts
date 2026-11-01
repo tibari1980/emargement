@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import { formatHours, formatMonth, formatShortDate, todayIso } from "@/lib/core/dates";
 import type { MonthlyReport } from "@/lib/domain/hoursCalculator";
+import { drawOfficialPdfHeader } from "./brandHeader";
 
 // A4 landscape, in PDF points.
 const PAGE_WIDTH = 842;
@@ -79,24 +80,27 @@ export async function buildPdfReport(report: MonthlyReport): Promise<Uint8Array>
 
   const newPage = () => {
     page = pdf.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-    y = PAGE_HEIGHT - MARGIN;
-    text("CFRP Valentin Haüy — Relevé mensuel de présence", MARGIN, 14, bold);
-    y -= 20;
-    text(`Formation : ${title}`, MARGIN, 10);
-    text(`Mois : ${formatMonth(report.month)}`, 520, 10);
-    y -= 14;
     const scheduleInfo =
       report.defaultStartTime && report.defaultEndTime
         ? `Horaires : ${report.defaultStartTime} - ${report.defaultEndTime}${report.dailyHours ? ` (${report.dailyHours} h/jour)` : ""} — `
         : `${report.sessionCount ?? report.workingDays.length} séances — `;
-    text(
-      `${scheduleInfo}${report.workingDays.length} jours ouvrés — ${formatHours(report.theoreticalHours)} théoriques`,
-      MARGIN,
-      9,
+
+    y = drawOfficialPdfHeader({
+      page,
+      pageWidth: PAGE_WIDTH,
+      pageHeight: PAGE_HEIGHT,
+      margin: MARGIN,
       font,
-      grey,
-    );
-    y -= 24;
+      bold,
+      docTitle: `Relevé mensuel de présence — ${formatMonth(report.month)}`,
+      subtitleLines: [
+        `Formation : ${title}`,
+        `${scheduleInfo}${report.workingDays.length} jours ouvrés — ${formatHours(report.theoreticalHours)} théoriques`,
+      ],
+      badgeText: "RELEVÉ CERTIFIÉ DGEFP / ASP",
+    });
+
+    y -= 6;
     drawTableHeader();
   };
 

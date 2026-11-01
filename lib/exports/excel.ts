@@ -2,6 +2,7 @@ import ExcelJS from "exceljs";
 import { formatHours, formatMonth, formatShortDate } from "@/lib/core/dates";
 import type { MonthlyReport } from "@/lib/domain/hoursCalculator";
 import { sanitizeForSpreadsheet } from "@/lib/security/sanitize";
+import { getAvhLogoPngBuffer } from "./brandHeader";
 
 /** Monthly attendance workbook for HR, internal reporting, and ASP teletransmission. */
 export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
@@ -62,6 +63,17 @@ export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
   header.eachCell((cell) => {
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFDCE6F2" } };
   });
+
+  try {
+    const logoId = workbook.addImage({
+      buffer: getAvhLogoPngBuffer() as any,
+      extension: "png",
+    });
+    sheet.addImage(logoId, {
+      tl: { col: 11.1, row: 0.1 },
+      ext: { width: 64, height: 64 },
+    });
+  } catch {}
 
   for (const t of report.trainees) {
     sheet.addRow([
