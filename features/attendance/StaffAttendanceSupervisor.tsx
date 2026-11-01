@@ -281,14 +281,26 @@ export function StaffAttendanceSupervisor({ profile }: { profile: Actor }) {
   const effectiveTrainerId = currentOverride?.substituteTrainerId || slot?.trainerId;
 
   // En mode Supervision & Régularisation (Secrétariat / Responsable Pédagogique / Admin),
-  // la saisie et la régularisation sont autorisées tant que la séance n'est pas annulée.
-  const canModify = !isCancelled;
+  // la saisie est autorisée pendant la séance ("current") et en régularisation a posteriori ("ended_today" / "past"),
+  // mais STRICTEMENT VERROUILLÉE sur les séances futures ("future") qui n'ont pas encore commencé.
+  const isFutureSession = temporal?.status === "future";
+  const canModify = !isCancelled && Boolean(temporal?.isUnlockedForStaff);
 
   const save = useCallback(
     async (entries: AttendanceEntry[], { silent = false } = {}) => {
       if (!slot) return false;
       if (isCancelled) {
         announce("Cette séance a été annulée. L'émargement est désactivé.", "assertive");
+        return false;
+      }
+
+      // Re-vérification temporelle stricte à la milliseconde exacte du clic
+      const freshTemporal = getSessionTemporalStatus(slot, date, nowTime(), todayIso());
+      if (!freshTemporal.isUnlockedForStaff) {
+        announce(
+          freshTemporal.message || "Impossible d'émarger une séance à venir avant son heure de début.",
+          "assertive",
+        );
         return false;
       }
 
@@ -707,6 +719,11 @@ export function StaffAttendanceSupervisor({ profile }: { profile: Actor }) {
                           <Clock className="h-3 w-3" aria-hidden="true" />
                           En cours ({markedCount}/{totalInFormation})
                         </span>
+                      ) : temp.status === "future" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-surface-container-high px-2.5 py-0.5 text-[11px] font-bold text-on-surface-variant shrink-0">
+                          <Lock className="h-3 w-3" aria-hidden="true" />
+                          Séance à venir
+                        </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 rounded-full bg-status-absent-bg px-2.5 py-0.5 text-[11px] font-bold text-status-absent shrink-0">
                           <AlertCircle className="h-3 w-3" aria-hidden="true" />
@@ -946,6 +963,28 @@ export function StaffAttendanceSupervisor({ profile }: { profile: Actor }) {
             </div>
           )}
 
+          {isFutureSession && !isCancelled && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="rounded-xl border-2 border-status-late/60 bg-status-late-bg/30 p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+            >
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-xl bg-status-late/20 text-status-late flex items-center justify-center shrink-0 mt-0.5">
+                  <Lock className="h-5 w-5" aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-primary">
+                    Émargement verrouillé — Séance à venir ({formatLongDate(date)} de {slot.startTime} à {slot.endTime})
+                  </h3>
+                  <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5 leading-relaxed">
+                    Conformément aux règles d&apos;assiduité certifiée (Qualiopi / DGEFP / ASP), <strong>aucun profil</strong> (y compris Administrateur, Responsable pédagogique et Secrétariat) ne peut émarger une séance avant son ouverture effective. Les boutons de présence s&apos;activeront automatiquement le <strong>{formatLongDate(date)} à {slot.startTime}</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Bandeau Mode Supervision & Régularisation Administrative + Actions Rapides */}
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-3.5 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex items-start sm:items-center gap-2.5 text-xs sm:text-sm">
@@ -955,7 +994,9 @@ export function StaffAttendanceSupervisor({ profile }: { profile: Actor }) {
                   Mode {ROLE_LABELS[profile.role]} (Supervision multi-filières &amp; Régularisation) :{" "}
                 </span>
                 <span className="text-on-surface-variant">
-                  Saisie et régularisation autorisées sur toutes les filières du centre. Toute action est horodatée au journal d&apos;audit.
+                  {isFutureSession
+                    ? "Mode consultation uniquement (séance future non débutée). Vous pouvez toutefois planifier une absence de formateur ou enregistrer un justificatif médical anticipé."
+                    : "Saisie en direct et régularisation des séances passées autorisées sur toutes les filières du centre. Toute action est horodatée au journal d'audit."}
                 </span>
               </div>
             </div>

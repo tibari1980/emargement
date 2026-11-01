@@ -1,6 +1,7 @@
 import { collection, doc, getDocs, query, serverTimestamp, where } from "firebase/firestore";
-import { formatShortDate } from "@/lib/core/dates";
+import { formatShortDate, nowTime, todayIso } from "@/lib/core/dates";
 import { getDb } from "@/lib/core/firebase";
+import { getSessionTemporalStatus } from "@/lib/domain/schedule";
 import {
   attendanceId,
   ATTENDANCE_STATUS_LABELS,
@@ -17,19 +18,45 @@ const attendances = () => collection(getDb(), COLLECTIONS.attendances);
 const localAttendancesMap = new Map<string, Attendance>();
 const LOCAL_ATTENDANCES_KEY = "avh_persisted_attendances_v2";
 
+/**
+ * Only administrative/medical excuses ("excused") may exist on a future date.
+ * Physical attendance ("present", "late", "absent") can never exist on a future date (> todayIso()).
+ */
+function isValidAttendanceRecord(a: Attendance, today = todayIso()): boolean {
+  if (a.date > today && a.status !== "excused") {
+    return false;
+  }
+  return true;
+}
+
 export function loadPersistedAttendances(): Map<string, Attendance> {
+  const today = todayIso();
   const map = new Map<string, Attendance>();
-  localAttendancesMap.forEach((v, k) => map.set(k, v));
+  localAttendancesMap.forEach((v, k) => {
+    if (isValidAttendanceRecord(v, today)) {
+      map.set(k, v);
+    } else {
+      localAttendancesMap.delete(k);
+    }
+  });
   if (typeof window === "undefined") return map;
   try {
     const raw = localStorage.getItem(LOCAL_ATTENDANCES_KEY);
     if (raw) {
       const list: Attendance[] = JSON.parse(raw);
       if (Array.isArray(list)) {
+        let hadInvalidFuture = false;
         list.forEach((a) => {
-          map.set(a.id, a);
-          localAttendancesMap.set(a.id, a);
+          if (isValidAttendanceRecord(a, today)) {
+            map.set(a.id, a);
+            localAttendancesMap.set(a.id, a);
+          } else {
+            hadInvalidFuture = true;
+          }
         });
+        if (hadInvalidFuture) {
+          savePersistedAttendances(map);
+        }
       }
     }
   } catch {}
@@ -45,10 +72,11 @@ export function savePersistedAttendances(map: Map<string, Attendance>): void {
 
 /** Records of one session (slot × date), also including day-level justifications ("general" / default_slot) for the same formation. */
 export async function listForSession(slotId: string, date: string, formationId?: string): Promise<Attendance[]> {
+  const today = todayIso();
   const localMap = loadPersistedAttendances();
   try {
     const snap = await getDocs(query(attendances(), where("slotId", "==", slotId), where("date", "==", date)));
-    const list = snap.docs.map((d) => withId<Attendance>(d));
+    const list = snap.docs.map((d) => withId<Attendance>(d)).filter((a) => isValidAttendanceRecord(a, today));
     if (list.length > 0) {
       list.forEach((a) => {
         localMap.set(a.id, a);
@@ -59,7 +87,9 @@ export async function listForSession(slotId: string, date: string, formationId?:
   } catch (err) {
     console.warn("listForSession failed:", err);
   }
-  const allOnDate = Array.from(localMap.values()).filter((a) => a.date === date);
+  const allOnDate = Array.from(localMap.values()).filter(
+    (a) => a.date === date && isValidAttendanceRecord(a, today),
+  );
   const byTrainee = new Map<string, Attendance>();
   // First pass: fallback day-level records ("general" or "default_slot_*") for the same formation
   if (formationId) {
@@ -83,10 +113,11 @@ export async function listForSession(slotId: string, date: string, formationId?:
 
 /** All attendance records across all formations for a given date ("YYYY-MM-DD"). */
 export async function listForDate(date: string): Promise<Attendance[]> {
+  const today = todayIso();
   const localMap = loadPersistedAttendances();
   try {
     const snap = await getDocs(query(attendances(), where("date", "==", date)));
-    const list = snap.docs.map((d) => withId<Attendance>(d));
+    const list = snap.docs.map((d) => withId<Attendance>(d)).filter((a) => isValidAttendanceRecord(a, today));
     if (list.length > 0) {
       list.forEach((a) => {
         localMap.set(a.id, a);
@@ -97,7 +128,9 @@ export async function listForDate(date: string): Promise<Attendance[]> {
   } catch (err) {
     console.warn("listForDate failed:", err);
   }
-  return Array.from(localMap.values()).filter((a) => a.date === date);
+  return Array.from(localMap.values()).filter(
+    (a) => a.date === date && isValidAttendanceRecord(a, today),
+  );
 }
 
 /** Records of a formation over whole months ("YYYY-MM"). Equality filters only: no composite index. */
@@ -166,6 +199,17 @@ function record(actor: Actor, session: SessionRef, entry: AttendanceEntry, lastA
 /** Saves the attendance of one or several trainees for a session, as one audited operation. */
 export async function saveAttendances(actor: Actor, session: SessionRef, entries: AttendanceEntry[]): Promise<void> {
   if (!entries.length) return;
+
+  // RÈGLE STRICTE : Aucun profil (même Admin, Responsable Pédagogique ou Secrétariat)
+  // ne peut émarger une séance dans le futur ("future", avant son heure de début).
+  const temporal = getSessionTemporalStatus(session.slot, session.date, nowTime(), todayIso());
+  if (temporal.status === "future") {
+    throw new Error(temporal.message);
+  }
+  if (actor.role === "trainer" && !temporal.isUnlockedForTrainer) {
+    throw new Error(temporal.message);
+  }
+
   const localMap = loadPersistedAttendances();
   for (const entry of entries) {
     const id = attendanceId(session.slot.id, entry.trainee.id, session.date);

@@ -141,31 +141,35 @@ describe("schedule: getSessionTemporalStatus (anti-fraud & timing enforcement)",
     endTime: "12:00",
   };
 
-  it("locks future dates for trainers", () => {
+  it("locks future dates for ALL profiles (trainers, secretaries, pedagogical leads, and admins)", () => {
     const res = getSessionTemporalStatus(slot, "2026-11-05", "10:00", "2026-11-01");
     expect(res.status).toBe("future");
     expect(res.isUnlockedForTrainer).toBe(false);
-    expect(res.message).toContain("Émargement non ouvert");
+    expect(res.isUnlockedForStaff).toBe(false);
+    expect(res.message).toContain("Émargement verrouillé");
   });
 
-  it("locks past dates for trainers", () => {
+  it("locks past dates for trainers while allowing regularization for staff", () => {
     const res = getSessionTemporalStatus(slot, "2026-10-25", "10:00", "2026-11-01");
     expect(res.status).toBe("past");
     expect(res.isUnlockedForTrainer).toBe(false);
+    expect(res.isUnlockedForStaff).toBe(true);
     expect(res.message).toContain("Séance passée");
   });
 
-  it("locks today before start time (e.g. at 08:30 for a 09:00 slot)", () => {
+  it("locks today before start time for ALL profiles (e.g. at 08:30 for a 09:00 slot)", () => {
     const res = getSessionTemporalStatus(slot, "2026-11-01", "08:30", "2026-11-01");
     expect(res.status).toBe("future");
     expect(res.isUnlockedForTrainer).toBe(false);
+    expect(res.isUnlockedForStaff).toBe(false);
     expect(res.message).toContain("commence à 09:00");
   });
 
-  it("unlocks today during the slot (e.g. at 10:15 for a 09:00-12:00 slot)", () => {
+  it("unlocks today during the slot for trainers and staff (e.g. at 10:15 for a 09:00-12:00 slot)", () => {
     const res = getSessionTemporalStatus(slot, "2026-11-01", "10:15", "2026-11-01");
     expect(res.status).toBe("current");
     expect(res.isUnlockedForTrainer).toBe(true);
+    expect(res.isUnlockedForStaff).toBe(true);
     expect(res.message).toContain("Séance en cours");
   });
 
@@ -173,13 +177,15 @@ describe("schedule: getSessionTemporalStatus (anti-fraud & timing enforcement)",
     const res = getSessionTemporalStatus(slot, "2026-11-01", "12:10", "2026-11-01", 15);
     expect(res.status).toBe("current");
     expect(res.isUnlockedForTrainer).toBe(true);
+    expect(res.isUnlockedForStaff).toBe(true);
     expect(res.message).toContain("Période de finalisation");
   });
 
-  it("locks today after slot and grace period (e.g. at 12:30 for a 12:00 end)", () => {
+  it("locks today after slot and grace period for trainers while allowing regularization for staff", () => {
     const res = getSessionTemporalStatus(slot, "2026-11-01", "12:30", "2026-11-01", 15);
     expect(res.status).toBe("ended_today");
     expect(res.isUnlockedForTrainer).toBe(false);
+    expect(res.isUnlockedForStaff).toBe(true);
     expect(res.message).toContain("Séance clôturée");
   });
 });

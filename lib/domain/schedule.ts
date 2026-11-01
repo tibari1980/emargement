@@ -77,17 +77,20 @@ export type SessionTemporalStatus = "future" | "current" | "ended_today" | "past
 
 export interface SessionTemporalInfo {
   status: SessionTemporalStatus;
+  /** Whether a trainer can record attendance right now (only during active session + 15 min grace). */
   isUnlockedForTrainer: boolean;
+  /** Whether supervision staff (admin / pedagogical_lead / secretary) can record or regularize attendance right now (never on future sessions). */
+  isUnlockedForStaff: boolean;
   message: string;
 }
 
 /**
  * Determines the temporal status of a session relative to current time.
  * Enforces the core rule:
- * - A trainer cannot take attendance BEFORE the session starts (only consultation).
+ * - NO ONE (trainer, secretary, pedagogical lead, or admin) can take attendance BEFORE the session starts ("future").
  * - A trainer takes attendance DURING the session (with a 15-minute grace period to finalize).
  * - AFTER the session/grace period or on past dates, the session is locked for trainers
- *   and can only be modified/regularized by the Secretary or Pedagogical Lead.
+ *   and can only be modified/regularized by the Secretary, Pedagogical Lead, or Admin.
  */
 export function getSessionTemporalStatus(
   slot: Pick<TimetableSlot, "startTime" | "endTime">,
@@ -103,7 +106,8 @@ export function getSessionTemporalStatus(
     return {
       status: "future",
       isUnlockedForTrainer: false,
-      message: `Émargement non ouvert — Séance programmée le ${sessionDate} à ${slot.startTime}. Consultation du planning uniquement.`,
+      isUnlockedForStaff: false,
+      message: `Émargement verrouillé (Séance à venir) — Cette séance est programmée le ${sessionDate} de ${slot.startTime} à ${slot.endTime}. L'émargement ne peut pas être effectué avant le début de la séance.`,
     };
   }
 
@@ -111,6 +115,7 @@ export function getSessionTemporalStatus(
     return {
       status: "past",
       isUnlockedForTrainer: false,
+      isUnlockedForStaff: true,
       message: `Séance passée — L'émargement est clôturé pour le formateur. Seuls le secrétariat et la direction peuvent régulariser cette feuille.`,
     };
   }
@@ -120,6 +125,7 @@ export function getSessionTemporalStatus(
     return {
       status: "future",
       isUnlockedForTrainer: false,
+      isUnlockedForStaff: false,
       message: `Émargement non ouvert — La séance commence à ${slot.startTime} (actuellement ${currentClock}). Les boutons d'émargement s'activeront au début du cours.`,
     };
   }
@@ -134,6 +140,7 @@ export function getSessionTemporalStatus(
       return {
         status: "current",
         isUnlockedForTrainer: true,
+        isUnlockedForStaff: true,
         message: isGrace
           ? `Séance terminée à ${slot.endTime} — Période de finalisation de l'émargement en cours (${graceMinutes} min de grâce).`
           : `Séance en cours — Émargement ouvert jusqu'à ${slot.endTime}.`,
@@ -143,6 +150,7 @@ export function getSessionTemporalStatus(
     return {
       status: "current",
       isUnlockedForTrainer: true,
+      isUnlockedForStaff: true,
       message: `Séance en cours — Émargement ouvert jusqu'à ${slot.endTime}.`,
     };
   }
@@ -151,6 +159,7 @@ export function getSessionTemporalStatus(
   return {
     status: "ended_today",
     isUnlockedForTrainer: false,
+    isUnlockedForStaff: true,
     message: `Séance clôturée — La séance est terminée depuis ${slot.endTime}. L'émargement est en lecture seule pour le formateur. Contactez le secrétariat pour toute régularisation.`,
   };
 }

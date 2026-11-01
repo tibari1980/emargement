@@ -31,13 +31,15 @@ Pour garantir qu'une modification sur un profil ne crée jamais de conflit ou de
 
 ---
 
-## 3. Verrouillage Temporel Strict Formateur (`Europe/Paris`)
+## 3. Verrouillage Temporel Strict (`Europe/Paris`) — Tous Profils
 - L'horloge est synchronisée avec le serveur (`/api/time` via `syncServerClock()`) sur le fuseau `Europe/Paris`.
+- **AUCUN profil (`trainer`, `secretary`, `pedagogical_lead`, `admin`) ne peut JAMAIS émarger une séance dans le futur (`status === "future"`, c'est-à-dire une date future `date > todayIso()` ou avant l'heure de début `startTime` le jour même)**.
 - **Un formateur (`trainer`) ne peut JAMAIS émarger avant le début de la séance (`status === "future"`) ni après la clôture de la séance (`endTime + 15 min`, `status === "ended_today"` ou `"past"`)**.
 - Cette règle doit toujours être vérifiée :
-  1. À l'affichage (`canModify` désactive les boutons Présent/Retard/Absent et le champ `<input type="time">` d'heure d'arrivée).
+  1. À l'affichage (`canModify` désactive les boutons Présent/Retard/Absent, le bouton « Marquer tous présents » et le champ `<input type="time">` d'heure d'arrivée via `isUnlockedForTrainer` / `isUnlockedForStaff`).
   2. À l'instant exact du clic dans `save()` (`getSessionTemporalStatus(slot, date, nowTime(), todayIso())`).
-- Seuls les profils `secretary`, `pedagogical_lead` et `admin` peuvent régulariser une séance passée ou gérer l'absence d'un formateur (`TrainerAbsenceModal`).
+  3. Dans la couche de données (`saveAttendances` dans `lib/data/attendances.ts`).
+- Seuls les profils `secretary`, `pedagogical_lead` et `admin` peuvent régulariser une séance **passée** (`ended_today` ou `past`) ou gérer l'absence d'un formateur (`TrainerAbsenceModal`).
 
 ---
 
