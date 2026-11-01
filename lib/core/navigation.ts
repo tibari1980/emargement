@@ -10,6 +10,19 @@ export interface NavItem {
   category?: ModuleCategory;
 }
 
+/** Dedicated attendance URL for each profile role to prevent cross-profile conflicts. */
+export function emargementHrefFor(role: Role): string {
+  if (role === "secretary") return "/secretary/emargement";
+  if (role === "pedagogical_lead" || role === "admin") return "/pedagogical/emargement";
+  return "/trainer/emargement";
+}
+
+export function emargementCategoryFor(role: Role): ModuleCategory {
+  if (role === "secretary") return "secretary";
+  if (role === "pedagogical_lead" || role === "admin") return "pedagogical";
+  return "trainer";
+}
+
 /** Main menu, in display order. Each entry is shown to roles holding its permission. */
 export const NAV_ITEMS: NavItem[] = [
   // Module Administration (Cockpit principal)
@@ -17,7 +30,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/admin/users", label: "Utilisateurs", permission: "users.manage", category: "admin" },
   { href: "/admin/audit", label: "Journal d'activité", permission: "audit.read", category: "admin" },
 
-  // Module Formateur
+  // Module Émargement (URL isolée par profil via navFor)
   { href: "/trainer/emargement", label: "Émargement", permission: "attendance.record", category: "trainer" },
   { href: "/planning", label: "Plannings", permission: "planning.view", category: "shared" },
 
@@ -34,7 +47,16 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export function navFor(role: Role): NavItem[] {
-  return NAV_ITEMS.filter((item) => can(role, item.permission));
+  return NAV_ITEMS.filter((item) => can(role, item.permission)).map((item) => {
+    if (item.permission === "attendance.record") {
+      return {
+        ...item,
+        href: emargementHrefFor(role),
+        category: emargementCategoryFor(role),
+      };
+    }
+    return item;
+  });
 }
 
 /** First page of each role once signed in. */

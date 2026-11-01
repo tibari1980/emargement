@@ -82,9 +82,9 @@ const ADMIN_SECTIONS = [
     roleTitle: "Modules Secrétariat & Formateurs",
     items: [
       {
-        title: "Feuille d'émargement",
-        description: "Accès à l'appel en direct de toutes les séances en cours.",
-        href: "/trainer/emargement",
+        title: "Supervision des Émargements",
+        description: "Supervision multi-filières des 15 promotions, régularisation et gestion des absences formateurs.",
+        href: "/pedagogical/emargement",
         icon: CheckCircle2,
         color: "bg-status-present-bg text-status-present border-status-present-border/40",
       },

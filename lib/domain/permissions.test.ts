@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { emargementHrefFor, navFor } from "../core/navigation";
 import { can, PERMISSIONS } from "./permissions";
 
 describe("permissions: Role-Based Access Control", () => {
@@ -60,5 +61,17 @@ describe("permissions: Role-Based Access Control", () => {
     expect(can(null, "planning.view")).toBe(false);
     expect(can("trainee", "attendance.record")).toBe(false);
     expect(can("trainee", "users.manage")).toBe(false);
+  });
+
+  it("isolates emargement routes per profile role in navigation", () => {
+    expect(emargementHrefFor("trainer")).toBe("/trainer/emargement");
+    expect(emargementHrefFor("secretary")).toBe("/secretary/emargement");
+    expect(emargementHrefFor("pedagogical_lead")).toBe("/pedagogical/emargement");
+    expect(emargementHrefFor("admin")).toBe("/pedagogical/emargement");
+
+    expect(navFor("trainer").find((i) => i.permission === "attendance.record")?.href).toBe("/trainer/emargement");
+    expect(navFor("secretary").find((i) => i.permission === "attendance.record")?.href).toBe("/secretary/emargement");
+    expect(navFor("pedagogical_lead").find((i) => i.permission === "attendance.record")?.href).toBe("/pedagogical/emargement");
+    expect(navFor("admin").find((i) => i.permission === "attendance.record")?.href).toBe("/pedagogical/emargement");
   });
 });

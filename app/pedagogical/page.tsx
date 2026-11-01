@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, CalendarDays, Clock, FileSpreadsheet, GraduationCap } from "lucide-react";
+import { BookOpen, CalendarDays, ClipboardCheck, Clock, FileSpreadsheet, GraduationCap } from "lucide-react";
 import { ProtectedPage } from "@/components/ProtectedPage";
 import { focusRing } from "@/components/ui/Button";
 
 const PEDAGOGICAL_MODULES = [
+  {
+    title: "Supervision des Émargements",
+    description: "Supervision multi-filières des 15 promotions, régularisation pédagogique et remplacement des formateurs absents.",
+    href: "/pedagogical/emargement",
+    icon: ClipboardCheck,
+    badge: "Supervision",
+    color: "bg-status-present-bg text-status-present border-status-present-border/40",
+  },
   {
     title: "Formations certifiantes",
     description: "Cursus professionnels, niveaux RNCP, descriptions et gestion des apprenants inscrits.",

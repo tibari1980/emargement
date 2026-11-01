@@ -203,7 +203,9 @@ export function AppHeader() {
             className="flex flex-wrap items-center gap-1 sm:gap-1.5 py-1.5 sm:py-2 border-t border-surface-container outline-none"
           >
             {items.map((item) => {
-              const current = pathname === item.href;
+              const current =
+                pathname === item.href ||
+                (item.permission === "attendance.record" && Boolean(pathname?.endsWith("/emargement")));
               return (
                 <Link
                   key={item.href}
@@ -271,7 +273,9 @@ export function AppHeader() {
                   </span>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                     {catItems.map((item) => {
-                      const current = pathname === item.href;
+                      const current =
+                pathname === item.href ||
+                (item.permission === "attendance.record" && Boolean(pathname?.endsWith("/emargement")));
                       return (
                         <Link
                           key={item.href}

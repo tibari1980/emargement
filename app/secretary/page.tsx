@@ -1,11 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, CalendarCheck, CalendarDays, FileCheck, UploadCloud } from "lucide-react";
+import { BookOpen, CalendarCheck, CalendarDays, ClipboardCheck, FileCheck, UploadCloud } from "lucide-react";
 import { ProtectedPage } from "@/components/ProtectedPage";
 import { focusRing } from "@/components/ui/Button";
 
 const SECRETARY_MODULES = [
+  {
+    title: "Émargement & Régularisations",
+    description: "Supervision multi-filières des 15 promotions, régularisation des présences et gestion des absences formateurs.",
+    href: "/secretary/emargement",
+    icon: ClipboardCheck,
+    badge: "Quotidien",
+    color: "bg-status-present-bg text-status-present border-status-present-border/40",
+  },
   {
     title: "Justificatifs d'absence",
     description: "Saisie des arrêts maladie, convocations administratives et validation des motifs d'absence.",
