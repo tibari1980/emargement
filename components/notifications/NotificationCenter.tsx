@@ -107,7 +107,7 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
       {/* Slide-over panel */}
       <div
         ref={dialogRef}
-        className="relative flex flex-col w-full max-w-lg bg-surface-container-lowest h-screen max-h-screen shadow-2xl border-l-2 border-border-subtle animate-in slide-in-from-right duration-250 z-[101]"
+        className="relative flex flex-col w-full max-w-lg bg-surface-container-lowest h-dvh max-h-dvh shadow-2xl border-l-2 border-border-subtle animate-in slide-in-from-right duration-250 z-[101]"
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border-subtle p-4 sm:px-6 bg-surface-container/30">
@@ -151,7 +151,7 @@ export function NotificationCenter({ isOpen, onClose }: NotificationCenterProps)
           <div
             role="tablist"
             aria-label="Filtrer les notifications"
-            className="flex items-center gap-1 sm:gap-1.5"
+            className="flex flex-wrap items-center gap-1 sm:gap-1.5"
           >
             <button
               role="tab"

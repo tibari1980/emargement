@@ -259,7 +259,7 @@ export function JustificationManager({ actor }: { actor: Actor }) {
 
   return (
     <div className="flex flex-col gap-8">
-      <section aria-labelledby="justify-heading" className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-6 shadow-xs">
+      <section aria-labelledby="justify-heading" className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-4 sm:p-6 shadow-xs">
         <h2 id="justify-heading" className="mb-4 text-xl font-bold text-primary flex items-center gap-2">
           <FileCheck className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
           <span>Nouveau justificatif</span>
@@ -356,7 +356,7 @@ export function JustificationManager({ actor }: { actor: Actor }) {
           </div>
           <p className="text-xs text-on-surface-variant">Les week-ends et jours de fermeture de la période sont ignorés automatiquement.</p>
           <div>
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy} className="w-full sm:w-auto">
               {busy ? "Enregistrement…" : "Enregistrer le justificatif"}
             </Button>
           </div>
@@ -405,7 +405,7 @@ export function JustificationManager({ actor }: { actor: Actor }) {
                         </span>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                       {!isExcused && (
                         <Button
                           variant="secondary"

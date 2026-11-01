@@ -75,7 +75,7 @@ export function Pagination({
     <nav
       role="navigation"
       aria-label={ariaLabel}
-      className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-2 border-t border-border-subtle text-sm text-on-surface"
+      className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 py-4 px-1 sm:px-2 border-t border-border-subtle text-sm text-on-surface"
     >
       {/* Information & Page Size Selector */}
       <div className="flex flex-wrap items-center gap-3 text-xs sm:text-sm text-on-surface-variant font-medium">
@@ -114,7 +114,7 @@ export function Pagination({
 
       {/* Navigation Buttons (only show if totalPages > 1) */}
       {totalPages > 1 && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center justify-between sm:justify-end gap-1">
           {/* First Page */}
           <button
             type="button"
@@ -133,7 +133,7 @@ export function Pagination({
             onClick={() => onPageChange(currentPage - 1)}
             disabled={currentPage <= 1}
             aria-label="Aller à la page précédente"
-            className={`inline-flex min-h-9 items-center gap-1 rounded-lg border border-border-subtle bg-surface-container-high px-2.5 py-1 text-xs font-bold text-on-surface transition-colors hover:bg-surface-variant disabled:opacity-30 disabled:cursor-not-allowed ${focusRing}`}
+            className={`inline-flex min-h-11 sm:min-h-9 items-center gap-1 rounded-lg border border-border-subtle bg-surface-container-high px-2.5 py-1 text-xs font-bold text-on-surface transition-colors hover:bg-surface-variant disabled:opacity-30 disabled:cursor-not-allowed ${focusRing}`}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             <span className="hidden xs:inline">Précédent</span>
@@ -185,7 +185,7 @@ export function Pagination({
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage >= totalPages}
             aria-label="Aller à la page suivante"
-            className={`inline-flex min-h-9 items-center gap-1 rounded-lg border border-border-subtle bg-surface-container-high px-2.5 py-1 text-xs font-bold text-on-surface transition-colors hover:bg-surface-variant disabled:opacity-30 disabled:cursor-not-allowed ${focusRing}`}
+            className={`inline-flex min-h-11 sm:min-h-9 items-center gap-1 rounded-lg border border-border-subtle bg-surface-container-high px-2.5 py-1 text-xs font-bold text-on-surface transition-colors hover:bg-surface-variant disabled:opacity-30 disabled:cursor-not-allowed ${focusRing}`}
           >
             <span className="hidden xs:inline">Suivant</span>
             <ChevronRight className="h-4 w-4" aria-hidden="true" />

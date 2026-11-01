@@ -1103,9 +1103,9 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
           {selectedTrainee && (
             <Dialog.Root open={true} onOpenChange={(open) => !open && setSelectedTrainee(null)}>
               <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs" />
+                <Dialog.Overlay className="fixed inset-0 z-[110] bg-black/60 backdrop-blur-xs" />
                 <Dialog.Content
-                  className="fixed left-1/2 top-1/2 z-50 max-h-[92vh] w-[min(94vw,52rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-5 sm:p-6 shadow-2xl focus:outline-none"
+                  className="fixed left-1/2 top-1/2 z-[111] max-h-[92dvh] w-[min(96vw,52rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-4 sm:p-6 text-on-surface shadow-2xl focus:outline-none"
                   aria-describedby="trainee-detail-desc"
                 >
                   <div className="flex items-start justify-between gap-4 border-b border-border-subtle pb-4">
