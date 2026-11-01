@@ -43,8 +43,8 @@ export function savePersistedAttendances(map: Map<string, Attendance>): void {
   } catch {}
 }
 
-/** Records of one session (slot × date). */
-export async function listForSession(slotId: string, date: string): Promise<Attendance[]> {
+/** Records of one session (slot × date), also including day-level justifications ("general" / default_slot) for the same formation. */
+export async function listForSession(slotId: string, date: string, formationId?: string): Promise<Attendance[]> {
   const localMap = loadPersistedAttendances();
   try {
     const snap = await getDocs(query(attendances(), where("slotId", "==", slotId), where("date", "==", date)));
@@ -54,12 +54,50 @@ export async function listForSession(slotId: string, date: string): Promise<Atte
         localMap.set(a.id, a);
         localAttendancesMap.set(a.id, a);
       });
-      return list;
+      savePersistedAttendances(localMap);
     }
   } catch (err) {
     console.warn("listForSession failed:", err);
   }
-  return Array.from(localMap.values()).filter((a) => a.slotId === slotId && a.date === date);
+  const allOnDate = Array.from(localMap.values()).filter((a) => a.date === date);
+  const byTrainee = new Map<string, Attendance>();
+  // First pass: fallback day-level records ("general" or "default_slot_*") for the same formation
+  if (formationId) {
+    for (const a of allOnDate) {
+      if (
+        a.formationId === formationId &&
+        (a.slotId === "general" || a.slotId?.startsWith("default_slot_"))
+      ) {
+        byTrainee.set(a.traineeId, a);
+      }
+    }
+  }
+  // Second pass: exact slotId match takes precedence
+  for (const a of allOnDate) {
+    if (a.slotId === slotId) {
+      byTrainee.set(a.traineeId, a);
+    }
+  }
+  return Array.from(byTrainee.values());
+}
+
+/** All attendance records across all formations for a given date ("YYYY-MM-DD"). */
+export async function listForDate(date: string): Promise<Attendance[]> {
+  const localMap = loadPersistedAttendances();
+  try {
+    const snap = await getDocs(query(attendances(), where("date", "==", date)));
+    const list = snap.docs.map((d) => withId<Attendance>(d));
+    if (list.length > 0) {
+      list.forEach((a) => {
+        localMap.set(a.id, a);
+        localAttendancesMap.set(a.id, a);
+      });
+      savePersistedAttendances(localMap);
+    }
+  } catch (err) {
+    console.warn("listForDate failed:", err);
+  }
+  return Array.from(localMap.values()).filter((a) => a.date === date);
 }
 
 /** Records of a formation over whole months ("YYYY-MM"). Equality filters only: no composite index. */

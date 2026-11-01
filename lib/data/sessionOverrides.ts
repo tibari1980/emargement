@@ -21,26 +21,81 @@ import { COLLECTIONS, withId } from "./db";
 
 const overridesRef = () => collection(getDb(), COLLECTIONS.sessionOverrides);
 
+const LOCAL_OVERRIDES_KEY = "avh_persisted_session_overrides_v2";
+const localOverridesMap = new Map<string, SessionOverride>();
+const dateListeners = new Map<string, Set<(overrides: SessionOverride[]) => void>>();
+
+function loadPersistedOverrides(): Map<string, SessionOverride> {
+  const map = new Map<string, SessionOverride>();
+  localOverridesMap.forEach((v, k) => map.set(k, v));
+  if (typeof window === "undefined") return map;
+  try {
+    const raw = localStorage.getItem(LOCAL_OVERRIDES_KEY);
+    if (raw) {
+      const list: SessionOverride[] = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        list.forEach((o) => {
+          map.set(o.id, o);
+          localOverridesMap.set(o.id, o);
+        });
+      }
+    }
+  } catch {}
+  return map;
+}
+
+function savePersistedOverrides(map: Map<string, SessionOverride>): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LOCAL_OVERRIDES_KEY, JSON.stringify(Array.from(map.values())));
+  } catch {}
+}
+
+function notifyDateListeners(date: string): void {
+  const listeners = dateListeners.get(date);
+  if (!listeners || listeners.size === 0) return;
+  const all = Array.from(loadPersistedOverrides().values()).filter((o) => o.date === date);
+  listeners.forEach((cb) => cb(all));
+}
+
 /**
  * Retrieves the session override for a specific slot and date.
  */
 export async function getSessionOverride(slotId: string, date: string): Promise<SessionOverride | null> {
   const id = sessionOverrideId(slotId, date);
-  const snap = await getDoc(doc(getDb(), COLLECTIONS.sessionOverrides, id));
-  return snap.exists() ? withId<SessionOverride>(snap) : null;
+  const localMap = loadPersistedOverrides();
+  try {
+    const snap = await getDoc(doc(getDb(), COLLECTIONS.sessionOverrides, id));
+    if (snap.exists()) {
+      const item = withId<SessionOverride>(snap);
+      localMap.set(id, item);
+      localOverridesMap.set(id, item);
+      savePersistedOverrides(localMap);
+      return item;
+    }
+  } catch {}
+  return localMap.get(id) ?? null;
 }
 
 /**
  * Lists all session overrides for a given date.
  */
 export async function listSessionOverridesForDate(date: string): Promise<SessionOverride[]> {
+  const localMap = loadPersistedOverrides();
   try {
     const snap = await getDocs(query(overridesRef(), where("date", "==", date)));
-    return snap.docs.map((d) => withId<SessionOverride>(d));
+    const list = snap.docs.map((d) => withId<SessionOverride>(d));
+    if (list.length > 0) {
+      list.forEach((o) => {
+        localMap.set(o.id, o);
+        localOverridesMap.set(o.id, o);
+      });
+      savePersistedOverrides(localMap);
+    }
   } catch (err) {
     console.warn("listSessionOverridesForDate failed:", err);
-    return [];
   }
+  return Array.from(localMap.values()).filter((o) => o.date === date);
 }
 
 /**
@@ -48,17 +103,27 @@ export async function listSessionOverridesForDate(date: string): Promise<Session
  * Used for monthly hours calculations and ASP reports.
  */
 export async function listSessionOverridesForMonth(month: string, formationId?: string): Promise<SessionOverride[]> {
+  const localMap = loadPersistedOverrides();
   try {
     const constraints = [where("month", "==", month)];
     if (formationId) {
       constraints.push(where("formationId", "==", formationId));
     }
     const snap = await getDocs(query(overridesRef(), ...constraints));
-    return snap.docs.map((d) => withId<SessionOverride>(d));
+    const list = snap.docs.map((d) => withId<SessionOverride>(d));
+    if (list.length > 0) {
+      list.forEach((o) => {
+        localMap.set(o.id, o);
+        localOverridesMap.set(o.id, o);
+      });
+      savePersistedOverrides(localMap);
+    }
   } catch (err) {
     console.warn("listSessionOverridesForMonth failed:", err);
-    return [];
   }
+  return Array.from(localMap.values()).filter(
+    (o) => o.month === month && (!formationId || o.formationId === formationId),
+  );
 }
 
 /**
@@ -69,17 +134,44 @@ export function subscribeSessionOverridesForDate(
   onData: (overrides: SessionOverride[]) => void,
   onError?: (err: unknown) => void,
 ): Unsubscribe {
-  const q = query(overridesRef(), where("date", "==", date));
-  return onSnapshot(
-    q,
-    (snap) => {
-      onData(snap.docs.map((d) => withId<SessionOverride>(d)));
-    },
-    (err) => {
-      console.warn("subscribeSessionOverridesForDate error:", err);
-      onError?.(err);
-    },
-  );
+  if (!dateListeners.has(date)) {
+    dateListeners.set(date, new Set());
+  }
+  dateListeners.get(date)!.add(onData);
+
+  // Immediately emit persisted overrides for instant UI rendering
+  const initial = Array.from(loadPersistedOverrides().values()).filter((o) => o.date === date);
+  onData(initial);
+
+  let unsubFirestore: Unsubscribe = () => {};
+  try {
+    const q = query(overridesRef(), where("date", "==", date));
+    unsubFirestore = onSnapshot(
+      q,
+      (snap) => {
+        const localMap = loadPersistedOverrides();
+        snap.docs.forEach((d) => {
+          const item = withId<SessionOverride>(d);
+          localMap.set(item.id, item);
+          localOverridesMap.set(item.id, item);
+        });
+        savePersistedOverrides(localMap);
+        onData(Array.from(localMap.values()).filter((o) => o.date === date));
+      },
+      (err) => {
+        console.warn("subscribeSessionOverridesForDate error:", err);
+        onData(Array.from(loadPersistedOverrides().values()).filter((o) => o.date === date));
+        onError?.(err);
+      },
+    );
+  } catch (err) {
+    onError?.(err);
+  }
+
+  return () => {
+    dateListeners.get(date)?.delete(onData);
+    unsubFirestore();
+  };
 }
 
 /**
@@ -96,6 +188,34 @@ export async function setSessionSubstituteTrainer(
   const id = sessionOverrideId(slot.id, date);
   const month = date.slice(0, 7);
   const summary = `Assignation d'un remplaçant (${substituteTrainerName}) pour la séance du ${date} (${slot.startTime}-${slot.endTime}${subjectTitle ? ` : ${subjectTitle}` : ""})`;
+
+  const localMap = loadPersistedOverrides();
+  const overrideObj: SessionOverride = {
+    id,
+    slotId: slot.id,
+    date,
+    month,
+    formationId: slot.formationId,
+    subjectId: slot.subjectId,
+    originalTrainerId: slot.trainerId,
+    substituteTrainerId,
+    substituteTrainerName,
+    isSelfStudyTP: false,
+    supervisorId: null,
+    supervisorName: null,
+    supervisorRole: null,
+    selfStudyNote: null,
+    isCancelled: false,
+    cancellationReason: null,
+    cancellationNote: null,
+    updatedBy: actor.id,
+    updatedAt: new Date().toISOString(),
+    lastAuditId: "local",
+  };
+  localMap.set(id, overrideObj);
+  localOverridesMap.set(id, overrideObj);
+  savePersistedOverrides(localMap);
+  notifyDateListeners(date);
 
   await auditedBatch(
     actor,
@@ -150,6 +270,34 @@ export async function setSessionSelfStudyTP(
   const id = sessionOverrideId(slot.id, date);
   const month = date.slice(0, 7);
   const summary = `Basculement en Travaux Pratiques / Travail libre supervisé par ${actor.fullName} pour la séance du ${date} (${slot.startTime}-${slot.endTime}${subjectTitle ? ` : ${subjectTitle}` : ""}) : ${note}`;
+
+  const localMap = loadPersistedOverrides();
+  const overrideObj: SessionOverride = {
+    id,
+    slotId: slot.id,
+    date,
+    month,
+    formationId: slot.formationId,
+    subjectId: slot.subjectId,
+    originalTrainerId: slot.trainerId,
+    substituteTrainerId: null,
+    substituteTrainerName: null,
+    isSelfStudyTP: true,
+    supervisorId: actor.id,
+    supervisorName: actor.fullName,
+    supervisorRole: actor.role,
+    selfStudyNote: note,
+    isCancelled: false,
+    cancellationReason: null,
+    cancellationNote: null,
+    updatedBy: actor.id,
+    updatedAt: new Date().toISOString(),
+    lastAuditId: "local",
+  };
+  localMap.set(id, overrideObj);
+  localOverridesMap.set(id, overrideObj);
+  savePersistedOverrides(localMap);
+  notifyDateListeners(date);
 
   await auditedBatch(
     actor,
@@ -212,6 +360,34 @@ export async function cancelSessionForTrainerAbsence(
   const month = date.slice(0, 7);
   const summary = `Annulation de la séance du ${date} (${slot.startTime}-${slot.endTime}${subjectTitle ? ` : ${subjectTitle}` : ""}) pour ${note}`;
 
+  const localMap = loadPersistedOverrides();
+  const overrideObj: SessionOverride = {
+    id,
+    slotId: slot.id,
+    date,
+    month,
+    formationId: slot.formationId,
+    subjectId: slot.subjectId,
+    originalTrainerId: slot.trainerId,
+    substituteTrainerId: null,
+    substituteTrainerName: null,
+    isSelfStudyTP: false,
+    supervisorId: null,
+    supervisorName: null,
+    supervisorRole: null,
+    selfStudyNote: null,
+    isCancelled: true,
+    cancellationReason: reason,
+    cancellationNote: note,
+    updatedBy: actor.id,
+    updatedAt: new Date().toISOString(),
+    lastAuditId: "local",
+  };
+  localMap.set(id, overrideObj);
+  localOverridesMap.set(id, overrideObj);
+  savePersistedOverrides(localMap);
+  notifyDateListeners(date);
+
   await auditedBatch(
     actor,
     {
@@ -258,6 +434,12 @@ export async function restoreNormalSession(
 ): Promise<void> {
   const id = sessionOverrideId(slot.id, date);
   const summary = `Rétablissement du créneau normal du ${date} (${slot.startTime}-${slot.endTime})`;
+
+  const localMap = loadPersistedOverrides();
+  localMap.delete(id);
+  localOverridesMap.delete(id);
+  savePersistedOverrides(localMap);
+  notifyDateListeners(date);
 
   await auditedBatch(
     actor,

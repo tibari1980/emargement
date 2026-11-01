@@ -8,6 +8,7 @@ import { listFormations } from "@/lib/data/formations";
 import { listHolidays } from "@/lib/data/holidays";
 import { listSubjects } from "@/lib/data/subjects";
 import { listStaff } from "@/lib/data/users";
+import { frenchPublicHolidays } from "@/lib/domain/frenchHolidays";
 import { closedDaySet } from "@/lib/domain/hoursCalculator";
 import { STAFF_ROLES, type Formation, type Holiday, type Subject, type UserProfile } from "@/lib/domain/types";
 
@@ -89,17 +90,36 @@ export function useReferenceData() {
     const formation = new Map(data.formations.map((f) => [f.id, f]));
     const subject = new Map(data.subjects.map((s) => [s.id, s]));
     const person = new Map(data.staff.map((u) => [u.id, u]));
+
+    const currentYear = new Date().getFullYear();
+    const publicHolidays = [
+      ...frenchPublicHolidays(currentYear - 1),
+      ...frenchPublicHolidays(currentYear),
+      ...frenchPublicHolidays(currentYear + 1),
+    ];
+    const publicHolidayMap = new Map(publicHolidays.map((h) => [h.date, h.title]));
+    const closed = closedDaySet(data.holidays);
+    for (const ph of publicHolidays) closed.add(ph.date);
+
     return {
       formation: (id: string) => formation.get(id),
       formationTitle: (id: string) => formation.get(id)?.title ?? "Formation inconnue",
-      subjectTitle: (id: string) => subject.get(id)?.title ?? "Matière inconnue",
-      personName: (id: string) => person.get(id)?.fullName ?? "Non attribué",
+      subjectTitle: (id: string) =>
+        id === "default_subject" || id === "general"
+          ? "Enseignement général & Travaux pratiques"
+          : (subject.get(id)?.title ?? "Matière inconnue"),
+      personName: (id: string) => person.get(id)?.fullName ?? "Équipe pédagogique",
       trainerName: (id: string) => {
         const p = person.get(id);
-        if (!p || p.role === "admin" || p.role === "secretary") return "Formateur non attribué";
+        if (!p || p.role === "admin" || p.role === "secretary") return "Équipe pédagogique";
         return p.fullName;
       },
-      closedDays: closedDaySet(data.holidays),
+      closedDays: closed,
+      closureTitle: (iso: string): string | null => {
+        const custom = data.holidays.find((h) => h.startDate <= iso && iso <= h.endDate);
+        if (custom) return custom.title;
+        return publicHolidayMap.get(iso) ?? null;
+      },
     };
   }, [data]);
 

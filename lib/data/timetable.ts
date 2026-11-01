@@ -14,11 +14,39 @@ const sortSlots = (list: TimetableSlot[]) =>
       ((a?.startTime ?? "").localeCompare(b?.startTime ?? ""))
   );
 
-// In-memory slot storage for seamless offline / session updates
+// In-memory & localStorage slot storage for seamless offline / session updates
 const localSlotsMap = new Map<string, TimetableSlot>();
+const LOCAL_SLOTS_KEY = "avh_persisted_slots_v2";
+
+function loadPersistedSlots(): Map<string, TimetableSlot> {
+  const map = new Map<string, TimetableSlot>();
+  localSlotsMap.forEach((v, k) => map.set(k, v));
+  if (typeof window === "undefined") return map;
+  try {
+    const raw = localStorage.getItem(LOCAL_SLOTS_KEY);
+    if (raw) {
+      const list: TimetableSlot[] = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        list.forEach((s) => {
+          map.set(s.id, s);
+          localSlotsMap.set(s.id, s);
+        });
+      }
+    }
+  } catch {}
+  return map;
+}
+
+function savePersistedSlots(map: Map<string, TimetableSlot>): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LOCAL_SLOTS_KEY, JSON.stringify(Array.from(map.values())));
+  } catch {}
+}
 
 /** Slots of a formation, of a trainer, or every slot. */
 export async function listSlots(filter: { formationId?: string; trainerId?: string } = {}): Promise<TimetableSlot[]> {
+  const localMap = loadPersistedSlots();
   try {
     const q = filter.formationId
       ? query(slots(), where("formationId", "==", filter.formationId))
@@ -28,14 +56,17 @@ export async function listSlots(filter: { formationId?: string; trainerId?: stri
     const snap = await getDocs(q);
     const list = sortSlots(snap.docs.map((d) => withId<TimetableSlot>(d)));
     if (list.length > 0) {
-      list.forEach((s) => localSlotsMap.set(s.id, s));
-      return list;
+      list.forEach((s) => {
+        localMap.set(s.id, s);
+        localSlotsMap.set(s.id, s);
+      });
+      savePersistedSlots(localMap);
     }
   } catch (err) {
     console.warn("listSlots failed or timetableSlots empty:", err);
   }
 
-  const all = Array.from(localSlotsMap.values());
+  const all = Array.from(localMap.values());
   return sortSlots(
     all.filter((s) => {
       if (filter.formationId && s.formationId !== filter.formationId) return false;
@@ -51,7 +82,10 @@ const describe = (s: Pick<TimetableSlot, "weekday" | "startTime" | "endTime">) =
 export async function createSlot(actor: Actor, data: SlotInput, label: string): Promise<string> {
   const ref = doc(slots());
   const newSlot: TimetableSlot = { id: ref.id, ...data };
+  const localMap = loadPersistedSlots();
+  localMap.set(ref.id, newSlot);
   localSlotsMap.set(ref.id, newSlot);
+  savePersistedSlots(localMap);
   await auditedBatch(
     actor,
     { action: "timetable.create", entityType: "timetableSlot", entityId: ref.id, summary: `Ajout du créneau ${describe(data)} : ${label}` },
@@ -63,7 +97,10 @@ export async function createSlot(actor: Actor, data: SlotInput, label: string): 
 export async function updateSlot(actor: Actor, slot: TimetableSlot, data: Partial<SlotInput>, label: string): Promise<void> {
   const editable = stripMeta({ ...data });
   const updatedSlot: TimetableSlot = { ...slot, ...editable };
+  const localMap = loadPersistedSlots();
+  localMap.set(slot.id, updatedSlot);
   localSlotsMap.set(slot.id, updatedSlot);
+  savePersistedSlots(localMap);
   const changes = diffChanges(slot, editable, [
     "subjectId",
     "trainerId",
@@ -87,7 +124,10 @@ export async function updateSlot(actor: Actor, slot: TimetableSlot, data: Partia
  * taught, set its end date instead: past attendance stays attached to it.
  */
 export async function deleteSlot(actor: Actor, slot: TimetableSlot, label: string): Promise<void> {
+  const localMap = loadPersistedSlots();
+  localMap.delete(slot.id);
   localSlotsMap.delete(slot.id);
+  savePersistedSlots(localMap);
   await auditedBatch(
     actor,
     { action: "timetable.delete", entityType: "timetableSlot", entityId: slot.id, summary: `Suppression du créneau ${describe(slot)} : ${label}` },

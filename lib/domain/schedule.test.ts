@@ -3,6 +3,8 @@ import {
   findConflicts,
   getSessionTemporalStatus,
   isSlotActiveOn,
+  nextWorkingDay,
+  previousWorkingDay,
   sessionsOn,
   slotMinutes,
   slotsOverlap,
@@ -179,5 +181,18 @@ describe("schedule: getSessionTemporalStatus (anti-fraud & timing enforcement)",
     expect(res.status).toBe("ended_today");
     expect(res.isUnlockedForTrainer).toBe(false);
     expect(res.message).toContain("Séance clôturée");
+  });
+});
+
+describe("schedule: nextWorkingDay & previousWorkingDay", () => {
+  it("skips weekends and closed days when jumping to previous/next working day", () => {
+    const closed = new Set(["2026-11-01", "2026-11-11"]);
+    // From Saturday 2026-10-31 -> previous working day is Friday 2026-10-30, next is Monday 2026-11-02
+    expect(previousWorkingDay("2026-10-31", closed)).toBe("2026-10-30");
+    expect(nextWorkingDay("2026-10-31", closed)).toBe("2026-11-02");
+
+    // From Wednesday 2026-11-11 (Armistice public holiday) -> prev is 2026-11-10, next is 2026-11-12
+    expect(previousWorkingDay("2026-11-11", closed)).toBe("2026-11-10");
+    expect(nextWorkingDay("2026-11-11", closed)).toBe("2026-11-12");
   });
 });

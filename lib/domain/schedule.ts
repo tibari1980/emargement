@@ -1,7 +1,7 @@
 // Weekly timetable rules: which sessions take place on a given day,
 // and which slots conflict with each other.
 
-import { isWeekend, parseIsoDate, timeToMinutes } from "@/lib/core/dates";
+import { addDays, isWeekend, nowTime, parseIsoDate, timeToMinutes, todayIso } from "@/lib/core/dates";
 import type { TimetableSlot, Weekday } from "./types";
 
 export type SlotTiming = Pick<TimetableSlot, "weekday" | "startTime" | "endTime" | "validFrom" | "validTo">;
@@ -32,6 +32,26 @@ export const byStartTime = (a: Pick<TimetableSlot, "startTime">, b: Pick<Timetab
 export function sessionsOn<T extends SlotTiming>(slots: T[], iso: string, closedDays: Set<string>): T[] {
   if (isWeekend(iso) || closedDays.has(iso)) return [];
   return slots.filter((s) => isSlotActiveOn(s, iso)).sort(byStartTime);
+}
+
+/** Next working day (Monday–Friday, excluding closedDays) strictly after `fromIso`. */
+export function nextWorkingDay(fromIso: string, closedDays: Set<string>): string {
+  let cursor = addDays(fromIso, 1);
+  for (let i = 0; i < 366; i++) {
+    if (!isWeekend(cursor) && !closedDays.has(cursor)) return cursor;
+    cursor = addDays(cursor, 1);
+  }
+  return cursor;
+}
+
+/** Previous working day (Monday–Friday, excluding closedDays) strictly before `fromIso`. */
+export function previousWorkingDay(fromIso: string, closedDays: Set<string>): string {
+  let cursor = addDays(fromIso, -1);
+  for (let i = 0; i < 366; i++) {
+    if (!isWeekend(cursor) && !closedDays.has(cursor)) return cursor;
+    cursor = addDays(cursor, -1);
+  }
+  return cursor;
 }
 
 function periodsOverlap(a: SlotTiming, b: SlotTiming): boolean {
@@ -76,8 +96,8 @@ export function getSessionTemporalStatus(
   nowDateStr?: string,
   graceMinutes: number = 15,
 ): SessionTemporalInfo {
-  const today = nowDateStr ?? new Date().toISOString().slice(0, 10);
-  const currentClock = nowTimeStr ?? new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+  const today = nowDateStr ?? todayIso();
+  const currentClock = nowTimeStr ?? nowTime();
 
   if (sessionDate > today) {
     return {

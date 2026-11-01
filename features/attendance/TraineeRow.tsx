@@ -69,6 +69,7 @@ export function TraineeRow({
   };
 
   const choose = (status: AttendanceStatus) => {
+    if (readOnly) return;
     setTimeError(null);
     if (status === "late") {
       const arrival = record?.arrivalTime ?? defaultArrival();
@@ -80,7 +81,7 @@ export function TraineeRow({
   };
 
   const commitTime = () => {
-    if (record?.status !== "late" || time === record.arrivalTime) return;
+    if (readOnly || record?.status !== "late" || time === record.arrivalTime) return;
     const minutes = timeToMinutes(time);
     const start = timeToMinutes(slot.startTime) ?? 0;
     const end = timeToMinutes(slot.endTime) ?? 24 * 60;
@@ -90,6 +91,25 @@ export function TraineeRow({
     }
     setTimeError(null);
     void onSave(trainee, "late", time);
+  };
+
+  const handleRowKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (readOnly || e.altKey || e.ctrlKey || e.metaKey) return;
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) {
+      return;
+    }
+    const key = e.key.toLowerCase();
+    if (key === "p") {
+      e.preventDefault();
+      choose("present");
+    } else if (key === "r") {
+      e.preventDefault();
+      choose("late");
+    } else if (key === "a") {
+      e.preventDefault();
+      choose("absent");
+    }
   };
 
   const status = record?.status;
@@ -111,6 +131,7 @@ export function TraineeRow({
 
   return (
     <tr
+      onKeyDown={handleRowKeyDown}
       className={`border-b border-surface-container transition-colors hover:bg-surface-container-low/70 ${
         status === "present"
           ? "bg-status-present-bg/20"
@@ -248,6 +269,7 @@ export function TraineeRow({
                   id={`arrivee-${trainee.id}`}
                   type="time"
                   value={time}
+                  disabled={readOnly}
                   onChange={(e) => setTime(e.target.value)}
                   onBlur={commitTime}
                   onKeyDown={(e) => {
@@ -258,7 +280,9 @@ export function TraineeRow({
                   }}
                   aria-invalid={timeError ? true : undefined}
                   aria-errormessage={timeError ? `arrivee-err-${trainee.id}` : undefined}
-                  className={`min-h-10 rounded-xl border-2 border-status-late bg-status-late-bg/50 px-2.5 py-1 text-sm font-mono font-bold text-status-late shadow-xs ${focusRing}`}
+                  className={`min-h-10 rounded-xl border-2 border-status-late bg-status-late-bg/50 px-2.5 py-1 text-sm font-mono font-bold text-status-late shadow-xs ${focusRing} ${
+                    readOnly ? "cursor-not-allowed opacity-75" : ""
+                  }`}
                 />
               </div>
               {lateMinutes !== null && (
@@ -359,6 +383,7 @@ export function TraineeCard({
   };
 
   const choose = (status: AttendanceStatus) => {
+    if (readOnly) return;
     setTimeError(null);
     if (status === "late") {
       const arrival = record?.arrivalTime ?? defaultArrival();
@@ -370,7 +395,7 @@ export function TraineeCard({
   };
 
   const commitTime = () => {
-    if (record?.status !== "late" || time === record.arrivalTime) return;
+    if (readOnly || record?.status !== "late" || time === record.arrivalTime) return;
     const minutes = timeToMinutes(time);
     const start = timeToMinutes(slot.startTime) ?? 0;
     const end = timeToMinutes(slot.endTime) ?? 24 * 60;
@@ -380,6 +405,25 @@ export function TraineeCard({
     }
     setTimeError(null);
     void onSave(trainee, "late", time);
+  };
+
+  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (readOnly || e.altKey || e.ctrlKey || e.metaKey) return;
+    const target = e.target as HTMLElement | null;
+    if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT")) {
+      return;
+    }
+    const key = e.key.toLowerCase();
+    if (key === "p") {
+      e.preventDefault();
+      choose("present");
+    } else if (key === "r") {
+      e.preventDefault();
+      choose("late");
+    } else if (key === "a") {
+      e.preventDefault();
+      choose("absent");
+    }
   };
 
   const status = record?.status;
@@ -398,6 +442,7 @@ export function TraineeCard({
 
   return (
     <article
+      onKeyDown={handleCardKeyDown}
       aria-label={`Émargement de ${trainee.fullName}`}
       className={`rounded-2xl border p-4 shadow-xs transition-all flex flex-col gap-3.5 ${
         status === "present"
@@ -524,9 +569,18 @@ export function TraineeCard({
               id={`mobile-arrivee-${trainee.id}`}
               type="time"
               value={time}
+              disabled={readOnly}
               onChange={(e) => setTime(e.target.value)}
               onBlur={commitTime}
-              className={`min-h-10 rounded-lg border-2 border-status-late bg-surface-container-lowest px-2 py-1 text-sm font-mono font-bold text-status-late shadow-xs ${focusRing}`}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitTime();
+                }
+              }}
+              className={`min-h-10 rounded-lg border-2 border-status-late bg-surface-container-lowest px-2 py-1 text-sm font-mono font-bold text-status-late shadow-xs ${focusRing} ${
+                readOnly ? "cursor-not-allowed opacity-75" : ""
+              }`}
             />
           </div>
           {lateMinutes !== null && (

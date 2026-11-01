@@ -18,8 +18,47 @@ export function isValidIsoDate(iso: string): boolean {
   return toIsoDate(parseIsoDate(iso)) === iso;
 }
 
+/* ------------------------------------------------------------------ clock */
+// The training centre runs on Paris time, whatever the device's time zone.
+// The device clock can also be wrong (or deliberately changed), so it is
+// corrected by an offset measured against the server (see syncServerClock).
+
+export const APP_TIME_ZONE = "Europe/Paris";
+
+let clockOffsetMs = 0;
+
+/** Difference (ms) between the server clock and the device clock. */
+export function setClockOffset(ms: number): void {
+  clockOffsetMs = Number.isFinite(ms) ? ms : 0;
+}
+
+/** Current instant, corrected with the server offset. */
+export function currentInstant(): Date {
+  return new Date(Date.now() + clockOffsetMs);
+}
+
+const parisPartsFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: APP_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hourCycle: "h23",
+});
+
+/** Date and time of an instant in Paris: { date: "YYYY-MM-DD", time: "HH:MM", seconds: "SS" }. */
+export function parisParts(instant: Date = currentInstant()): { date: string; time: string; seconds: string } {
+  const p: Record<string, string> = {};
+  for (const part of parisPartsFormatter.formatToParts(instant)) p[part.type] = part.value;
+  const hour = p.hour === "24" ? "00" : p.hour;
+  return { date: `${p.year}-${p.month}-${p.day}`, time: `${hour}:${p.minute}`, seconds: p.second };
+}
+
+/** Today in Paris ("YYYY-MM-DD"). */
 export function todayIso(): string {
-  return toIsoDate(new Date());
+  return parisParts().date;
 }
 
 export function addDays(iso: string, days: number): string {
@@ -62,9 +101,9 @@ export function timeToMinutes(time: string): number | null {
   return Number(match[1]) * 60 + Number(match[2]);
 }
 
+/** Current time in Paris ("HH:MM"). */
 export function nowTime(): string {
-  const d = new Date();
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return parisParts().time;
 }
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
