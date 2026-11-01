@@ -348,7 +348,11 @@ export function FormationManager({ actor }: { actor: Actor }) {
             </section>
           );
         })}
-        {visible.length === 0 && <Alert tone="info">Aucune formation pour le moment.</Alert>}
+        {visible.length === 0 && (
+          <Alert tone="info">
+            Aucune formation ne correspond à vos filtres actuels. Vous pouvez ajuster vos critères ou créer une nouvelle filière ci-dessus.
+          </Alert>
+        )}
       </section>
     </div>
   );
@@ -587,8 +591,8 @@ function FormationForm({
           </div>
 
           {trainees.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">
-              Aucun stagiaire inscrit dans cette formation pour le moment. Utilisez le bouton « Importer des stagiaires » ci-dessus.
+            <p className="text-sm text-on-surface-variant leading-relaxed">
+              Cette filière est prête à accueillir sa promotion. Aucun stagiaire n&apos;y est encore inscrit. Utilisez le bouton « Importer des stagiaires » ci-dessus pour intégrer vos effectifs en quelques instants.
             </p>
           ) : (
             <ul className="divide-y divide-border-subtle rounded-xl border border-border-subtle bg-surface-container-lowest">

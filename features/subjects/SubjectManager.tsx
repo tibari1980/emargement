@@ -128,7 +128,7 @@ export function SubjectManager({ actor }: { actor: Actor }) {
           </label>
         </div>
         {visible.length === 0 ? (
-          <Alert tone="info">Aucune matière pour le moment.</Alert>
+          <Alert tone="info">Aucune matière n&apos;est répertoriée pour le moment. Vous pouvez créer votre premier module d&apos;enseignement via le formulaire ci-dessus.</Alert>
         ) : (
           <>
             {/* Vue Cartes sur Smartphone (< 768px) */}
@@ -188,15 +188,15 @@ export function SubjectManager({ actor }: { actor: Actor }) {
                     {canDelete && (
                       <ConfirmDialog
                         triggerLabel="Supprimer"
-                        triggerAccessibleLabel={`Supprimer définitivement la matière ${s.title}`}
+                        triggerAccessibleLabel={`Supprimer la matière ${s.title}`}
                         triggerVariant="danger"
-                        title={`Supprimer définitivement « ${s.title} » ?`}
-                        description={`Attention : Cette action est irréversible. La matière « ${s.title} » sera définitivement supprimée de l'établissement ainsi que ses créneaux associés dans les emplois du temps.`}
-                        confirmLabel="Supprimer définitivement"
+                        title={`Confirmer la suppression de « ${s.title} » ?`}
+                        description={`Souhaitez-vous supprimer la matière « ${s.title} » ? Si vous désirez simplement la masquer des nouveaux plannings tout en préservant son historique, nous vous conseillons plutôt de l'archiver.`}
+                        confirmLabel="Supprimer la matière"
                         onConfirm={async () => {
                           await run(
                             () => deleteSubject(actor, s),
-                            `Matière « ${s.title} » définitivement supprimée.`,
+                            `Matière « ${s.title} » supprimée.`,
                           );
                         }}
                       />
@@ -265,15 +265,15 @@ export function SubjectManager({ actor }: { actor: Actor }) {
                           {canDelete && (
                             <ConfirmDialog
                               triggerLabel="Supprimer"
-                              triggerAccessibleLabel={`Supprimer définitivement la matière ${s.title}`}
+                              triggerAccessibleLabel={`Supprimer la matière ${s.title}`}
                               triggerVariant="danger"
-                              title={`Supprimer définitivement « ${s.title} » ?`}
-                              description={`Attention : Cette action est irréversible. La matière « ${s.title} » sera définitivement supprimée de l'établissement ainsi que ses créneaux associés dans les emplois du temps.`}
-                              confirmLabel="Supprimer définitivement"
+                              title={`Confirmer la suppression de « ${s.title} » ?`}
+                              description={`Souhaitez-vous supprimer la matière « ${s.title} » ? Si vous désirez simplement la masquer des nouveaux plannings tout en préservant son historique, nous vous conseillons plutôt de l'archiver.`}
+                              confirmLabel="Supprimer la matière"
                               onConfirm={async () => {
                                 await run(
                                   () => deleteSubject(actor, s),
-                                  `Matière « ${s.title} » définitivement supprimée.`,
+                                  `Matière « ${s.title} » supprimée.`,
                                 );
                               }}
                             />

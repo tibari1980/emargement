@@ -328,8 +328,8 @@ export function UserManager({ actor }: { actor: Actor }) {
             <tbody className="divide-y divide-surface-container">
               {paginatedUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-on-surface-variant">
-                    Aucun utilisateur ne correspond aux critères de recherche.
+                  <td colSpan={5} className="p-8 text-center text-on-surface-variant font-medium">
+                    Nous n&apos;avons trouvé aucun compte correspondant à vos critères de recherche. Prenez un instant pour vérifier la saisie ou réinitialiser les filtres.
                   </td>
                 </tr>
               ) : (
@@ -363,8 +363,8 @@ export function UserManager({ actor }: { actor: Actor }) {
         {/* Vue mobile & tablette (< 768px) en cartes accessibles */}
         <div className="md:hidden flex flex-col gap-3">
           {paginatedUsers.length === 0 ? (
-            <div className="p-6 rounded-xl border border-border-subtle bg-surface-container-lowest text-center text-on-surface-variant text-sm">
-              Aucun utilisateur ne correspond aux critères de recherche.
+            <div className="p-6 rounded-xl border border-border-subtle bg-surface-container-lowest text-center text-on-surface-variant text-sm font-medium">
+              Nous n&apos;avons trouvé aucun compte correspondant à vos critères de recherche. Prenez un instant pour vérifier la saisie ou réinitialiser les filtres.
             </div>
           ) : (
             paginatedUsers.map((u) => (
@@ -518,8 +518,8 @@ function UserRow({
               triggerLabel="Réinitialiser MDP"
               triggerAccessibleLabel={`Envoyer un email de réinitialisation de mot de passe à ${user.fullName}`}
               triggerVariant="secondary"
-              title="Réinitialiser le mot de passe ?"
-              description={`Un lien sécurisé de réinitialisation sera envoyé par email à ${user.email}. La personne pourra choisir un nouveau mot de passe.`}
+              title={`Réinitialiser le mot de passe de ${user.fullName} ?`}
+              description={`Un lien sécurisé et bienveillant de réinitialisation sera adressé par email à ${user.email}. La personne pourra choisir son nouveau mot de passe en toute autonomie.`}
               confirmLabel="Envoyer l'email"
               onConfirm={onPasswordReset}
             />
@@ -530,9 +530,9 @@ function UserRow({
                 triggerLabel="Désactiver"
                 triggerAccessibleLabel={`Désactiver le compte de ${user.fullName}`}
                 triggerVariant="secondary"
-                title="Désactiver ce compte ?"
-                description={`${user.fullName} ne pourra plus accéder à l'application. Son historique est conservé et le compte peut être réactivé à tout moment.`}
-                confirmLabel="Désactiver"
+                title="Désactiver temporairement ce compte ?"
+                description={`Souhaitez-vous suspendre l'accès de ${user.fullName} ? Rassurez-vous : l'ensemble de son historique et de ses données restent préservés, et son compte peut être réactivé en un clic à tout moment.`}
+                confirmLabel="Désactiver le compte"
                 onConfirm={onToggleActive}
               />
             ) : (
@@ -548,11 +548,11 @@ function UserRow({
           {canDelete && !isSelf && (
             <ConfirmDialog
               triggerLabel="Supprimer"
-              triggerAccessibleLabel={`Supprimer définitivement le compte de ${user.fullName}`}
+              triggerAccessibleLabel={`Supprimer le compte de ${user.fullName}`}
               triggerVariant="danger"
-              title={`Supprimer définitivement ${user.fullName} ?`}
-              description={`Attention : Cette action est irréversible. Le compte de ${user.fullName} (${ROLE_LABELS[user.role]}) sera définitivement supprimé de la base de données. Toutes ses données associées seront nettoyées.`}
-              confirmLabel="Supprimer définitivement"
+              title={`Confirmer la suppression du compte de ${user.fullName} ?`}
+              description={`Cette action supprimera le compte de ${user.fullName} (${ROLE_LABELS[user.role]}). Si vous souhaitez simplement suspendre son accès tout en conservant son historique d'émargement, nous vous recommandons plutôt de désactiver le compte.`}
+              confirmLabel="Supprimer le compte"
               onConfirm={onDelete}
             />
           )}
@@ -669,8 +669,8 @@ function UserCard({
             triggerLabel="Réinitialiser MDP"
             triggerAccessibleLabel={`Envoyer un email de réinitialisation de mot de passe à ${user.fullName}`}
             triggerVariant="secondary"
-            title="Réinitialiser le mot de passe ?"
-            description={`Un lien sécurisé de réinitialisation sera envoyé par email à ${user.email}.`}
+            title={`Réinitialiser le mot de passe de ${user.fullName} ?`}
+            description={`Un lien sécurisé et bienveillant de réinitialisation sera adressé par email à ${user.email}. La personne pourra choisir son nouveau mot de passe en toute simplicité.`}
             confirmLabel="Envoyer l'email"
             onConfirm={onPasswordReset}
           />
@@ -681,9 +681,9 @@ function UserCard({
               triggerLabel="Désactiver"
               triggerAccessibleLabel={`Désactiver le compte de ${user.fullName}`}
               triggerVariant="secondary"
-              title="Désactiver ce compte ?"
-              description={`${user.fullName} ne pourra plus accéder à l'application. Son historique est conservé.`}
-              confirmLabel="Désactiver"
+              title="Désactiver temporairement ce compte ?"
+              description={`Souhaitez-vous suspendre l'accès de ${user.fullName} ? Rassurez-vous : son historique et ses données restent préservés, et son compte peut être réactivé en un clic à tout moment.`}
+              confirmLabel="Désactiver le compte"
               onConfirm={onToggleActive}
             />
           ) : (
@@ -699,11 +699,11 @@ function UserCard({
         {canDelete && !isSelf && (
           <ConfirmDialog
             triggerLabel="Supprimer"
-            triggerAccessibleLabel={`Supprimer définitivement le compte de ${user.fullName}`}
+            triggerAccessibleLabel={`Supprimer le compte de ${user.fullName}`}
             triggerVariant="danger"
-            title={`Supprimer définitivement ${user.fullName} ?`}
-            description={`Attention : Cette action est irréversible. Le compte de ${user.fullName} (${ROLE_LABELS[user.role]}) sera définitivement supprimé.`}
-            confirmLabel="Supprimer définitivement"
+            title={`Confirmer la suppression du compte de ${user.fullName} ?`}
+            description={`Cette action supprimera le compte de ${user.fullName} (${ROLE_LABELS[user.role]}). Si vous souhaitez simplement suspendre son accès tout en conservant son historique d'émargement, nous vous recommandons plutôt de désactiver le compte.`}
+            confirmLabel="Supprimer le compte"
             onConfirm={onDelete}
           />
         )}

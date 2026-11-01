@@ -736,10 +736,10 @@ export function TrainerAttendanceSheet({ profile }: { profile: Actor }) {
 
           <div className="max-w-2xl flex flex-col gap-2">
             <h2 id="trainer-no-session-heading" className="text-xl sm:text-2xl font-bold text-primary">
-              Aucun cours programmé dans votre emploi du temps le {formatLongDate(date)}
+              Bonjour {profile.fullName} ! Vous n&apos;avez aucun cours programmé le {formatLongDate(date)}
             </h2>
             <p className="text-sm text-on-surface-variant leading-relaxed">
-              Vous n&apos;avez aucune séance d&apos;enseignement planifiée à cette date. Seules les séances où vous intervenez en tant que formateur titulaire ou remplaçant apparaissent dans votre espace d&apos;émargement.
+              Vous n&apos;avez pas de séance planifiée à cette date dans votre emploi du temps. Profitez de cette journée pour la préparation pédagogique, les échanges avec l&apos;équipe ou le suivi individualisé de vos apprenants.
             </p>
           </div>
 
@@ -1017,10 +1017,10 @@ export function TrainerAttendanceSheet({ profile }: { profile: Actor }) {
           </div>
           <div className="max-w-lg">
             <h2 className="text-lg sm:text-xl font-bold text-primary">
-              Aucun stagiaire n&apos;est inscrit dans la filière « {formation?.title ?? "sélectionnée"} »
+              La filière « {formation?.title ?? "sélectionnée"} » est prête pour sa prochaine promotion
             </h2>
             <p className="mt-1.5 text-sm text-on-surface-variant leading-relaxed">
-              Cette promotion compte actuellement <strong>0 stagiaire inscrit</strong>. Choisissez une filière ayant des stagiaires inscrits ou contactez le secrétariat pour l&apos;inscription de la promotion.
+              Aucun stagiaire n&apos;est encore inscrit dans ce groupe. Dès que les inscriptions seront enregistrées par le secrétariat, vous retrouverez votre liste d&apos;émargement ici.
             </p>
           </div>
           {firstPopulatedFormation && firstPopulatedFormation.id !== formation?.id && (

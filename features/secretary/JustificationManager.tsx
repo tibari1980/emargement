@@ -234,7 +234,7 @@ export function JustificationManager({ actor }: { actor: Actor }) {
         reason: finalReason,
       });
     } catch {
-      announce("L'enregistrement du justificatif a échoué.", "assertive");
+      announce("L'enregistrement du justificatif n'a pas pu aboutir. Veuillez vérifier votre connexion et réessayer.", "assertive");
     } finally {
       setBusy(false);
     }
@@ -243,14 +243,14 @@ export function JustificationManager({ actor }: { actor: Actor }) {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
     const e: Record<string, string> = {};
-    if (!formation) e.formation = "Choisissez une formation.";
-    if (!trainee) e.trainee = "Choisissez un stagiaire.";
-    if (!isValidIsoDate(startDate)) e.startDate = "Date de début invalide.";
-    if (!isValidIsoDate(endDate)) e.endDate = "Date de fin invalide.";
-    else if (endDate < startDate) e.endDate = "La fin doit être après le début.";
-    if (!finalReason) e.otherReason = "Précisez le motif.";
+    if (!formation) e.formation = "Veuillez choisir une formation.";
+    if (!trainee) e.trainee = "Veuillez sélectionner un stagiaire.";
+    if (!isValidIsoDate(startDate)) e.startDate = "Veuillez renseigner une date de début valide.";
+    if (!isValidIsoDate(endDate)) e.endDate = "Veuillez renseigner une date de fin valide.";
+    else if (endDate < startDate) e.endDate = "La date de fin doit être égale ou postérieure à la date de début.";
+    if (!finalReason) e.otherReason = "Merci de préciser le motif de l'absence.";
     if (!Object.keys(e).length && schoolDays(startDate, endDate).length === 0) {
-      e.endDate = "La période ne contient aucun jour de formation (week-ends et fermetures exclus).";
+      e.endDate = "La période sélectionnée ne comporte aucun jour ouvré de formation (week-ends et jours fériés exclus).";
     }
     setErrors(e);
     if (Object.keys(e).length) return;
@@ -284,7 +284,7 @@ export function JustificationManager({ actor }: { actor: Actor }) {
             </Alert>
           )}
           {Object.keys(errors).length > 0 && (
-            <Alert tone="error">Le formulaire contient des erreurs. Corrigez les champs signalés.</Alert>
+            <Alert tone="error">Merci de vérifier les informations signalées ci-dessous pour finaliser l&apos;enregistrement du justificatif.</Alert>
           )}
           <div className="grid gap-4 md:grid-cols-2">
             <SelectField
@@ -371,7 +371,7 @@ export function JustificationManager({ actor }: { actor: Actor }) {
           </h2>
           {history.length === 0 ? (
             <Alert tone="info">
-              Aucune absence ni justificatif enregistré pour {trainee.fullName} sur la période courante ({LOOKBACK_DAYS} derniers jours et 60 prochains jours).
+              Parfait ! Aucune absence ni justificatif n&apos;est enregistré pour {trainee.fullName} sur la période ({LOOKBACK_DAYS} derniers jours et 60 prochains jours). L&apos;assiduité est exemplaire.
             </Alert>
           ) : (
             <ul className="divide-y divide-surface-container rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs overflow-hidden">

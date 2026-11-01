@@ -26,7 +26,6 @@ import {
   groupFormations,
   importTrainees,
   listFormations,
-  purgeAllTrainees,
   repairFormationDurations,
   syncCatalogFormations,
 } from "@/lib/data/formations";
@@ -184,7 +183,7 @@ export function TraineeImporter({ actor }: { actor: Actor }) {
       resetFile();
       setFormations(await listFormations());
     } catch {
-      setError("L'import a échoué. Aucune donnée n'a été perdue : vous pouvez relancer l'import.");
+      setError("L'import n'a pas pu aboutir. Rassurez-vous, aucune donnée n'a été perdue : vérifiez la structure de votre fichier et relancez l'opération en toute sérénité.");
     } finally {
       setBusy(false);
     }

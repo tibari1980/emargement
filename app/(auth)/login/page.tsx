@@ -21,15 +21,15 @@ function authErrorMessage(error: unknown): string {
     case "auth/invalid-credential":
     case "auth/wrong-password":
     case "auth/user-not-found":
-      return "Email ou mot de passe incorrect.";
+      return "L'adresse email ou le mot de passe ne correspond pas. Prenez un instant pour vérifier la saisie ou utilisez le lien « Mot de passe oublié » ci-dessous.";
     case "auth/too-many-requests":
-      return "Trop de tentatives. Réessayez dans quelques minutes.";
+      return "Par précaution, l'accès est momentanément suspendu après plusieurs essais. Prenez un court instant de pause et réessayez dans quelques minutes.";
     case "auth/network-request-failed":
-      return "Connexion réseau impossible. Vérifiez votre accès à Internet.";
+      return "Il semble que la connexion internet soit interrompue. Rassurez-vous, vérifiez votre réseau et réessayez dès que vous êtes connecté.";
     case "auth/invalid-email":
-      return "L'adresse email n'est pas valide.";
+      return "Le format de votre adresse email semble incomplet (exemple attendu : prenom.nom@avh.asso.fr).";
     default:
-      return "Connexion impossible. Réessayez ou contactez un administrateur.";
+      return "Nous n'avons pas pu valider votre connexion pour le moment. Votre équipe support ou un administrateur se tient à votre entière disposition pour vous guider.";
   }
 }
 
@@ -97,11 +97,11 @@ export default function LoginPage() {
         const cooldown = 60;
         setLockoutSeconds(cooldown);
         setError(
-          `Trop de tentatives de connexion infructueuses (5/5). Par mesure de sécurité et conformément aux exigences de protection contre le vol de données, l'accès est temporairement verrouillé pendant ${cooldown} secondes.`
+          `Pour préserver la sécurité de votre compte, une courte pause de ${cooldown} secondes est enclenchée après 5 essais. Prenez un instant pour vérifier vos identifiants ou réinitialiser votre mot de passe en toute simplicité.`
         );
-        announce("Trop d'échecs de connexion. Formulaire verrouillé pendant 60 secondes.");
+        announce("Pause de sécurité de 60 secondes enclenchée pour protéger votre compte.");
       } else {
-        setError(`${authErrorMessage(e)} (Tentative ${nextFailures}/5)`);
+        setError(`${authErrorMessage(e)} (Essai ${nextFailures}/5)`);
       }
     } finally {
       setBusy(false);
@@ -112,13 +112,13 @@ export default function LoginPage() {
     setError(null);
     setInfo(null);
     if (!email.trim()) {
-      setError("Saisissez d'abord votre adresse email pour recevoir le lien de réinitialisation.");
+      setError("Veuillez renseigner votre adresse email ci-dessus afin de recevoir votre lien sécurisé de réinitialisation.");
       return;
     }
     try {
       await sendPasswordResetEmail(getFirebaseAuth(), email.trim());
-      setInfo("Si un compte existe pour cette adresse, un email de réinitialisation vient d'être envoyé.");
-      announce("Email de réinitialisation envoyé.");
+      setInfo("Si cette adresse correspond à un compte actif, un lien de réinitialisation sécurisé vient de vous être envoyé. Pensez à vérifier votre boîte de réception.");
+      announce("Un email avec votre lien de réinitialisation vous a été adressé avec succès.");
     } catch (e) {
       setError(authErrorMessage(e));
     }

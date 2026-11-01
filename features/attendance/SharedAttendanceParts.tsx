@@ -424,7 +424,7 @@ export function AttendanceRosterSection({
               triggerLabel={`Marquer tous présents (${pendingCount})`}
               triggerAccessibleLabel={`Marquer présents les ${pendingCount} stagiaires non saisis`}
               title="Valider la présence groupée ?"
-              description={`Cette action va marquer « Présent » les ${pendingCount} stagiaire(s) de la filière « ${formationTitle} » qui n'ont pas encore d'émargement enregistré pour cette séance.`}
+              description={`Souhaitez-vous enregistrer la présence des ${pendingCount} stagiaire(s) en attente pour la filière « ${formationTitle} » ? Cette validation simplifiée vous fait gagner du temps tout en garantissant un émargement complet et bienveillant.`}
               confirmLabel="Confirmer la présence"
               onConfirm={onMarkAllPresent}
             />
@@ -432,13 +432,13 @@ export function AttendanceRosterSection({
           {pendingCount > 0 && !canModify && (
             <span className="inline-flex items-center gap-1.5 font-bold text-xs text-on-surface-variant bg-surface-container px-3 py-2 rounded-xl">
               <Lock className="h-4 w-4" aria-hidden="true" />
-              Émargement verrouillé ({pendingCount} en attente)
+              Émargement clôturé ({pendingCount} en attente)
             </span>
           )}
           {pendingCount === 0 && (
             <span className="inline-flex items-center gap-1.5 font-bold text-xs text-status-present bg-status-present-bg px-3 py-2 rounded-xl">
               <CheckCheck className="h-4 w-4" aria-hidden="true" />
-              Tous les stagiaires de cette filière sont émargés
+              Émargement complet : tous les stagiaires sont renseignés
             </span>
           )}
         </div>
@@ -544,8 +544,8 @@ export function AttendanceRosterSection({
           {filteredTrainees.length === 0 && (
             <div className="p-6 text-center text-sm font-semibold text-on-surface-variant bg-surface-container-lowest rounded-xl border border-border-subtle">
               {searchQuery
-                ? `Aucun stagiaire ne correspond à « ${searchQuery} ».`
-                : "Aucun stagiaire dans cette catégorie."}
+                ? `Aucun stagiaire ne correspond à « ${searchQuery} ». N'hésitez pas à vérifier l'orthographe ou à réinitialiser le filtre.`
+                : "Aucun stagiaire à afficher dans cette catégorie pour le moment. Tout est en ordre !"}
             </div>
           )}
         </div>
@@ -589,8 +589,8 @@ export function AttendanceRosterSection({
                 <tr>
                   <td colSpan={4} className="p-8 text-center text-sm font-semibold text-on-surface-variant">
                     {searchQuery
-                      ? `Aucun stagiaire ne correspond à « ${searchQuery} ».`
-                      : "Aucun stagiaire dans cette catégorie."}
+                      ? `Aucun stagiaire ne correspond à « ${searchQuery} ». N'hésitez pas à vérifier l'orthographe ou à réinitialiser le filtre.`
+                      : "Aucun stagiaire à afficher dans cette catégorie pour le moment. Tout est en ordre !"}
                   </td>
                 </tr>
               )}
