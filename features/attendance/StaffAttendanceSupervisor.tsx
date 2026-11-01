@@ -227,6 +227,10 @@ export function StaffAttendanceSupervisor({ profile }: { profile: Actor }) {
 
   useEffect(() => {
     if (!isValidIsoDate(date)) return;
+    if (date > todayIso()) {
+      setDayAttendances([]);
+      return;
+    }
     let stale = false;
     listForDate(date)
       .then((list) => {
@@ -249,7 +253,9 @@ export function StaffAttendanceSupervisor({ profile }: { profile: Actor }) {
     ])
       .then(([traineesList, attendances]) => {
         if (stale) return;
-        setRecords(Object.fromEntries(attendances.map((a) => [a.traineeId, a])));
+        const tempStatus = getSessionTemporalStatus(slot, date, nowTime(), todayIso());
+        const validAttendances = tempStatus.status === "future" ? [] : attendances;
+        setRecords(Object.fromEntries(validAttendances.map((a) => [a.traineeId, a])));
         setRowState({});
         setRoster({ key: sessionKey, trainees: traineesList });
       })

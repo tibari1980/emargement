@@ -311,13 +311,21 @@ export function TraineeRow({
 
       {/* 4. Enregistrement & Horodatage */}
       <td className="p-3 sm:p-4 text-right whitespace-nowrap">
-        <RowStatus state={state} hasRecord={Boolean(record)} />
+        <RowStatus state={state} hasRecord={Boolean(record)} status={status} />
       </td>
     </tr>
   );
 }
 
-function RowStatus({ state, hasRecord }: { state: RowState; hasRecord: boolean }) {
+function RowStatus({
+  state,
+  hasRecord,
+  status,
+}: {
+  state: RowState;
+  hasRecord: boolean;
+  status?: AttendanceStatus;
+}) {
   if (state === "saving")
     return (
       <span role="status" className="inline-flex items-center gap-1.5 text-xs font-semibold text-secondary">
@@ -330,6 +338,13 @@ function RowStatus({ state, hasRecord }: { state: RowState; hasRecord: boolean }
       <span role="alert" className="inline-flex items-center gap-1.5 text-xs font-bold text-status-absent">
         <AlertCircle className="h-4 w-4" aria-hidden="true" />
         <span>Échec, réessayez</span>
+      </span>
+    );
+  if (hasRecord && status === "excused")
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-bold text-status-excused">
+        <FileCheck className="h-4 w-4" aria-hidden="true" />
+        <span>Absence justifiée</span>
       </span>
     );
   if (hasRecord)
@@ -490,7 +505,7 @@ export function TraineeCard({
         </div>
 
         <div className="shrink-0 pt-0.5">
-          <RowStatus state={state} hasRecord={Boolean(record)} />
+          <RowStatus state={state} hasRecord={Boolean(record)} status={status} />
         </div>
       </div>
 

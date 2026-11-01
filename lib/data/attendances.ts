@@ -19,11 +19,11 @@ const localAttendancesMap = new Map<string, Attendance>();
 const LOCAL_ATTENDANCES_KEY = "avh_persisted_attendances_v2";
 
 /**
- * Only administrative/medical excuses ("excused") may exist on a future date.
- * Physical attendance ("present", "late", "absent") can never exist on a future date (> todayIso()).
+ * Physical attendance and absence records can never exist on a future date (> todayIso()).
+ * Any test or stale record on a future date is automatically ignored and purged.
  */
 function isValidAttendanceRecord(a: Attendance, today = todayIso()): boolean {
-  if (a.date > today && a.status !== "excused") {
+  if (a.date > today) {
     return false;
   }
   return true;
