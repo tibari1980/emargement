@@ -11,8 +11,8 @@ export class HttpError extends Error {
   }
 }
 
-const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim().replace(/^["']|["']$/g, "");
+const PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim().replace(/^["']|["']$/g, "");
 
 /**
  * Checks the Firebase ID token sent as "Authorization: Bearer <token>" and
