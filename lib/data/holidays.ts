@@ -43,20 +43,39 @@ export function getDemoHolidays(): Holiday[] {
   }));
 }
 
-export async function listHolidays(): Promise<Holiday[]> {
+let cachedHolidays: Holiday[] | null = null;
+let lastHolidaysFetch = 0;
+
+export function getInitialHolidays(): Holiday[] {
+  return cachedHolidays ?? getDemoHolidays();
+}
+
+export async function listHolidays(force = false): Promise<Holiday[]> {
+  if (!force && cachedHolidays && Date.now() - lastHolidaysFetch < 60_000) {
+    return cachedHolidays;
+  }
   try {
-    const snap = await getDocs(holidays());
+    const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 800));
+    const snap = await Promise.race([getDocs(holidays()), timeout]);
     const list = snap.docs
       .map((d) => withId<Holiday>(d))
       .sort((a, b) => (a?.startDate ?? "").localeCompare(b?.startDate ?? ""));
-    if (list.length > 0) return list;
+    lastHolidaysFetch = Date.now();
+    if (list.length > 0) {
+      cachedHolidays = list;
+      return list;
+    }
   } catch (err) {
     console.warn("listHolidays failed or empty:", err);
+    lastHolidaysFetch = Date.now();
   }
-  return getDemoHolidays();
+  const fallback = getDemoHolidays();
+  cachedHolidays = fallback;
+  return fallback;
 }
 
 export async function addHolidays(actor: Actor, list: HolidayInput[]): Promise<void> {
+  lastHolidaysFetch = 0;
   const summary =
     list.length === 1
       ? `Ajout au calendrier : ${list[0].title} (${formatShortDate(list[0].startDate)}${list[0].endDate !== list[0].startDate ? ` au ${formatShortDate(list[0].endDate)}` : ""})`
@@ -67,6 +86,7 @@ export async function addHolidays(actor: Actor, list: HolidayInput[]): Promise<v
 }
 
 export async function deleteHoliday(actor: Actor, holiday: Holiday): Promise<void> {
+  lastHolidaysFetch = 0;
   await auditedBatch(
     actor,
     { action: "holiday.delete", entityType: "holiday", entityId: holiday.id, summary: `Suppression du calendrier : ${holiday.title}` },

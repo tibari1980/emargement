@@ -271,12 +271,16 @@ export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyR
     }));
   }
 
-  const subjectTitles = input.subjectTitles ?? { default_subject: "Général" };
+  const subjectTitles = input.subjectTitles ?? { default_subject: "Enseignement général & Travaux pratiques" };
   const { workingDays, closedDays, holidayTitles } = workingDaysOfMonth(month, holidays, {
     includeFrenchPublicHolidays: input.includeFrenchPublicHolidays ?? true,
   });
   const today = input.today ?? monthBounds(month).end;
-  const titleOf = (id: string) => subjectTitles[id] ?? "Matière supprimée";
+  const titleOf = (id: string) =>
+    subjectTitles[id] ??
+    (id === "default_subject" || id === "general"
+      ? "Enseignement général & Travaux pratiques"
+      : "Matière supprimée");
 
   // Map session overrides for the month (cancellations, TP autonomie, replacements)
   const overrides = new Map<string, ReportSessionOverride>();
@@ -291,7 +295,9 @@ export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyR
     slots!
       .filter((slot) => isSlotActiveOn(slot, date))
       .map((slot) => {
-        const override = overrides.get(`${slot.id}_${date}`);
+        const override =
+          overrides.get(`${slot.id}_${date}`) ??
+          overrides.get(`${slot.id}_${formation.id}_${date}`);
         const isCancelled = override?.isCancelled === true;
         const isSelfStudyTP = override?.isSelfStudyTP === true;
         return {

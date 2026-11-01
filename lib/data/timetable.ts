@@ -17,6 +17,13 @@ const sortSlots = (list: TimetableSlot[]) =>
 // In-memory & localStorage slot storage for seamless offline / session updates
 const localSlotsMap = new Map<string, TimetableSlot>();
 const LOCAL_SLOTS_KEY = "avh_persisted_slots_v2";
+let lastSlotsFetchAt = 0;
+let inFlightSlotsPromise: Promise<TimetableSlot[]> | null = null;
+
+export function invalidateSlotsCache(): void {
+  lastSlotsFetchAt = 0;
+  inFlightSlotsPromise = null;
+}
 
 function loadPersistedSlots(): Map<string, TimetableSlot> {
   const map = new Map<string, TimetableSlot>();
@@ -44,36 +51,60 @@ function savePersistedSlots(map: Map<string, TimetableSlot>): void {
   } catch {}
 }
 
-/** Slots of a formation, of a trainer, or every slot. */
-export async function listSlots(filter: { formationId?: string; trainerId?: string } = {}): Promise<TimetableSlot[]> {
-  const localMap = loadPersistedSlots();
-  try {
-    const q = filter.formationId
-      ? query(slots(), where("formationId", "==", filter.formationId))
-      : filter.trainerId
-        ? query(slots(), where("trainerId", "==", filter.trainerId))
-        : slots();
-    const snap = await getDocs(q);
-    const list = sortSlots(snap.docs.map((d) => withId<TimetableSlot>(d)));
-    if (list.length > 0) {
-      list.forEach((s) => {
-        localMap.set(s.id, s);
-        localSlotsMap.set(s.id, s);
-      });
-      savePersistedSlots(localMap);
-    }
-  } catch (err) {
-    console.warn("listSlots failed or timetableSlots empty:", err);
-  }
-
-  const all = Array.from(localMap.values());
+function filterSlots(
+  all: TimetableSlot[],
+  filter: { formationId?: string; trainerId?: string } = {},
+): TimetableSlot[] {
   return sortSlots(
     all.filter((s) => {
       if (filter.formationId && s.formationId !== filter.formationId) return false;
       if (filter.trainerId && s.trainerId !== filter.trainerId) return false;
       return true;
-    })
+    }),
   );
+}
+
+/**
+ * Returns slots synchronously (0ms) from in-memory or localStorage cache.
+ */
+export function getInitialSlots(filter: { formationId?: string; trainerId?: string } = {}): TimetableSlot[] {
+  const localMap = loadPersistedSlots();
+  return filterSlots(Array.from(localMap.values()), filter);
+}
+
+/** Slots of a formation, of a trainer, or every slot. */
+export async function listSlots(filter: { formationId?: string; trainerId?: string } = {}): Promise<TimetableSlot[]> {
+  const localMap = loadPersistedSlots();
+  if (Date.now() - lastSlotsFetchAt < 60_000 && localMap.size > 0) {
+    return filterSlots(Array.from(localMap.values()), filter);
+  }
+
+  if (!inFlightSlotsPromise) {
+    inFlightSlotsPromise = (async () => {
+      try {
+        const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 900));
+        const snap = await Promise.race([getDocs(slots()), timeout]);
+        const list = sortSlots(snap.docs.map((d) => withId<TimetableSlot>(d)));
+        lastSlotsFetchAt = Date.now();
+        if (list.length > 0) {
+          list.forEach((s) => {
+            localMap.set(s.id, s);
+            localSlotsMap.set(s.id, s);
+          });
+          savePersistedSlots(localMap);
+        }
+      } catch (err) {
+        console.warn("listSlots failed or timetableSlots empty:", err);
+        lastSlotsFetchAt = Date.now();
+      }
+      return Array.from(localMap.values());
+    })().finally(() => {
+      inFlightSlotsPromise = null;
+    });
+  }
+
+  const all = await inFlightSlotsPromise;
+  return filterSlots(all, filter);
 }
 
 const describe = (s: Pick<TimetableSlot, "weekday" | "startTime" | "endTime">) =>

@@ -69,18 +69,28 @@ export const ADAPTATION_TRAINEES: UserProfile[] = [
 ];
 
 const LOCAL_USERS_KEY = "avh_persisted_users_v2";
+const memoryUserCache = new Map<string, UserProfile>();
+const staffCache = new Map<string, { at: number; list: UserProfile[] }>();
+
+export function invalidateUsersCache(): void {
+  staffCache.clear();
+}
 
 export function getLocalUsersMap(): Map<string, UserProfile> {
   const map = new Map<string, UserProfile>();
   DEMO_USERS.forEach((u) => map.set(u.id, u));
   ADAPTATION_TRAINEES.forEach((u) => map.set(u.id, u));
+  memoryUserCache.forEach((u, id) => map.set(id, u));
   if (typeof window !== "undefined") {
     try {
       const raw = localStorage.getItem(LOCAL_USERS_KEY);
       if (raw) {
         const parsed: UserProfile[] = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          parsed.forEach((u) => map.set(u.id, u));
+          parsed.forEach((u) => {
+            map.set(u.id, u);
+            memoryUserCache.set(u.id, u);
+          });
         }
       }
     } catch {}
@@ -89,6 +99,8 @@ export function getLocalUsersMap(): Map<string, UserProfile> {
 }
 
 export function saveLocalUser(user: UserProfile): void {
+  memoryUserCache.set(user.id, user);
+  staffCache.clear();
   if (typeof window === "undefined") return;
   try {
     const map = getLocalUsersMap();
@@ -98,6 +110,8 @@ export function saveLocalUser(user: UserProfile): void {
 }
 
 export function saveLocalUsers(newUsers: UserProfile[]): void {
+  newUsers.forEach((u) => memoryUserCache.set(u.id, u));
+  staffCache.clear();
   if (typeof window === "undefined") return;
   try {
     const map = getLocalUsersMap();
@@ -133,33 +147,81 @@ export async function listUsers(role?: Role): Promise<UserProfile[]> {
   return (role ? all.filter((u) => u.role === role) : all).sort(byName);
 }
 
+/** Synchronous (0ms) staff lookup for instant initial render. */
+export function getInitialStaff(roles: Role[]): UserProfile[] {
+  const key = [...roles].sort().join(",");
+  const cached = staffCache.get(key);
+  if (cached) return cached.list;
+  const localMap = getLocalUsersMap();
+  const list = Array.from(localMap.values()).filter((u) => roles.includes(u.role) && isActive(u)).sort(byName);
+  return list.length > 0 ? list : DEMO_USERS.filter((u) => roles.includes(u.role) && u.active).sort(byName);
+}
+
 /** Active staff members holding one of the roles (e.g. every trainer). */
 export async function listStaff(roles: Role[]): Promise<UserProfile[]> {
+  const key = [...roles].sort().join(",");
+  const cached = staffCache.get(key);
+  if (cached && Date.now() - cached.at < 60_000) {
+    return cached.list;
+  }
   try {
-    const snap = await getDocs(query(users(), where("role", "in", roles)));
+    const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 800));
+    const snap = await Promise.race([getDocs(query(users(), where("role", "in", roles))), timeout]);
     const res = snap.docs.map((d) => withId<UserProfile>(d)).filter(isActive).sort(byName);
-    if (res.length > 0) return res;
+    if (res.length > 0) {
+      res.forEach((u) => memoryUserCache.set(u.id, u));
+      staffCache.set(key, { at: Date.now(), list: res });
+      return res;
+    }
   } catch (err) {
     console.warn("listStaff failed, using demo staff:", err);
   }
-  return DEMO_USERS.filter((u) => roles.includes(u.role) && u.active).sort(byName);
+  const fallback = getInitialStaff(roles);
+  staffCache.set(key, { at: Date.now(), list: fallback });
+  return fallback;
+}
+
+/** Synchronous (0ms) lookup of users by IDs from local/memory cache. */
+export function getUsersByIdsSync(ids: string[]): UserProfile[] {
+  const unique = [...new Set(ids)].filter(Boolean);
+  if (unique.length === 0) return [];
+  const localMap = getLocalUsersMap();
+  return unique
+    .map((id) => localMap.get(id))
+    .filter((u): u is UserProfile => Boolean(u))
+    .sort(byName);
 }
 
 export async function listUsersByIds(ids: string[]): Promise<UserProfile[]> {
   const unique = [...new Set(ids)].filter(Boolean);
   if (unique.length === 0) return [];
   const localMap = getLocalUsersMap();
+
+  // Fast path: if every requested ID is already known in localMap/memoryUserCache, return immediately
+  const missingIds = unique.filter((id) => !localMap.has(id));
+  if (missingIds.length === 0) {
+    return unique
+      .map((id) => localMap.get(id)!)
+      .sort(byName);
+  }
+
   try {
-    const results = await Promise.all(
-      chunk(unique, 30).map((part) => getDocs(query(users(), where(documentId(), "in", part)))),
-    );
+    const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 800));
+    const results = await Promise.race([
+      Promise.all(
+        chunk(missingIds, 30).map((part) => getDocs(query(users(), where(documentId(), "in", part)))),
+      ),
+      timeout,
+    ]);
     const fromDb = results.flatMap((s) => s.docs.map((d) => withId<UserProfile>(d)));
     if (fromDb.length > 0) {
-      fromDb.forEach((u) => localMap.set(u.id, u));
-      return fromDb.sort(byName);
+      fromDb.forEach((u) => {
+        localMap.set(u.id, u);
+        memoryUserCache.set(u.id, u);
+      });
     }
   } catch (err) {
-    console.warn("listUsersByIds failed, using demo trainees:", err);
+    console.warn("listUsersByIds failed, using cached trainees:", err);
   }
   return unique
     .map((id) => localMap.get(id))

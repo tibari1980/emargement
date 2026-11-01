@@ -258,28 +258,27 @@ function GuidePageContent() {
             </div>
           </article>
 
-          {/* Étape 2 : Vos cours du jour */}
+          {/* Étape 2 : Vos cours du jour & Sélection de la filière */}
           <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
             <div className="flex items-center gap-3">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
                 2
               </span>
               <h3 className="text-lg font-bold text-primary">
-                Consulter vos cours et votre planning hebdomadaire
+                Choisir la filière à émarger et visualiser l&apos;état du jour
               </h3>
             </div>
             <div className="text-sm text-on-surface-variant flex flex-col gap-2 pl-11">
               <p>
-                Dès votre connexion, vous arrivez sur votre page <strong>« Émargement »</strong>. Vous y trouvez directement :
+                Dès votre connexion, vous arrivez sur votre page <strong>« Émargement &amp; Suivi des Séances »</strong> (<Link href="/trainer/emargement" className="text-secondary font-bold underline">accéder</Link>). Vous y disposez de :
               </p>
               <ul className="list-disc pl-5 flex flex-col gap-1 text-on-surface">
-                <li>La date du jour et la liste de vos créneaux d&apos;enseignement.</li>
-                <li>Le nom de la promotion (ex. <em>TIP 1ère année</em>, <em>IFMK Kiné K2</em>).</li>
-                <li>La matière enseignée et la salle de cours adaptée.</li>
-                <li>L&apos;horaire exact (ex. <em>09:00 - 12:30</em>).</li>
+                <li><strong>Sélecteur de Filière / Promotion :</strong> choisissez directement la promotion (ex. <em>[ADAPT] Adaptation aux outils et à l&apos;autonomie (8 stagiaires)</em>, <em>TIP 1ère année</em>, <em>TIP 2ème année</em>, <em>IFMK Kiné K1–K4</em>).</li>
+                <li><strong>Tableau de bord « État des émargements du jour par filière » :</strong> chaque séance affiche en temps réel un badge <strong>🔴 À émarger (0/8)</strong>, <strong>🟠 En cours (x/8)</strong> ou <strong>🟢 Complet (8/8)</strong>. Cliquez sur une carte pour ouvrir instantanément sa feuille d&apos;émargement.</li>
+                <li><strong>Navigation rapide Week-end &amp; Jours fériés :</strong> si vous ouvrez l&apos;application un samedi, un dimanche ou un jour férié, deux boutons vous permettent d&apos;ouvrir en 1 clic le <strong>Dernier jour ouvré</strong> ou le <strong>Prochain jour ouvré</strong>.</li>
               </ul>
               <p className="mt-1">
-                Vous pouvez également cliquer sur l&apos;onglet <strong>« Plannings »</strong> pour afficher la vue semaine complète de vos interventions.
+                Vous pouvez également cliquer sur l&apos;onglet <strong>« Plannings »</strong> pour afficher la vue semaine complète de vos interventions, et sur l&apos;icône <strong>Cloche (<kbd className="px-1.5 py-0.5 rounded bg-surface-container border text-xs font-mono">Alt + N</kbd>)</strong> pour consulter vos notifications.
               </p>
             </div>
           </article>
@@ -291,30 +290,30 @@ function GuidePageContent() {
                 3
               </span>
               <h3 className="text-lg font-bold text-primary">
-                La règle d&apos;or temporelle : quand pouvez-vous émarger ?
+                La règle d&apos;or temporelle (Synchronisée sur l&apos;Heure de Paris) : quand pouvez-vous émarger ?
               </h3>
             </div>
             <div className="text-sm text-on-surface flex flex-col gap-3 pl-11">
               <p>
-                Pour garantir la sincérité juridique des émargements demandée par les organismes financeurs (DGEFP, France Travail, ASP) :
+                Pour garantir la sincérité juridique des émargements demandée par les organismes financeurs (DGEFP, France Travail, ASP), l&apos;horloge de l&apos;application est synchronisée avec le serveur officiel (fuseau <code>Europe/Paris</code>) :
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div className="rounded-xl bg-surface-container-lowest p-3 border border-border-subtle">
-                  <span className="font-bold text-outline block mb-1">⏳ Avant l&apos;heure du cours</span>
+                  <span className="font-bold text-outline block mb-1">⏳ Avant la séance (ou date future)</span>
                   <p className="text-on-surface-variant">
-                    La feuille est verrouillée. Vous voyez vos stagiaires mais les boutons d&apos;émargement sont inactifs.
+                    <strong>Anticipation strictement interdite :</strong> la feuille est verrouillée. Vous voyez la liste des stagiaires, mais tous les boutons (Présent, Retard, Absent, Marquer tous présents) sont désactivés jusqu&apos;à l&apos;heure exacte de début du cours.
                   </p>
                 </div>
                 <div className="rounded-xl bg-status-present-bg p-3 border border-status-present-border/40">
-                  <span className="font-bold text-status-present block mb-1">🟢 Pendant le créneau</span>
+                  <span className="font-bold text-status-present block mb-1">🟢 Pendant la séance (+15 min)</span>
                   <p className="text-on-surface">
-                    La feuille est automatiquement déverrouillée. Vous pouvez pointer les présences, retards et absences jusqu&apos;à 15 minutes après la fin.
+                    <strong>Émargement ouvert :</strong> la feuille se déverrouille automatiquement de l&apos;heure de début jusqu&apos;à 15 minutes après la fin du créneau pour le formateur titulaire (ou son remplaçant désigné).
                   </p>
                 </div>
                 <div className="rounded-xl bg-surface-container-lowest p-3 border border-border-subtle">
-                  <span className="font-bold text-primary block mb-1">🔒 Après la fin du cours</span>
+                  <span className="font-bold text-primary block mb-1">🔒 Après la séance (ou date passée)</span>
                   <p className="text-on-surface-variant">
-                    La feuille est clôturée et archivée avec horodatage électronique. Seul le secrétariat peut intervenir en cas d&apos;oubli.
+                    <strong>Séance clôturée (Lecture seule) :</strong> au-delà des 15 minutes de tolérance, l&apos;émargement est verrouillé pour le formateur (y compris si l&apos;onglet était resté ouvert). Toute régularisation relève du Secrétariat ou du Responsable Pédagogique.
                   </p>
                 </div>
               </div>
@@ -456,6 +455,43 @@ function GuidePageContent() {
               </div>
             </div>
           </div>
+
+          {/* Étape 0 : Supervision Multi-Filières de l'Émargement & Absences Formateurs */}
+          <article className="rounded-2xl border-2 border-primary/30 bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-on-primary font-bold text-sm">
+                ★
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Comment savoir quelle filière émarger et superviser toutes les promotions ?
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-3 pl-11">
+              <p>
+                Sur l&apos;onglet <strong>« Émargement »</strong> (<Link href="/trainer/emargement" className="text-secondary font-bold underline">accéder</Link>), le Secrétariat dispose d&apos;une vue transversale sur toutes les filières du centre :
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <span className="font-bold text-primary">1. Tableau de bord multi-filières</span>
+                  <p className="text-on-surface-variant">
+                    Visualisez d&apos;un coup d&apos;œil toutes les promotions ayant cours ce jour avec leur badge : <strong>🔴 À émarger (0/8)</strong>, <strong>🟠 En cours</strong> ou <strong>🟢 Complet (8/8)</strong>.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <span className="font-bold text-primary">2. Sélecteur de Filière &amp; Régularisation</span>
+                  <p className="text-on-surface-variant">
+                    Choisissez n&apos;importe quelle filière (<em>Adaptation</em>, <em>TIP 1</em>, <em>TIP 2</em>, <em>Kiné</em>...) pour saisir ou régulariser les présences à tout moment.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <span className="font-bold text-primary">3. Absence d&apos;un formateur</span>
+                  <p className="text-on-surface-variant">
+                    Cliquez sur <strong>« Gérer l&apos;absence du formateur »</strong> pour affecter un remplaçant, passer la classe en <em>TP supervisé</em> ou annuler la séance sans pénaliser les stagiaires.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
 
           {/* Étape 1 : Importation massive de stagiaires */}
           <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">

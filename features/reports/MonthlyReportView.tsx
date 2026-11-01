@@ -31,7 +31,7 @@ import { authFetch, downloadBlob, fileNameFromResponse } from "@/lib/core/apiCli
 import { currentMonth, formatHours, formatMonth, formatShortDate, todayIso } from "@/lib/core/dates";
 import { listForFormation } from "@/lib/data/attendances";
 import type { Actor } from "@/lib/data/audit";
-import { deduplicateFormationsList, groupFormations, listFormations } from "@/lib/data/formations";
+import { deduplicateFormationsList, getInitialFormations, groupFormations, listFormations } from "@/lib/data/formations";
 import { listHolidays } from "@/lib/data/holidays";
 import { listSessionOverridesForMonth } from "@/lib/data/sessionOverrides";
 import { listSubjects } from "@/lib/data/subjects";
@@ -112,8 +112,12 @@ function getTransmissionStatus(
 
 export function MonthlyReportView({ actor }: { actor: Actor }) {
   const announce = useAnnounce();
-  const [formations, setFormations] = useState<Formation[] | null>(null);
-  const [formationId, setFormationId] = useState("");
+  const [formations, setFormations] = useState<Formation[]>(() => getInitialFormations());
+  const [formationId, setFormationId] = useState(() => {
+    const init = getInitialFormations();
+    const withTrainees = init.find((f) => (f.traineeIds?.length ?? 0) > 0);
+    return withTrainees ? withTrainees.id : (init[0]?.id ?? "");
+  });
   const [year, setYear] = useState(currentMonth().slice(0, 4));
   const [monthNumber, setMonthNumber] = useState(currentMonth().slice(5, 7));
   const [result, setResult] = useState<{ key: string; report?: MonthlyReport; error?: string } | null>(null);

@@ -110,17 +110,17 @@ const STEPS: GuideStep[] = [
   },
   {
     number: 6,
-    title: "Émargement numérique quotidien",
+    title: "Émargement multi-filières & Contrôle temporel",
     badge: "Chaque séance",
-    role: "Formateurs / Pédagogie",
-    href: "/trainer/attendance",
+    role: "Formateurs / Secrétariat / Pédagogie",
+    href: "/trainer/emargement",
     description:
-      "Les formateurs pointent en direct les présences, absences et retards lors de chaque séance de cours.",
+      "Sélectionnez la filière à émarger ou consultez le tableau de bord temps réel de l'état d'émargement de toutes les promotions du jour.",
     checklist: [
-      "Bouton « Marquer tous présents » pour émarger en un clic l'ensemble du groupe.",
-      "Pointage individuel avec horodatage électronique certifié à la minute près.",
-      "Raccourcis clavier accessibles (P = Présent, R = Retard, A = Absent) et synthèse vocale ARIA.",
-      "Navigation au clavier conforme RGAA 4.1 AAA avec contraste jaune/noir renforcé.",
+      "Vue d'ensemble multi-filières avec badges en temps réel (À émarger, En cours, Complet).",
+      "Verrouillage temporel strict pour les formateurs (horloge serveur Europe/Paris : bloqué avant et 15 min après la séance).",
+      "Mode Régularisation & Gestion absence formateur (Remplacement, TP supervisé, Annulation) pour Secrétariat, Pédagogie et Admin.",
+      "Raccourcis clavier accessibles (P = Présent, R = Retard, A = Absent) et navigation rapide vers les jours ouvrés.",
     ],
   },
   {

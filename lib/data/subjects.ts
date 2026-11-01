@@ -46,18 +46,37 @@ export function getDemoSubjects(): Subject[] {
   ];
 }
 
-export async function listSubjects(): Promise<Subject[]> {
+let cachedSubjects: Subject[] | null = null;
+let lastSubjectsFetch = 0;
+
+export function getInitialSubjects(): Subject[] {
+  return cachedSubjects ?? getDemoSubjects();
+}
+
+export async function listSubjects(force = false): Promise<Subject[]> {
+  if (!force && cachedSubjects && Date.now() - lastSubjectsFetch < 60_000) {
+    return cachedSubjects;
+  }
   try {
-    const snap = await getDocs(collection(getDb(), COLLECTIONS.subjects));
+    const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 800));
+    const snap = await Promise.race([getDocs(collection(getDb(), COLLECTIONS.subjects)), timeout]);
     const list = snap.docs.map((d) => withId<Subject>(d)).sort(byTitle);
-    if (list.length > 0) return list;
+    lastSubjectsFetch = Date.now();
+    if (list.length > 0) {
+      cachedSubjects = list;
+      return list;
+    }
   } catch (err) {
     console.warn("listSubjects failed or empty:", err);
+    lastSubjectsFetch = Date.now();
   }
-  return getDemoSubjects();
+  const fallback = getDemoSubjects();
+  cachedSubjects = fallback;
+  return fallback;
 }
 
 export async function createSubject(actor: Actor, data: SubjectInput): Promise<string> {
+  lastSubjectsFetch = 0;
   const ref = doc(collection(getDb(), COLLECTIONS.subjects));
   await auditedBatch(
     actor,
@@ -68,6 +87,7 @@ export async function createSubject(actor: Actor, data: SubjectInput): Promise<s
 }
 
 export async function updateSubject(actor: Actor, subject: Subject, data: Partial<SubjectInput>): Promise<void> {
+  lastSubjectsFetch = 0;
   const editable = stripMeta({ ...data });
   const changes = diffChanges(subject, editable, ["title", "description", "trainerIds", "active"]);
   if (!changes) return;

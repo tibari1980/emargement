@@ -51,8 +51,8 @@ import { listForDate, listForSession, saveAttendances, type AttendanceEntry } fr
 import type { Actor } from "@/lib/data/audit";
 import { deduplicateFormationsList, groupFormations } from "@/lib/data/formations";
 import { subscribeSessionOverridesForDate } from "@/lib/data/sessionOverrides";
-import { listSlots } from "@/lib/data/timetable";
-import { listStaff, listUsersByIds } from "@/lib/data/users";
+import { getInitialSlots, listSlots } from "@/lib/data/timetable";
+import { getUsersByIdsSync, listStaff, listUsersByIds } from "@/lib/data/users";
 import { can } from "@/lib/domain/permissions";
 import {
   getSessionTemporalStatus,
@@ -150,7 +150,7 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
   const announce = useAnnounce();
   const { data, lookups, error: refError } = useReferenceData();
   const seesAll = can(profile.role, "attendance.recordAny");
-  const [slots, setSlots] = useState<TimetableSlot[] | null>(null);
+  const [slots, setSlots] = useState<TimetableSlot[]>(() => getInitialSlots());
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState(todayIso());
   const [selectedFormationId, setSelectedFormationId] = useState<string>("ALL");
@@ -338,7 +338,11 @@ export function AttendanceSheet({ profile }: { profile: Actor }) {
     defaultSession(sessions, date, lookups?.formation);
   const formation = slot && lookups ? lookups.formation(slot.formationId) : undefined;
   const sessionKey = slot ? `${slot.id}|${date}` : null;
-  const trainees = roster && roster.key === sessionKey ? roster.trainees : null;
+  const trainees = useMemo(() => {
+    if (roster && roster.key === sessionKey) return roster.trainees;
+    if (formation) return getUsersByIdsSync(formation.traineeIds ?? []);
+    return null;
+  }, [roster, sessionKey, formation]);
 
   // Load all attendances of the day for the multi-filière overview
   useEffect(() => {

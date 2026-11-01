@@ -1,13 +1,10 @@
 "use client";
 
-import { collection, getDocs, query, where } from "firebase/firestore";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getDb } from "@/lib/core/firebase";
-import { byName, COLLECTIONS, withId } from "@/lib/data/db";
-import { listFormations } from "@/lib/data/formations";
-import { listHolidays } from "@/lib/data/holidays";
-import { listSubjects } from "@/lib/data/subjects";
-import { listStaff } from "@/lib/data/users";
+import { getInitialFormations, listFormations } from "@/lib/data/formations";
+import { getInitialHolidays, listHolidays } from "@/lib/data/holidays";
+import { getInitialSubjects, listSubjects } from "@/lib/data/subjects";
+import { getInitialStaff, listStaff } from "@/lib/data/users";
 import { frenchPublicHolidays } from "@/lib/domain/frenchHolidays";
 import { closedDaySet } from "@/lib/domain/hoursCalculator";
 import { STAFF_ROLES, type Formation, type Holiday, type Subject, type UserProfile } from "@/lib/domain/types";
@@ -22,40 +19,60 @@ export interface ReferenceData {
 
 let cachedReferenceData: ReferenceData | null = null;
 let lastFetchTime = 0;
-const CACHE_TTL_MS = 30_000; // 30s cache for lightning-fast tab switching
+let inFlightRefPromise: Promise<ReferenceData> | null = null;
+const CACHE_TTL_MS = 60_000; // 60s cache for instant tab switching
+
+export function getInitialReferenceData(): ReferenceData {
+  if (cachedReferenceData) return cachedReferenceData;
+  return {
+    formations: getInitialFormations(),
+    subjects: getInitialSubjects(),
+    staff: getInitialStaff(STAFF_ROLES),
+    holidays: getInitialHolidays(),
+  };
+}
 
 async function fetchReferenceData(force = false): Promise<ReferenceData> {
   if (!force && cachedReferenceData && Date.now() - lastFetchTime < CACHE_TTL_MS) {
     return cachedReferenceData;
   }
+  if (!force && inFlightRefPromise) {
+    return inFlightRefPromise;
+  }
 
-  const [formations, subjects, staff, holidays] = await Promise.all([
-    listFormations().catch((err) => {
-      console.warn("fetchReferenceData: listFormations failed", err);
-      return [] as Formation[];
-    }),
-    listSubjects().catch((err) => {
-      console.warn("fetchReferenceData: listSubjects failed", err);
-      return [] as Subject[];
-    }),
-    listStaff(STAFF_ROLES).catch((err) => {
-      console.warn("fetchReferenceData: staff query failed", err);
-      return [] as UserProfile[];
-    }),
-    listHolidays().catch((err) => {
-      console.warn("fetchReferenceData: listHolidays failed", err);
-      return [] as Holiday[];
-    }),
-  ]);
-  const result = { formations, subjects, staff, holidays };
-  cachedReferenceData = result;
-  lastFetchTime = Date.now();
-  return result;
+  inFlightRefPromise = (async () => {
+    const [formations, subjects, staff, holidays] = await Promise.all([
+      listFormations(force).catch((err) => {
+        console.warn("fetchReferenceData: listFormations failed", err);
+        return getInitialFormations();
+      }),
+      listSubjects(force).catch((err) => {
+        console.warn("fetchReferenceData: listSubjects failed", err);
+        return getInitialSubjects();
+      }),
+      listStaff(STAFF_ROLES).catch((err) => {
+        console.warn("fetchReferenceData: staff query failed", err);
+        return getInitialStaff(STAFF_ROLES);
+      }),
+      listHolidays(force).catch((err) => {
+        console.warn("fetchReferenceData: listHolidays failed", err);
+        return getInitialHolidays();
+      }),
+    ]);
+    const result = { formations, subjects, staff, holidays };
+    cachedReferenceData = result;
+    lastFetchTime = Date.now();
+    return result;
+  })().finally(() => {
+    inFlightRefPromise = null;
+  });
+
+  return inFlightRefPromise;
 }
 
 /** Reference data shared by several screens, with name lookups. */
 export function useReferenceData() {
-  const [data, setData] = useState<ReferenceData | null>(cachedReferenceData);
+  const [data, setData] = useState<ReferenceData>(() => getInitialReferenceData());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

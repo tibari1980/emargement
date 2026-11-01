@@ -2,29 +2,54 @@ import {
   collection,
   doc,
   getDocs,
+  limit,
   onSnapshot,
   query,
   updateDoc,
   deleteDoc,
   setDoc,
-  where,
   type Unsubscribe,
 } from "firebase/firestore";
 import { getDb } from "@/lib/core/firebase";
-import type { AppNotification, Role, NotificationType } from "@/lib/domain/types";
+import type { AppNotification, Role } from "@/lib/domain/types";
 import { COLLECTIONS, stripMeta, withId } from "./db";
 import type { Actor } from "./audit";
 
 const notificationsCollection = () => collection(getDb(), COLLECTIONS.notifications);
+const LOCAL_NOTIFS_KEY = "avh_persisted_notifications_v2";
 
-// In-memory reactive store for demo and offline resilience
+// In-memory & localStorage reactive store for offline/fast resilience
 const initialDemoNotifications: AppNotification[] = [];
 
 let localNotifications: AppNotification[] = [...initialDemoNotifications];
+let localNotifsLoaded = false;
+
+function ensureLocalNotifsLoaded() {
+  if (localNotifsLoaded || typeof window === "undefined") return;
+  localNotifsLoaded = true;
+  try {
+    const raw = localStorage.getItem(LOCAL_NOTIFS_KEY);
+    if (raw) {
+      const parsed: AppNotification[] = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        localNotifications = parsed;
+      }
+    }
+  } catch {}
+}
+
+function saveLocalNotifs() {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LOCAL_NOTIFS_KEY, JSON.stringify(localNotifications.slice(0, 50)));
+  } catch {}
+}
+
 type ChangeListener = () => void;
 const listeners = new Set<ChangeListener>();
 
 function notifyListeners() {
+  saveLocalNotifs();
   for (const listener of listeners) {
     try {
       listener();
@@ -76,7 +101,8 @@ export function subscribeNotifications(
   user: { id: string; role: Role },
   callback: (notifications: AppNotification[]) => void
 ): Unsubscribe {
-  // Always emit local data immediately
+  ensureLocalNotifsLoaded();
+  // Always emit local data immediately (0ms)
   callback(filterNotificationsForUser(localNotifications, user));
 
   // Local listener for in-memory updates
@@ -85,16 +111,21 @@ export function subscribeNotifications(
   };
   listeners.add(localListener);
 
-  // Firestore onSnapshot if available
+  // Firestore onSnapshot with limit(50) for scalability
   let unsubFirestore: Unsubscribe | null = null;
   try {
-    const q = notificationsCollection();
+    const q = query(notificationsCollection(), limit(50));
     unsubFirestore = onSnapshot(
       q,
       (snap) => {
         if (!snap.empty) {
           const items = snap.docs.map((d) => withId<AppNotification>(d));
-          callback(filterNotificationsForUser(items, user));
+          const mergedMap = new Map<string, AppNotification>();
+          localNotifications.forEach((n) => mergedMap.set(n.id, n));
+          items.forEach((n) => mergedMap.set(n.id, n));
+          localNotifications = Array.from(mergedMap.values());
+          saveLocalNotifs();
+          callback(filterNotificationsForUser(localNotifications, user));
         }
       },
       () => {

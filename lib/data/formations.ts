@@ -311,9 +311,28 @@ export function deduplicateFormationsList(formations: Formation[] | null | undef
 
 let cachedFormationsList: Formation[] | null = null;
 let lastFormationsFetch = 0;
+let inFlightFormationsPromise: Promise<Formation[]> | null = null;
+let checkedLegacyCourses = false;
 
 export function invalidateFormationsCache(): void {
   cachedFormationsList = null;
+  lastFormationsFetch = 0;
+  inFlightFormationsPromise = null;
+}
+
+/**
+ * Returns formations synchronously (0ms) from in-memory cache, localStorage, or the official catalog.
+ * Allows UI components to render immediately on first paint while revalidating in the background.
+ */
+export function getInitialFormations(): Formation[] {
+  if (cachedFormationsList && cachedFormationsList.length > 0) return cachedFormationsList;
+  const persisted = loadPersistedFormations();
+  if (persisted && persisted.length > 0) {
+    const deduped = deduplicateFormationsList(persisted);
+    cachedFormationsList = deduped;
+    return deduped;
+  }
+  return deduplicateFormationsList(getDemoFormations());
 }
 
 const LOCAL_FORMATIONS_KEY = "avh_persisted_formations_v2";
@@ -581,7 +600,7 @@ export function getDemoFormations(): Formation[] {
   ];
 }
 
-function raceTimeout<T>(p: Promise<T>, ms = 1500): Promise<T> {
+function raceTimeout<T>(p: Promise<T>, ms = 900): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Timeout")), ms);
     p.then(
@@ -597,11 +616,7 @@ function raceTimeout<T>(p: Promise<T>, ms = 1500): Promise<T> {
   });
 }
 
-export async function listFormations(force = false): Promise<Formation[]> {
-  if (!force && cachedFormationsList && Date.now() - lastFormationsFetch < 15_000) {
-    return cachedFormationsList;
-  }
-
+async function fetchFormationsFromNetwork(): Promise<Formation[]> {
   // 1. Try remote Firestore "formations" collection
   try {
     const snap = await raceTimeout(getDocs(collection(getDb(), COLLECTIONS.formations)));
@@ -616,7 +631,6 @@ export async function listFormations(force = false): Promise<Formation[]> {
       })
       .sort(byTitle);
     if (list.length > 0) {
-      // Merge with base catalog to guarantee all 15 promotions and known trainees are present
       const baseFormations = getDemoFormations();
       const merged = [...list];
       for (const base of baseFormations) {
@@ -633,42 +647,41 @@ export async function listFormations(force = false): Promise<Formation[]> {
       savePersistedFormations(deduped);
       return deduped;
     }
-  } catch (err) {
-    console.warn("listFormations: could not read 'formations', checking 'courses':", err);
-  }
 
-  // 2. Try legacy "courses" collection
-  try {
-    const legacySnap = await raceTimeout(getDocs(collection(getDb(), "courses")));
-    const list = legacySnap.docs
-      .map((d) => {
-        const f = withId<Formation>(d);
-        const duration =
-          f.duration && f.duration.trim() !== "" && f.duration.trim() !== "—"
-            ? f.duration
-            : getOfficialDuration(f.title);
-        return { ...f, duration };
-      })
-      .sort(byTitle);
-    if (list.length > 0) {
-      const baseFormations = getDemoFormations();
-      const merged = [...list];
-      for (const base of baseFormations) {
-        const found = merged.find((f) => getCanonicalKey(f.title) === getCanonicalKey(base.title));
-        if (!found) {
-          merged.push(base);
-        } else if ((base.traineeIds?.length ?? 0) > (found.traineeIds?.length ?? 0)) {
-          found.traineeIds = base.traineeIds;
+    // 2. Only check legacy "courses" collection once if "formations" responded with 0 docs
+    if (!checkedLegacyCourses) {
+      checkedLegacyCourses = true;
+      const legacySnap = await raceTimeout(getDocs(collection(getDb(), "courses")), 600);
+      const legacyList = legacySnap.docs
+        .map((d) => {
+          const f = withId<Formation>(d);
+          const duration =
+            f.duration && f.duration.trim() !== "" && f.duration.trim() !== "—"
+              ? f.duration
+              : getOfficialDuration(f.title);
+          return { ...f, duration };
+        })
+        .sort(byTitle);
+      if (legacyList.length > 0) {
+        const baseFormations = getDemoFormations();
+        const merged = [...legacyList];
+        for (const base of baseFormations) {
+          const found = merged.find((f) => getCanonicalKey(f.title) === getCanonicalKey(base.title));
+          if (!found) {
+            merged.push(base);
+          } else if ((base.traineeIds?.length ?? 0) > (found.traineeIds?.length ?? 0)) {
+            found.traineeIds = base.traineeIds;
+          }
         }
+        const deduped = deduplicateFormationsList(merged);
+        cachedFormationsList = deduped;
+        lastFormationsFetch = Date.now();
+        savePersistedFormations(deduped);
+        return deduped;
       }
-      const deduped = deduplicateFormationsList(merged);
-      cachedFormationsList = deduped;
-      lastFormationsFetch = Date.now();
-      savePersistedFormations(deduped);
-      return deduped;
     }
   } catch (err) {
-    console.warn("listFormations: fallback to courses also failed or empty:", err);
+    console.warn("listFormations: network fetch fallback to local catalog:", err);
   }
 
   // 3. Fallback: check persisted localStorage formations or default official catalog
@@ -695,6 +708,19 @@ export async function listFormations(force = false): Promise<Formation[]> {
   lastFormationsFetch = Date.now();
   savePersistedFormations(fallback);
   return fallback;
+}
+
+export async function listFormations(force = false): Promise<Formation[]> {
+  if (!force && cachedFormationsList && Date.now() - lastFormationsFetch < 60_000) {
+    return cachedFormationsList;
+  }
+  if (!force && inFlightFormationsPromise) {
+    return inFlightFormationsPromise;
+  }
+  inFlightFormationsPromise = fetchFormationsFromNetwork().finally(() => {
+    inFlightFormationsPromise = null;
+  });
+  return inFlightFormationsPromise;
 }
 
 export async function createFormation(actor: Actor, data: FormationInput): Promise<string> {

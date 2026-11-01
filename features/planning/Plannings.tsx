@@ -19,7 +19,7 @@ import { SelectField } from "@/components/ui/Field";
 import { formatHours, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
 import { deduplicateFormationsList, groupFormations } from "@/lib/data/formations";
-import { listSlots } from "@/lib/data/timetable";
+import { getInitialSlots, listSlots } from "@/lib/data/timetable";
 import { isActive } from "@/lib/data/users";
 import { slotMinutes } from "@/lib/domain/schedule";
 import type { TimetableSlot } from "@/lib/domain/types";
@@ -35,8 +35,8 @@ type View = "trainer" | "formation";
  */
 export function Plannings({ actor }: { actor: Actor }) {
   const announce = useAnnounce();
-  const { data, lookups, error, reload } = useReferenceData();
-  const [slots, setSlots] = useState<TimetableSlot[] | null>(null);
+  const { data, lookups, error } = useReferenceData();
+  const [slots, setSlots] = useState<TimetableSlot[]>(() => getInitialSlots());
   const [view, setView] = useState<View>(actor.role === "trainer" ? "trainer" : "formation");
   const [trainerId, setTrainerId] = useState(actor.role === "trainer" ? actor.id : "");
   const [formationId, setFormationId] = useState("");
@@ -313,16 +313,16 @@ export function Plannings({ actor }: { actor: Actor }) {
                   <h3 className="font-bold text-base text-primary">
                     {view === "trainer"
                       ? (isTrainer
-                          ? "Aucun créneau de cours ne vous a encore été attribué"
+                          ? "Aucun créneau de cours spécifique ne vous a encore été attribué"
                           : `Aucun cours n'est encore affecté à ${trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "ce formateur"}`)
-                      : `Aucun cours n'est encore programmé pour cette promotion`}
+                      : `Horaire journalier standard actif (Lundi au Vendredi · 09:00 – 17:00)`}
                   </h3>
                   <p className="text-xs sm:text-sm text-on-surface-variant max-w-2xl">
                     {view === "trainer"
                       ? (isTrainer
-                          ? "Votre compte est bien actif. Vos créneaux hebdomadaires apparaîtront ici dès que le responsable pédagogique les aura enregistrés dans la grille d'emploi du temps."
+                          ? "Votre compte est bien actif. Vos créneaux hebdomadaires par matière apparaîtront ici dès que le responsable pédagogique les aura enregistrés dans la grille d'emploi du temps."
                           : "Le compte formateur est bien actif, mais aucun créneau horaire régulier ne lui a encore été attribué. Vous pouvez lui assigner des cours directement dans l'onglet « Emplois du temps ».")
-                      : "Cette promotion ne dispose pas encore de cours réguliers dans l'emploi du temps. Configurez ses créneaux dans l'onglet « Emplois du temps »."}
+                      : "Cette promotion fonctionne actuellement sur l'horaire réglementaire standard du centre (09:00 – 17:00, 7h/jour, 35h/semaine) pour l'Émargement, les Justificatifs et les Rapports mensuels ASP. Vous pouvez découper sa semaine matière par matière dans l'onglet « Emplois du temps »."}
                   </p>
                 </div>
               </div>
