@@ -320,13 +320,20 @@ export function computeMonthlyReport(input: ComputeMonthlyReportInput): MonthlyR
     subjectTheory.set(s.slot.subjectId, (subjectTheory.get(s.slot.subjectId) ?? 0) + s.minutes);
   }
 
+  const isUsingDefaultSlots = !input.slots || input.slots.length === 0;
   const records = new Map<string, ReportAttendance>();
   for (const a of attendances) {
     if (a.slotId) {
       records.set(`${a.slotId}|${a.traineeId}|${a.date}`, a);
     }
-    // Also index without slotId for legacy tests or single-session days
-    records.set(`*|${a.traineeId}|${a.date}`, a);
+    // Index as a day-level fallback ONLY when the attendance record itself is day-level
+    // (no slotId, "general", or "default_slot_*") OR when the formation uses standard daily slots.
+    // This prevents marking 1 custom slot on a multi-slot day from bleeding into other slots of the same day.
+    const isDayLevelRecord =
+      !a.slotId || a.slotId === "general" || a.slotId.startsWith("default_slot_");
+    if (isDayLevelRecord || isUsingDefaultSlots) {
+      records.set(`*|${a.traineeId}|${a.date}`, a);
+    }
   }
 
   const subjectAbsence = new Map<string, number>();

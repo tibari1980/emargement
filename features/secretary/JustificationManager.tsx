@@ -10,7 +10,7 @@ import { SelectField, TextField } from "@/components/ui/Field";
 import { addDays, eachDay, formatLongDate, isValidIsoDate, isWeekend, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
 import { justifySessions, listForFormation, revokeJustification } from "@/lib/data/attendances";
-import { getDemoFormations, groupFormations, listFormations } from "@/lib/data/formations";
+import { getDemoFormations, getInitialFormations, groupFormations, listFormations } from "@/lib/data/formations";
 import { listHolidays } from "@/lib/data/holidays";
 import { listSlots } from "@/lib/data/timetable";
 import { listUsersByIds } from "@/lib/data/users";
@@ -31,9 +31,13 @@ const LOOKBACK_DAYS = 90;
 export function JustificationManager({ actor }: { actor: Actor }) {
   const announce = useAnnounce();
   // Toujours initialisé avec les formations du catalogue officiel pour éviter toute liste déroulante vide
-  const [formations, setFormations] = useState<Formation[]>(() => getDemoFormations());
+  const [formations, setFormations] = useState<Formation[]>(() => getInitialFormations());
   const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [formationId, setFormationId] = useState("");
+  const [formationId, setFormationId] = useState(() => {
+    const init = getInitialFormations();
+    const withTrainees = init.find((f) => (f.traineeIds?.length ?? 0) > 0);
+    return withTrainees ? withTrainees.id : (init[0]?.id ?? "");
+  });
   const [slots, setSlots] = useState<TimetableSlot[]>([]);
   const [trainees, setTrainees] = useState<UserProfile[]>([]);
   const [traineeId, setTraineeId] = useState("");
@@ -371,61 +375,81 @@ export function JustificationManager({ actor }: { actor: Actor }) {
             </Alert>
           ) : (
             <ul className="divide-y divide-surface-container rounded-xl border border-border-subtle bg-surface-container-lowest shadow-xs overflow-hidden">
-              {history.map((h) => (
-                <li key={h.date} className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-surface-container-low transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-sm text-on-surface">{formatLongDate(h.date)}</span>
-                    <span className="text-outline text-xs">•</span>
-                    {h.status === "excused" ? (
-                      <span className="inline-flex rounded-full bg-status-excused-bg text-status-excused border border-status-excused-border/50 px-2.5 py-0.5 text-xs font-bold">
-                        Justifiée : {h.excuseReason ?? "validé"}
-                      </span>
-                    ) : (
-                      <span className="inline-flex rounded-full bg-status-absent-bg text-status-absent border border-status-absent-border/50 px-2.5 py-0.5 text-xs font-bold">
-                        Non justifiée
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {h.status === "absent" && (
-                      <Button
-                        variant="secondary"
-                        disabled={busy || !finalReason}
-                        onClick={() => apply([h.date])}
-                        className="!min-h-9 !px-3 text-xs rounded-xl"
-                        aria-label={`Justifier l'absence du ${formatLongDate(h.date)} avec le motif ${finalReason || "non renseigné"}`}
-                      >
-                        Justifier ({finalReason || "motif à préciser"})
-                      </Button>
-                    )}
-                    {h.status === "excused" && (
-                      <ConfirmDialog
-                        triggerLabel="Annuler le justificatif"
-                        triggerAccessibleLabel={`Annuler le justificatif du ${formatLongDate(h.date)} pour ${trainee.fullName}`}
-                        title="Annuler ce justificatif ?"
-                        description={`L'absence du ${formatLongDate(h.date)} repassera en statut non justifié dans les rapports.`}
-                        confirmLabel="Confirmer l'annulation"
-                        onConfirm={async () => {
-                          try {
-                            await revokeJustification(actor, {
-                              trainee,
-                              slotId: h.slotId || "general",
-                              date: h.date,
-                              formationId: h.formationId,
-                              subjectId: h.subjectId,
-                              trainerId: h.trainerId,
-                            });
-                            await refreshHistory();
-                            announce(`Justificatif du ${formatLongDate(h.date)} annulé.`);
-                          } catch {
-                            announce("Échec de l'annulation du justificatif.", "assertive");
-                          }
-                        }}
-                      />
-                    )}
-                  </div>
-                </li>
-              ))}
+              {Array.from(
+                history.reduce<Map<string, Attendance[]>>((acc, item) => {
+                  const list = acc.get(item.date) ?? [];
+                  list.push(item);
+                  acc.set(item.date, list);
+                  return acc;
+                }, new Map()),
+              ).map(([dateKey, dayRecords]) => {
+                const isExcused = dayRecords.some((r) => r.status === "excused");
+                const excuseLabel = dayRecords.find((r) => r.excuseReason)?.excuseReason ?? "validé";
+                return (
+                  <li key={dateKey} className="flex flex-wrap items-center justify-between gap-3 p-4 hover:bg-surface-container-low transition-colors">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <span className="font-bold text-sm text-on-surface">{formatLongDate(dateKey)}</span>
+                      {dayRecords.length > 1 && (
+                        <span className="rounded-md bg-surface-container px-2 py-0.5 text-[11px] font-semibold text-on-surface-variant">
+                          {dayRecords.length} séances
+                        </span>
+                      )}
+                      <span className="text-outline text-xs">•</span>
+                      {isExcused ? (
+                        <span className="inline-flex rounded-full bg-status-excused-bg text-status-excused border border-status-excused-border/50 px-2.5 py-0.5 text-xs font-bold">
+                          Justifiée : {excuseLabel}
+                        </span>
+                      ) : (
+                        <span className="inline-flex rounded-full bg-status-absent-bg text-status-absent border border-status-absent-border/50 px-2.5 py-0.5 text-xs font-bold">
+                          Non justifiée
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {!isExcused && (
+                        <Button
+                          variant="secondary"
+                          disabled={busy || !finalReason}
+                          onClick={() => apply([dateKey])}
+                          className="!min-h-9 !px-3 text-xs rounded-xl"
+                          aria-label={`Justifier l'absence du ${formatLongDate(dateKey)} avec le motif ${finalReason || "non renseigné"}`}
+                        >
+                          Justifier ({finalReason || "motif à préciser"})
+                        </Button>
+                      )}
+                      {isExcused && (
+                        <ConfirmDialog
+                          triggerLabel="Annuler le justificatif"
+                          triggerAccessibleLabel={`Annuler le justificatif du ${formatLongDate(dateKey)} pour ${trainee.fullName}`}
+                          title="Annuler ce justificatif ?"
+                          description={`L'absence du ${formatLongDate(dateKey)} repassera en statut non justifié dans les rapports.`}
+                          confirmLabel="Confirmer l'annulation"
+                          onConfirm={async () => {
+                            try {
+                              await Promise.all(
+                                dayRecords.map((rec) =>
+                                  revokeJustification(actor, {
+                                    trainee,
+                                    slotId: rec.slotId || "general",
+                                    date: rec.date,
+                                    formationId: rec.formationId,
+                                    subjectId: rec.subjectId,
+                                    trainerId: rec.trainerId,
+                                  }),
+                                ),
+                              );
+                              await refreshHistory();
+                              announce(`Justificatif du ${formatLongDate(dateKey)} annulé.`);
+                            } catch {
+                              announce("Échec de l'annulation du justificatif.", "assertive");
+                            }
+                          }}
+                        />
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>

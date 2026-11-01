@@ -117,15 +117,16 @@ export async function listForFormation(formationId: string, months: string[]): P
         localMap.set(a.id, a);
         localAttendancesMap.set(a.id, a);
       });
+      savePersistedAttendances(localMap);
       return Array.from(localMap.values()).filter(
-        (a) => a.formationId === formationId && uniqueMonths.includes(a.month)
+        (a) => a.formationId === formationId && uniqueMonths.includes(a.month || a.date?.slice(0, 7)),
       );
     }
   } catch (err) {
     console.warn("listForFormation failed:", err);
   }
   return Array.from(localMap.values()).filter(
-    (a) => a.formationId === formationId && uniqueMonths.includes(a.month)
+    (a) => a.formationId === formationId && uniqueMonths.includes(a.month || a.date?.slice(0, 7)),
   );
 }
 

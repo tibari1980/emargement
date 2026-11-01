@@ -165,4 +165,60 @@ describe("computeMonthlyReport", () => {
     expect(cancelledReport.exemptedHours).toBe(7);
     expect(cancelledReport.netTheoreticalHours).toBe(133); // 140 - 7
   });
+
+  it("isolates custom slots on multi-session days without bleeding across slots", () => {
+    const customSlots = [
+      {
+        id: "slot_morning",
+        subjectId: "subj_braille",
+        weekday: 1 as const,
+        startTime: "09:00",
+        endTime: "12:00", // 3h
+        validFrom: "2026-09-01",
+        validTo: null,
+      },
+      {
+        id: "slot_afternoon",
+        subjectId: "subj_bureautique",
+        weekday: 1 as const,
+        startTime: "13:30",
+        endTime: "16:30", // 3h
+        validFrom: "2026-09-01",
+        validTo: null,
+      },
+    ];
+
+    const multiSlotReport = computeMonthlyReport({
+      month: "2026-11",
+      formation: { id: "f_adapt", title: "Adaptation" },
+      slots: customSlots,
+      subjectTitles: { subj_braille: "Braille", subj_bureautique: "Bureautique" },
+      trainees: [{ id: "t1", fullName: "Jean Dupont" }],
+      attendances: [
+        // Monday 2026-11-02: morning slot absent (3h), afternoon slot not yet recorded
+        { traineeId: "t1", slotId: "slot_morning", date: "2026-11-02", status: "absent", arrivalTime: null },
+        // Monday 2026-11-09: day-level medical justification ("general") excuses both morning and afternoon (6h)
+        {
+          traineeId: "t1",
+          slotId: "general",
+          date: "2026-11-09",
+          status: "excused",
+          arrivalTime: null,
+          excuseReason: "Arrêt maladie",
+        },
+      ],
+      holidays: [],
+      today: "2026-11-09",
+    });
+
+    const jean = multiSlotReport.trainees[0];
+    // Only slot_morning on 2026-11-02 is absent (3h), NOT slot_afternoon!
+    expect(jean.absentHours).toBe(3);
+    expect(jean.absentSessions).toBe(1);
+    // Both slots on 2026-11-09 are excused via day-level justification (3h + 3h = 6h)
+    expect(jean.excusedHours).toBe(6);
+    expect(jean.excusedSessions).toBe(2);
+    // slot_afternoon on 2026-11-02 remains unrecorded (1 session)
+    expect(jean.unrecordedSessions).toBe(1);
+  });
 });

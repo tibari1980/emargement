@@ -5,6 +5,7 @@ import { computeMonthlyReport } from "@/lib/domain/hoursCalculator";
 import { buildExcelReport } from "./excel";
 import { buildPdfReport } from "./pdf";
 import { buildTimetableExcel, buildTimetablePdf, timetableExportFileName } from "./timetableExport";
+import { buildUsersExcel, buildUsersPdf, usersExportFileName } from "./usersExport";
 
 const report = computeMonthlyReport({
   month: "2026-11",
@@ -103,5 +104,50 @@ describe("exports", () => {
 
     const fileName = timetableExportFileName(samplePayload, "pdf");
     expect(fileName).toContain("emploi-du-temps-formation-adaptation");
+  });
+
+  it("builds a users PDF and Excel workbook with role summary", async () => {
+    const usersPayload = {
+      filterLabel: "Tous les rôles",
+      users: [
+        {
+          id: "u1",
+          fullName: "Lyna Zeroual",
+          email: "lyna.zeroual@avh.asso.fr",
+          role: "admin" as const,
+          active: true,
+        },
+        {
+          id: "u2",
+          fullName: "Nadia Mansouri",
+          email: "nadia.mansouri@avh.asso.fr",
+          role: "trainer" as const,
+          active: true,
+        },
+        {
+          id: "u3",
+          fullName: "Zeroual Tarik",
+          email: "tarik.zeroual@avh.asso.fr",
+          role: "secretary" as const,
+          active: true,
+        },
+      ],
+    };
+
+    const pdfBytes = await buildUsersPdf(usersPayload);
+    const pdf = await PDFDocument.load(pdfBytes);
+    expect(pdf.getPageCount()).toBe(1);
+    expect(pdf.getTitle()).toContain("Répertoire des Utilisateurs");
+
+    const xlsxBuffer = await buildUsersExcel(usersPayload);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(xlsxBuffer as unknown as ArrayBuffer);
+    const usersSheet = wb.getWorksheet("Utilisateurs")!;
+    expect(usersSheet).toBeDefined();
+    const roleSheet = wb.getWorksheet("Synthese_Roles")!;
+    expect(roleSheet).toBeDefined();
+
+    const fileName = usersExportFileName(usersPayload, "xlsx");
+    expect(fileName).toContain("utilisateurs-esrp-cfrp");
   });
 });

@@ -2,13 +2,24 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { CheckCircle2, Info, KeyRound, Mail, Search, Shield, UserPlus, X } from "lucide-react";
+import {
+  CheckCircle2,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Info,
+  Search,
+  Shield,
+  UserPlus,
+  X,
+} from "lucide-react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Alert, Loading } from "@/components/ui/Alert";
-import { Button } from "@/components/ui/Button";
+import { Button, focusRing } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { PasswordField, SelectField, TextField } from "@/components/ui/Field";
 import { Pagination } from "@/components/ui/Pagination";
+import { authFetch, downloadBlob, fileNameFromResponse } from "@/lib/core/apiClient";
 import { accountErrorMessage, createStaffAccount } from "@/lib/data/accounts";
 import type { Actor } from "@/lib/data/audit";
 import {
@@ -21,6 +32,7 @@ import {
   updateUser,
 } from "@/lib/data/users";
 import { ROLES, ROLE_LABELS, STAFF_ROLES, type Role, type UserProfile } from "@/lib/domain/types";
+import { usersExportFileName, type UsersExportPayload } from "@/lib/exports/usersExport";
 
 export function UserManager({ actor }: { actor: Actor }) {
   const announce = useAnnounce();
@@ -29,6 +41,7 @@ export function UserManager({ actor }: { actor: Actor }) {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<"pdf" | "excel" | null>(null);
 
   // Pagination state (10 users per page by default)
   const [page, setPage] = useState(1);
@@ -123,11 +136,80 @@ export function UserManager({ actor }: { actor: Actor }) {
     );
   };
 
+  const handleExportUsers = async (format: "pdf" | "excel") => {
+    if (exporting) return;
+    setExporting(format);
+    try {
+      const filterParts: string[] = [];
+      if (filter) filterParts.push(ROLE_LABELS[filter]);
+      if (statusFilter === "active") filterParts.push("Actifs uniquement");
+      if (statusFilter === "inactive") filterParts.push("Désactivés uniquement");
+      const payload: UsersExportPayload = {
+        filterLabel: filterParts.length > 0 ? filterParts.join(" — ") : "Tous les rôles",
+        users: visible.map((u) => ({
+          id: u.id,
+          fullName: u.fullName,
+          email: u.email,
+          role: u.role,
+          active: isActive(u),
+        })),
+      };
+      const endpoint = format === "pdf" ? "/api/export-users-pdf" : "/api/export-users-excel";
+      const ext = format === "pdf" ? "pdf" : "xlsx";
+      const response = await authFetch(endpoint, { payload });
+      const fallbackName = usersExportFileName(payload, ext);
+      downloadBlob(await response.blob(), fileNameFromResponse(response, fallbackName));
+      announce(
+        `Liste des utilisateurs (${visible.length} comptes) téléchargée au format ${format === "pdf" ? "PDF" : "Excel"}.`,
+      );
+    } catch {
+      announce(
+        `Le téléchargement de la liste des utilisateurs au format ${format === "pdf" ? "PDF" : "Excel"} a échoué.`,
+        "assertive",
+      );
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const exportButtons = (
+    <div
+      role="group"
+      aria-label="Télécharger la liste des utilisateurs"
+      className="flex flex-wrap items-center gap-2"
+    >
+      <button
+        type="button"
+        onClick={() => handleExportUsers("pdf")}
+        disabled={exporting !== null || visible.length === 0}
+        aria-label={`Télécharger la liste des ${visible.length} utilisateurs au format PDF`}
+        className={`inline-flex min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-lowest px-3.5 py-2 text-xs sm:text-sm font-bold text-primary shadow-xs hover:bg-surface-container transition-colors disabled:opacity-60 cursor-pointer ${focusRing}`}
+      >
+        <FileText className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+        <span>{exporting === "pdf" ? "Génération PDF…" : "Télécharger PDF"}</span>
+        <Download className="h-3.5 w-3.5 text-on-surface-variant shrink-0" aria-hidden="true" />
+      </button>
+
+      <button
+        type="button"
+        onClick={() => handleExportUsers("excel")}
+        disabled={exporting !== null || visible.length === 0}
+        aria-label={`Télécharger la liste des ${visible.length} utilisateurs au format Excel (.xlsx)`}
+        className={`inline-flex min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-lowest px-3.5 py-2 text-xs sm:text-sm font-bold text-primary shadow-xs hover:bg-surface-container transition-colors disabled:opacity-60 cursor-pointer ${focusRing}`}
+      >
+        <FileSpreadsheet className="h-4 w-4 text-status-present shrink-0" aria-hidden="true" />
+        <span>{exporting === "excel" ? "Génération Excel…" : "Télécharger Excel"}</span>
+        <Download className="h-3.5 w-3.5 text-on-surface-variant shrink-0" aria-hidden="true" />
+      </button>
+    </div>
+  );
+
   return (
     <div className="flex flex-col gap-8">
-      {/* Formulaire de création de compte du personnel */}
+      {/* Formulaire de création de compte du personnel + Export direct en haut de page */}
       <CreateUserForm
         actor={actor}
+        headerActions={exportButtons}
         onCreated={async (name) => {
           await reload();
           announce(`Compte de ${name} créé avec succès.`);
@@ -162,21 +244,24 @@ export function UserManager({ actor }: { actor: Actor }) {
             </span>
           </h2>
 
-          {(filter || statusFilter !== "all" || search) && (
-            <button
-              type="button"
-              onClick={() => {
-                setFilter("");
-                setStatusFilter("all");
-                setSearch("");
-                setPage(1);
-              }}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-secondary hover:underline cursor-pointer"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-              Réinitialiser les filtres
-            </button>
-          )}
+          <div className="flex flex-wrap items-center gap-3">
+            {(filter || statusFilter !== "all" || search) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilter("");
+                  setStatusFilter("all");
+                  setSearch("");
+                  setPage(1);
+                }}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-secondary hover:underline cursor-pointer"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+                Réinitialiser les filtres
+              </button>
+            )}
+            {exportButtons}
+          </div>
         </div>
 
         {/* Filtres : Rôle, Statut, Recherche */}
@@ -627,7 +712,15 @@ function UserCard({
   );
 }
 
-function CreateUserForm({ actor, onCreated }: { actor: Actor; onCreated: (name: string) => Promise<void> }) {
+function CreateUserForm({
+  actor,
+  headerActions,
+  onCreated,
+}: {
+  actor: Actor;
+  headerActions?: React.ReactNode;
+  onCreated: (name: string) => Promise<void>;
+}) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -662,10 +755,13 @@ function CreateUserForm({ actor, onCreated }: { actor: Actor; onCreated: (name: 
       aria-labelledby="create-user-heading"
       className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs"
     >
-      <h2 id="create-user-heading" className="mb-4 text-xl font-bold text-primary flex items-center gap-2">
-        <UserPlus className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
-        <span>Créer un compte du personnel</span>
-      </h2>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <h2 id="create-user-heading" className="text-xl font-bold text-primary flex items-center gap-2">
+          <UserPlus className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
+          <span>Créer un compte du personnel</span>
+        </h2>
+        {headerActions}
+      </div>
       <form onSubmit={submit} noValidate className="flex flex-col gap-4">
         {error && <Alert tone="error">{error}</Alert>}
         {success && (
