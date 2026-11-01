@@ -15,6 +15,7 @@ import { can } from "@/lib/domain/permissions";
 import { slotMinutes } from "@/lib/domain/schedule";
 import type { TimetableSlot } from "@/lib/domain/types";
 import { useReferenceData } from "@/features/shared/useReferenceData";
+import { TimetableExportButtons } from "@/features/timetable/TimetableExportButtons";
 import { WeekView } from "@/features/timetable/WeekView";
 
 type View = "formation" | "trainer";
@@ -79,10 +80,28 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
 
       {/* 1. SÉLECTEUR DE SUPERVISION DU PLANNING */}
       <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-5 shadow-xs flex flex-col gap-4">
-        <h2 className="text-base font-bold text-primary flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
-          <span>Supervision des plannings (Filières &amp; Formateurs)</span>
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h2 className="text-base font-bold text-primary flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
+            <span>Supervision des plannings (Filières &amp; Formateurs)</span>
+          </h2>
+
+          {(view === "trainer" ? selectedTrainerId : selectedFormationId) && (
+            <TimetableExportButtons
+              mode={view}
+              targetId={view === "trainer" ? selectedTrainerId : selectedFormationId}
+              targetTitle={
+                view === "trainer"
+                  ? (trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "Formateur")
+                  : lookups.formationTitle(selectedFormationId)
+              }
+              slots={selected}
+              subjectTitle={lookups.subjectTitle}
+              formationTitle={lookups.formationTitle}
+              trainerName={lookups.trainerName}
+            />
+          )}
+        </div>
 
         <div className="grid max-w-3xl gap-4 md:grid-cols-2">
           <SelectField
@@ -193,15 +212,30 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
                 {subjectsTaught.length > 0 && ` — matières : ${subjectsTaught.join(", ")}`}.
               </p>
             </div>
-            {canEditTimetable && (
-              <Link
-                href="/pedagogical/timetable"
-                className="inline-flex items-center gap-2 rounded-xl border border-secondary/40 bg-surface-container-low px-3.5 py-2 text-xs sm:text-sm font-bold text-primary hover:bg-surface-container transition-colors shrink-0"
-              >
-                <Calendar className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
-                <span>Gérer les emplois du temps</span>
-              </Link>
-            )}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <TimetableExportButtons
+                mode={view}
+                targetId={view === "trainer" ? selectedTrainerId : selectedFormationId}
+                targetTitle={
+                  view === "trainer"
+                    ? (trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "Formateur")
+                    : lookups.formationTitle(selectedFormationId)
+                }
+                slots={selected}
+                subjectTitle={lookups.subjectTitle}
+                formationTitle={lookups.formationTitle}
+                trainerName={lookups.trainerName}
+              />
+              {canEditTimetable && (
+                <Link
+                  href="/pedagogical/timetable"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-secondary/40 bg-surface-container-low px-3.5 py-2 text-xs sm:text-sm font-bold text-primary hover:bg-surface-container transition-colors shrink-0"
+                >
+                  <Calendar className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+                  <span>Gérer les emplois du temps</span>
+                </Link>
+              )}
+            </div>
           </div>
 
           {selected.length === 0 && (

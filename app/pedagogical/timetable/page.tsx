@@ -7,7 +7,7 @@ export default function TimetablePage() {
   return (
     <ProtectedPage
       title="Emplois du temps"
-      description="Définissez les créneaux hebdomadaires récurrents de chaque formation (matière, formateur, horaire et salle)."
+      description="Définissez et téléchargez au format PDF ou Excel les créneaux hebdomadaires récurrents de chaque formation (matière, formateur, horaire et salle)."
       permission="timetable.manage"
     >
       {(profile) => <TimetableManager actor={profile} />}

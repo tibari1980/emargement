@@ -12,6 +12,7 @@ import { getInitialSlots, listSlots } from "@/lib/data/timetable";
 import { slotMinutes } from "@/lib/domain/schedule";
 import type { TimetableSlot } from "@/lib/domain/types";
 import { useReferenceData } from "@/features/shared/useReferenceData";
+import { TimetableExportButtons } from "@/features/timetable/TimetableExportButtons";
 import { WeekView } from "@/features/timetable/WeekView";
 
 type View = "trainer" | "formation";
@@ -80,10 +81,26 @@ export function TrainerPlanningView({ actor }: { actor: Actor }) {
 
       {/* 1. SÉLECTEUR DU PLANNING FORMATEUR */}
       <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-5 shadow-xs flex flex-col gap-4">
-        <h2 className="text-base font-bold text-primary flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
-          <span>Consultation de votre planning</span>
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h2 className="text-base font-bold text-primary flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
+            <span>Consultation de votre planning</span>
+          </h2>
+
+          <TimetableExportButtons
+            mode={view}
+            targetId={view === "trainer" ? actor.id : selectedFormationId}
+            targetTitle={
+              view === "trainer"
+                ? actor.fullName
+                : lookups.formationTitle(selectedFormationId)
+            }
+            slots={selected}
+            subjectTitle={lookups.subjectTitle}
+            formationTitle={lookups.formationTitle}
+            trainerName={lookups.trainerName}
+          />
+        </div>
 
         <div className="grid max-w-3xl gap-4 md:grid-cols-2">
           <SelectField
@@ -165,6 +182,19 @@ export function TrainerPlanningView({ actor }: { actor: Actor }) {
               )}
             </p>
           </div>
+          <TimetableExportButtons
+            mode={view}
+            targetId={view === "trainer" ? actor.id : selectedFormationId}
+            targetTitle={
+              view === "trainer"
+                ? actor.fullName
+                : lookups.formationTitle(selectedFormationId)
+            }
+            slots={selected}
+            subjectTitle={lookups.subjectTitle}
+            formationTitle={lookups.formationTitle}
+            trainerName={lookups.trainerName}
+          />
         </div>
 
         {selected.length === 0 && (

@@ -17,6 +17,7 @@ import { isActive } from "@/lib/data/users";
 import { findConflicts, slotMinutes } from "@/lib/domain/schedule";
 import { WEEKDAYS, WEEKDAY_LABELS, type TimetableSlot, type Weekday } from "@/lib/domain/types";
 import { useReferenceData } from "@/features/shared/useReferenceData";
+import { TimetableExportButtons } from "./TimetableExportButtons";
 import { WeekView } from "./WeekView";
 
 export function TimetableManager({ actor }: { actor: Actor }) {
@@ -143,21 +144,43 @@ export function TimetableManager({ actor }: { actor: Actor }) {
               onCancel={closeEditor}
             />
           ) : (
-            <div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <Button onClick={() => setEditing("new")} className="inline-flex items-center gap-2">
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 <span>Ajouter un créneau</span>
               </Button>
+              <TimetableExportButtons
+                mode="formation"
+                targetId={formation.id}
+                targetTitle={formation.title}
+                slots={slots}
+                subjectTitle={lookups.subjectTitle}
+                formationTitle={lookups.formationTitle}
+                trainerName={lookups.trainerName}
+              />
             </div>
           )}
 
           <section aria-labelledby="week-heading" className="flex flex-col gap-4">
-            <h2 id="week-heading" ref={weekHeading} tabIndex={-1} className="text-2xl font-bold outline-none">
-              Semaine type — {formation.title}
-            </h2>
-            <p className="text-sm text-on-surface-variant">
-              <span className="font-bold text-primary">{slots.length} créneau{slots.length > 1 ? "x" : ""}</span>, volume de <span className="font-bold text-primary">{formatHours(weeklyMinutes / 60)}</span> de formation par semaine.
-            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle pb-3">
+              <div>
+                <h2 id="week-heading" ref={weekHeading} tabIndex={-1} className="text-2xl font-bold outline-none">
+                  Semaine type — {formation.title}
+                </h2>
+                <p className="text-sm text-on-surface-variant">
+                  <span className="font-bold text-primary">{slots.length} créneau{slots.length > 1 ? "x" : ""}</span>, volume de <span className="font-bold text-primary">{formatHours(weeklyMinutes / 60)}</span> de formation par semaine.
+                </p>
+              </div>
+              <TimetableExportButtons
+                mode="formation"
+                targetId={formation.id}
+                targetTitle={formation.title}
+                slots={slots}
+                subjectTitle={lookups.subjectTitle}
+                formationTitle={lookups.formationTitle}
+                trainerName={lookups.trainerName}
+              />
+            </div>
             <WeekView
               slots={slots}
               subjectTitle={lookups.subjectTitle}

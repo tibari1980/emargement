@@ -7,7 +7,7 @@ export default function PlanningPage() {
   return (
     <ProtectedPage
       title="Plannings"
-      description="Consultez l'emploi du temps hebdomadaire par formation ou par formateur."
+      description="Consultez et téléchargez au format PDF ou Excel l'emploi du temps hebdomadaire par formation ou par formateur."
       permission="planning.view"
     >
       {(profile) => <Plannings actor={profile} />}
