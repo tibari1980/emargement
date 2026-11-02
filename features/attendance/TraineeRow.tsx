@@ -1,5 +1,6 @@
 "use client";
 
+import * as Dialog from "@radix-ui/react-dialog";
 import { useState } from "react";
 import {
   AlertCircle,
@@ -11,7 +12,7 @@ import {
   Loader2,
   XCircle,
 } from "lucide-react";
-import { focusRing } from "@/components/ui/Button";
+import { Button, focusRing } from "@/components/ui/Button";
 import { nowTime, timeToMinutes, todayIso } from "@/lib/core/dates";
 import {
   ATTENDANCE_STATUS_LABELS,
@@ -37,6 +38,88 @@ function getEquipmentForTrainee(id: string): string {
 
 export type RowState = "idle" | "saving" | "saved" | "error";
 
+/**
+ * Boîte de dialogue accessible de confirmation pour annuler une absence justifiée
+ * lors d'une présence physique exceptionnelle en cours.
+ */
+function ExcusedOverrideDialog({
+  open,
+  onOpenChange,
+  traineeName,
+  slotTime,
+  excuseReason,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  traineeName: string;
+  slotTime: string;
+  excuseReason?: string | null;
+  onConfirm: () => void;
+}) {
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-xs animate-in fade-in duration-150" />
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 z-[121] max-h-[90dvh] w-[min(94vw,32rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-5 sm:p-6 text-on-surface shadow-2xl focus:outline-none animate-in fade-in zoom-in-95 duration-150"
+          aria-describedby="excused-override-description"
+        >
+          <div className="flex items-start gap-3 border-b border-border-subtle pb-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-status-excused-bg text-status-excused border-2 border-status-excused-border shadow-xs">
+              <FileCheck className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <Dialog.Title className="text-lg sm:text-xl font-bold text-primary">
+                Confirmer la présence physique ?
+              </Dialog.Title>
+              <p className="text-xs font-semibold text-secondary mt-0.5 truncate">
+                {traineeName} &middot; Séance de {slotTime}
+              </p>
+            </div>
+          </div>
+
+          <div id="excused-override-description" className="mt-4 space-y-3 text-sm text-on-surface">
+            <div className="rounded-xl border border-status-excused-border/50 bg-status-excused-bg/40 p-3 text-xs sm:text-sm text-status-excused font-semibold">
+              <span className="block text-[11px] uppercase tracking-wider text-secondary font-bold">
+                Justificatif administratif existant :
+              </span>
+              <span className="mt-0.5 block font-bold">
+                {excuseReason || "Absence justifiée enregistrée par le secrétariat"}
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
+              Ce stagiaire est officiellement dispensé de cette séance. Si vous confirmez sa présence physique en
+              classe, le justificatif administratif sera annulé pour cette séance et les heures seront certifiées comme{" "}
+              <strong className="text-primary font-bold">présence effective</strong>.
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-col-reverse sm:flex-row items-center justify-end gap-2 border-t border-border-subtle pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => onOpenChange(false)}
+              className="w-full sm:w-auto text-xs sm:text-sm"
+            >
+              Annuler (garder excusé)
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => {
+                onOpenChange(false);
+                onConfirm();
+              }}
+              className="w-full sm:w-auto text-xs sm:text-sm bg-status-present text-white hover:opacity-95"
+            >
+              Confirmer la présence physique
+            </Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
 export function TraineeRow({
   trainee,
   slot,
@@ -57,6 +140,7 @@ export function TraineeRow({
   const [time, setTime] = useState(record?.arrivalTime ?? "");
   const [timeError, setTimeError] = useState<string | null>(null);
   const [savedArrival, setSavedArrival] = useState(record?.arrivalTime);
+  const [confirmOverrideOpen, setConfirmOverrideOpen] = useState(false);
 
   if (record?.arrivalTime !== savedArrival) {
     setSavedArrival(record?.arrivalTime);
@@ -70,6 +154,12 @@ export function TraineeRow({
 
   const choose = (status: AttendanceStatus) => {
     if (readOnly) return;
+    if (record?.status === "excused") {
+      if (status === "present") {
+        setConfirmOverrideOpen(true);
+      }
+      return;
+    }
     setTimeError(null);
     if (status === "late") {
       const arrival = record?.arrivalTime ?? defaultArrival();
@@ -78,6 +168,11 @@ export function TraineeRow({
     } else {
       void onSave(trainee, status, null);
     }
+  };
+
+  const handleConfirmOverride = () => {
+    setTimeError(null);
+    void onSave(trainee, "present", null);
   };
 
   const commitTime = () => {
@@ -104,9 +199,11 @@ export function TraineeRow({
       e.preventDefault();
       choose("present");
     } else if (key === "r") {
+      if (record?.status === "excused") return;
       e.preventDefault();
       choose("late");
     } else if (key === "a") {
+      if (record?.status === "excused") return;
       e.preventDefault();
       choose("absent");
     }
@@ -197,6 +294,11 @@ export function TraineeRow({
               onClick={() => choose("present")}
               disabled={readOnly}
               aria-pressed={status === "present"}
+              title={
+                status === "excused"
+                  ? "Absence justifiée par le secrétariat : cliquer pour confirmer une présence physique exceptionnelle"
+                  : undefined
+              }
               className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-all ${focusRing} ${
                 readOnly ? "cursor-not-allowed opacity-75" : ""
               } ${
@@ -213,10 +315,16 @@ export function TraineeRow({
             <button
               type="button"
               onClick={() => choose("late")}
-              disabled={readOnly}
+              disabled={readOnly || status === "excused"}
+              aria-disabled={readOnly || status === "excused"}
               aria-pressed={status === "late"}
+              title={
+                status === "excused"
+                  ? "Verrouillé : le stagiaire bénéficie d'une absence justifiée enregistrée par le secrétariat"
+                  : undefined
+              }
               className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-all ${focusRing} ${
-                readOnly ? "cursor-not-allowed opacity-75" : ""
+                readOnly || status === "excused" ? "cursor-not-allowed opacity-50" : ""
               } ${
                 status === "late"
                   ? "bg-status-late-bg text-status-late border-2 border-status-late-border font-bold shadow-xs ring-1 ring-status-late"
@@ -231,10 +339,16 @@ export function TraineeRow({
             <button
               type="button"
               onClick={() => choose("absent")}
-              disabled={readOnly}
+              disabled={readOnly || status === "excused"}
+              aria-disabled={readOnly || status === "excused"}
               aria-pressed={status === "absent"}
+              title={
+                status === "excused"
+                  ? "Verrouillé : le stagiaire bénéficie d'une absence justifiée enregistrée par le secrétariat"
+                  : undefined
+              }
               className={`inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold transition-all ${focusRing} ${
-                readOnly ? "cursor-not-allowed opacity-75" : ""
+                readOnly || status === "excused" ? "cursor-not-allowed opacity-50" : ""
               } ${
                 status === "absent"
                   ? "bg-status-absent-bg text-status-absent border-2 border-status-absent-border font-bold shadow-xs ring-1 ring-status-absent"
@@ -247,13 +361,26 @@ export function TraineeRow({
 
             {/* Statut Excusé (saisi par secrétariat) */}
             {status === "excused" && (
-              <span className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-status-excused-bg text-status-excused border-2 border-status-excused-border px-3 py-2 text-sm font-bold shadow-xs">
-                <FileCheck className="h-4 w-4 text-status-excused" aria-hidden="true" />
+              <span
+                role="status"
+                aria-label={`Absence justifiée par le secrétariat : ${record?.excuseReason || "justificatif administratif"}`}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-status-excused-bg text-status-excused border-2 border-status-excused-border px-3 py-2 text-sm font-bold shadow-xs"
+              >
+                <FileCheck className="h-4 w-4 text-status-excused shrink-0" aria-hidden="true" />
                 <span>Excusé{record?.excuseReason ? ` : ${record.excuseReason}` : ""}</span>
               </span>
             )}
           </div>
         </fieldset>
+
+        <ExcusedOverrideDialog
+          open={confirmOverrideOpen}
+          onOpenChange={setConfirmOverrideOpen}
+          traineeName={trainee.fullName}
+          slotTime={`${slot.startTime} – ${slot.endTime}`}
+          excuseReason={record?.excuseReason}
+          onConfirm={handleConfirmOverride}
+        />
       </td>
 
       {/* 3. Arrivée / Retard */}
@@ -386,6 +513,7 @@ export function TraineeCard({
   const [time, setTime] = useState(record?.arrivalTime ?? "");
   const [timeError, setTimeError] = useState<string | null>(null);
   const [savedArrival, setSavedArrival] = useState(record?.arrivalTime);
+  const [confirmOverrideOpen, setConfirmOverrideOpen] = useState(false);
 
   if (record?.arrivalTime !== savedArrival) {
     setSavedArrival(record?.arrivalTime);
@@ -399,6 +527,12 @@ export function TraineeCard({
 
   const choose = (status: AttendanceStatus) => {
     if (readOnly) return;
+    if (record?.status === "excused") {
+      if (status === "present") {
+        setConfirmOverrideOpen(true);
+      }
+      return;
+    }
     setTimeError(null);
     if (status === "late") {
       const arrival = record?.arrivalTime ?? defaultArrival();
@@ -407,6 +541,11 @@ export function TraineeCard({
     } else {
       void onSave(trainee, status, null);
     }
+  };
+
+  const handleConfirmOverride = () => {
+    setTimeError(null);
+    void onSave(trainee, "present", null);
   };
 
   const commitTime = () => {
@@ -433,9 +572,11 @@ export function TraineeCard({
       e.preventDefault();
       choose("present");
     } else if (key === "r") {
+      if (record?.status === "excused") return;
       e.preventDefault();
       choose("late");
     } else if (key === "a") {
+      if (record?.status === "excused") return;
       e.preventDefault();
       choose("absent");
     }
@@ -523,6 +664,11 @@ export function TraineeCard({
             onClick={() => choose("present")}
             disabled={readOnly}
             aria-pressed={status === "present"}
+            title={
+              status === "excused"
+                ? "Absence justifiée par le secrétariat : toucher pour confirmer la présence physique exceptionnelle"
+                : undefined
+            }
             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl p-2 text-xs font-bold transition-all ${focusRing} ${
               readOnly ? "cursor-not-allowed opacity-75" : ""
             } ${
@@ -539,10 +685,16 @@ export function TraineeCard({
           <button
             type="button"
             onClick={() => choose("late")}
-            disabled={readOnly}
+            disabled={readOnly || status === "excused"}
+            aria-disabled={readOnly || status === "excused"}
             aria-pressed={status === "late"}
+            title={
+              status === "excused"
+                ? "Verrouillé : le stagiaire fait l'objet d'une absence justifiée par le secrétariat"
+                : undefined
+            }
             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl p-2 text-xs font-bold transition-all ${focusRing} ${
-              readOnly ? "cursor-not-allowed opacity-75" : ""
+              readOnly || status === "excused" ? "cursor-not-allowed opacity-50" : ""
             } ${
               status === "late"
                 ? "bg-status-late-bg text-status-late border-2 border-status-late shadow-xs ring-1 ring-status-late"
@@ -557,10 +709,16 @@ export function TraineeCard({
           <button
             type="button"
             onClick={() => choose("absent")}
-            disabled={readOnly}
+            disabled={readOnly || status === "excused"}
+            aria-disabled={readOnly || status === "excused"}
             aria-pressed={status === "absent"}
+            title={
+              status === "excused"
+                ? "Verrouillé : le stagiaire fait l'objet d'une absence justifiée par le secrétariat"
+                : undefined
+            }
             className={`flex min-h-12 flex-col items-center justify-center gap-1 rounded-xl p-2 text-xs font-bold transition-all ${focusRing} ${
-              readOnly ? "cursor-not-allowed opacity-75" : ""
+              readOnly || status === "excused" ? "cursor-not-allowed opacity-50" : ""
             } ${
               status === "absent"
                 ? "bg-status-absent-bg text-status-absent border-2 border-status-absent shadow-xs ring-1 ring-status-absent"
@@ -618,6 +776,15 @@ export function TraineeCard({
           <span>Excusé{record?.excuseReason ? ` : ${record.excuseReason}` : " (justificatif secrétariat)"}</span>
         </div>
       )}
+
+      <ExcusedOverrideDialog
+        open={confirmOverrideOpen}
+        onOpenChange={setConfirmOverrideOpen}
+        traineeName={trainee.fullName}
+        slotTime={`${slot.startTime} – ${slot.endTime}`}
+        excuseReason={record?.excuseReason}
+        onConfirm={handleConfirmOverride}
+      />
     </article>
   );
 }

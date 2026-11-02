@@ -221,4 +221,42 @@ describe("computeMonthlyReport", () => {
     // slot_afternoon on 2026-11-02 remains unrecorded (1 session)
     expect(jean.unrecordedSessions).toBe(1);
   });
+
+  it("guarantees excused absences incur 0 ASP deductions whereas unexcused absences incur financial deductions", () => {
+    const comparisonReport = computeMonthlyReport({
+      month: "2026-11",
+      course,
+      trainees: [
+        { id: "t_excused", fullName: "Stagiaire Justifié" },
+        { id: "t_unexcused", fullName: "Stagiaire Injustifié" },
+      ],
+      attendances: [
+        // 2 full days excused (14h)
+        { traineeId: "t_excused", date: "2026-11-02", status: "excused", arrivalTime: null, excuseReason: "Rendez-vous médical" },
+        { traineeId: "t_excused", date: "2026-11-03", status: "excused", arrivalTime: null, excuseReason: "Arrêt maladie" },
+        // 2 full days unjustified (14h)
+        { traineeId: "t_unexcused", date: "2026-11-02", status: "absent", arrivalTime: null },
+        { traineeId: "t_unexcused", date: "2026-11-03", status: "absent", arrivalTime: null },
+      ],
+      holidays: [],
+      today: "2026-11-03",
+    });
+
+    const justifiedTrainee = comparisonReport.trainees.find((t) => t.traineeId === "t_excused")!;
+    const unjustifiedTrainee = comparisonReport.trainees.find((t) => t.traineeId === "t_unexcused")!;
+
+    // Justified trainee: 14h excused, STRICTLY 0 ASP deductions!
+    expect(justifiedTrainee.excusedHours).toBe(14);
+    expect(justifiedTrainee.absentHours).toBe(0);
+    expect(justifiedTrainee.aspExcusedHours).toBe(14);
+    expect(justifiedTrainee.aspDeductibleHours).toBe(0);
+    expect(justifiedTrainee.excuseReasonsSummary["Rendez-vous médical"].hours).toBe(7);
+    expect(justifiedTrainee.excuseReasonsSummary["Arrêt maladie"].hours).toBe(7);
+
+    // Unjustified trainee: 14h unexcused absence, 14h strict ASP deductions!
+    expect(unjustifiedTrainee.absentHours).toBe(14);
+    expect(unjustifiedTrainee.excusedHours).toBe(0);
+    expect(unjustifiedTrainee.aspExcusedHours).toBe(0);
+    expect(unjustifiedTrainee.aspDeductibleHours).toBe(14);
+  });
 });
