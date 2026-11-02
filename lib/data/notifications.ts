@@ -19,7 +19,32 @@ const notificationsCollection = () => collection(getDb(), COLLECTIONS.notificati
 const LOCAL_NOTIFS_KEY = "avh_persisted_notifications_v2";
 
 // In-memory & localStorage reactive store for offline/fast resilience
-const initialDemoNotifications: AppNotification[] = [];
+const initialDemoNotifications: AppNotification[] = [
+  {
+    id: "notif-welcome",
+    title: "Bienvenue sur l'Espace Valentin Haüy",
+    message: "Plateforme certifiée d'émargement et de suivi pédagogique conforme aux exigences ASP et DGEFP.",
+    type: "info",
+    createdAt: new Date().toISOString(),
+    read: false,
+  },
+  {
+    id: "notif-asp-info",
+    title: "Protection des justificatifs administratifs",
+    message: "Les absences justifiées enregistrées par le secrétariat sont automatiquement protégées contre les pénalités ASP.",
+    type: "success",
+    createdAt: new Date(Date.now() - 3600_000 * 2).toISOString(),
+    read: false,
+  },
+  {
+    id: "notif-a11y-shortcuts",
+    title: "Accessibilité & Raccourcis clavier",
+    message: "Raccourcis disponibles : Alt + M (mode sombre), Alt + A (options visuelles), Alt + N (centre de notifications), NVDA + F7.",
+    type: "info",
+    createdAt: new Date(Date.now() - 3600_000 * 4).toISOString(),
+    read: false,
+  },
+];
 
 let localNotifications: AppNotification[] = [...initialDemoNotifications];
 let localNotifsLoaded = false;

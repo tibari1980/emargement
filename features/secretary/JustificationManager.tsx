@@ -12,6 +12,7 @@ import type { Actor } from "@/lib/data/audit";
 import { justifySessions, listForFormation, revokeJustification } from "@/lib/data/attendances";
 import { getDemoFormations, getInitialFormations, groupFormations, listFormations } from "@/lib/data/formations";
 import { listHolidays } from "@/lib/data/holidays";
+import { createNotification } from "@/lib/data/notifications";
 import { listSlots } from "@/lib/data/timetable";
 import { listUsersByIds } from "@/lib/data/users";
 import { closedDaySet } from "@/lib/domain/hoursCalculator";
@@ -223,6 +224,26 @@ export function JustificationManager({ actor }: { actor: Actor }) {
         reason: finalReason,
         periodLabel: dates.length === 1 ? dates[0] : `du ${dates[0]} au ${dates[dates.length - 1]}`,
       });
+
+      // Dispatch institutional notifications to trainers and pedagogical supervisor
+      void createNotification(
+        {
+          title: "Absence justifiée enregistrée",
+          message: `${trainee.fullName} (${formation.title}) : absence justifiée pour « ${finalReason} » (${dates.length} j).`,
+          type: "info",
+          targetRole: "trainer",
+        },
+        actor
+      );
+      void createNotification(
+        {
+          title: "Nouveau justificatif enregistré",
+          message: `${trainee.fullName} (${formation.title}) : absence justifiée enregistrée par ${actor.fullName}.`,
+          type: "info",
+          targetRole: "pedagogical_lead",
+        },
+        actor
+      );
 
       await refreshHistory();
       const plural = dates.length > 1 ? "s" : "";
@@ -437,6 +458,15 @@ export function JustificationManager({ actor }: { actor: Actor }) {
                                     trainerId: rec.trainerId,
                                   }),
                                 ),
+                              );
+                              void createNotification(
+                                {
+                                  title: "Justificatif révoqué",
+                                  message: `Le justificatif d'absence de ${trainee.fullName} (${formatLongDate(dateKey)}) a été révoqué par ${actor.fullName}.`,
+                                  type: "warning",
+                                  targetRole: "pedagogical_lead",
+                                },
+                                actor
                               );
                               await refreshHistory();
                               announce(`Justificatif du ${formatLongDate(dateKey)} annulé.`);

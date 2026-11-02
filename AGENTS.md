@@ -10,7 +10,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # RÈGLES D'OR DU PROJET — ESRP / CFRP VALENTIN HAÜY (OBLIGATOIRES SUR CHAQUE PROMPT)
 
-Ce fichier définit les règles architecturales, fonctionnelles, de sécurité et de méthodologie que tout agent IA doit **obligatoirement respecter sans aucune exception** à chaque prompt.
+Ce fichier définit les règles architecturales, fonctionnelles, de sécurité, d'accessibilité et de méthodologie que tout agent IA doit **obligatoirement consulter et respecter sans aucune exception avant de traiter tout prompt**.
+
+---
+
+## 0. Consultation Préalable Obligatoire de ce Fichier sur TOUS les Prompts
+- **Avant toute modification de code, de composant, de route ou de logique métier**, l'agent doit impérativement relire et appliquer l'intégralité des règles ci-dessous.
+- Aucune régression ne sera tolérée sur l'accessibilité, les calculs d'heures certifiées ou la séparation des rôles.
 
 ---
 
@@ -62,20 +68,44 @@ Pour garantir qu'une modification sur un profil ne crée jamais de conflit ou de
 
 ---
 
-## 5. Accessibilité RGAA 4.1 Niveau AAA & Modes de Contraste
-- L'application est destinée à l'ESRP / CFRP Valentin Haüy (personnes aveugles et malvoyantes).
-- Toujours garantir une lisibilité parfaite dans les **3 modes de contraste** (`Standard`, `Sombre`, `Haut Contraste Jaune sur Noir`).
-- Les panneaux flottants et tiroirs (ex. `NotificationBell.tsx`) doivent être rendus via `createPortal(..., document.body)` avec un fond opaque et une bordure nette pour ne jamais être tronqués par un conteneur parent.
-- Préserver les raccourcis clavier (`P` Présent, `R` Retard, `A` Absent, `Alt + N` Notifications, `Escape` Fermer) et les annonces vocales ARIA (`useAnnounce()`) pour NVDA, JAWS et VoiceOver.
+## 5. Accessibilité RGAA 4.1 / WCAG 2.2 Niveau AAA & Lecteurs d'Écran (NVDA, JAWS, VoiceOver, Orca)
+- L'application est destinée en priorité aux personnes aveugles et malvoyantes (ESRP / CFRP Valentin Haüy).
+- **Règle WCAG 2.5.3 (Label in Name / Étiquette dans le nom)** :
+  - Le nom accessible (accessible name) d'un lien ou d'un bouton DOIT OBLIGATOIREMENT commencer par son texte visible.
+  - **INTERDICTION STRICTE** de placer un `aria-label` qui écrase la première lettre du libellé visible : par exemple, le lien visible « Connexion » ne doit JAMAIS avoir `aria-label="Accéder à l'espace..."`, sinon NVDA le classe sous la lettre **A** au lieu de **C** dans `NVDA + F7` (Boîte de dialogue de la liste des éléments).
+- **Compatibilité multi-lecteurs d'écran garantie** :
+  - **NVDA** (Windows) : touches directes `K` (liens), `B` (boutons), `H` (titres), `D` (landmarks/régions) et `NVDA + F7`.
+  - **JAWS** (Windows) : `Insert + F7` (liens), raccourcis de navigation rapide.
+  - **VoiceOver** (macOS / iOS) : rotor tactile et clavier `VO + U`.
+  - **Orca** (Linux) : navigation tabulaire et liste d'éléments.
+- **Raccourcis Clavier Dédiés de la Plateforme** :
+  - `Alt + M` : Basculer instantanément entre mode standard et mode sombre.
+  - `Alt + A` : Ouvrir la boîte modale des options d'accessibilité visuelle (taille de texte, contrastes, espacements).
+  - `Alt + N` : Ouvrir le centre de notifications flottant.
+  - `P` / `R` / `A` : Marquer Présent / Retard / Absent sur la ligne de stagiaire sélectionnée.
+  - `Escape` : Fermer tout tiroir ou dialogue modal.
+- **3 Modes de Contraste** : Lisibilité parfaite et sans artefact dans les 3 modes (`Standard`, `Sombre`, `Haut Contraste Jaune sur Noir`).
+- **Composants Flottants & Modales** : Rendu obligatoire via `createPortal(..., document.body)` avec focus trap, fond opaque, bordure nette et annonces vocales `useAnnounce()` (`role="status"` ou `aria-live="polite"`).
 
 ---
 
-## 6. Performance, Scalabilité & Zéro Latence
+## 6. Protection des Justificatifs d'Absence & Intégrité du Moteur de Calcul ASP / DGEFP
+- Toute absence justifiée enregistrée par le secrétariat (`status === "excused"`) est **sanctuarisée** :
+  1. Dans la feuille d'émargement (`TraineeRow.tsx` et `TraineeCard`), les boutons `Retard` et `Absent` sont **désactivés** (`disabled`, `aria-disabled="true"`). Les raccourcis clavier `R` et `A` sont neutralisés.
+  2. L'action collective « Marquer tous présents » (`markAllPresent`) ignore strictement les stagiaires excusés.
+  3. Si un stagiaire arrive de manière imprévue en cours, le passage en Présent déclenche obligatoirement la modale de confirmation `ExcusedOverrideDialog` avant d'annuler le justificatif administratif au profit d'une présence physique.
+- **Moteur de Calcul Certifié (`hoursCalculator.ts`)** :
+  - Les heures excusées entrent strictement dans `aspExcusedHours` et génèrent **STRICTEMENT 0 HEURE DE DÉDUCTION ASP (`aspDeductibleHours = 0`)**.
+  - Seules les absences injustifiées (`status === "absent"`) et les retards non régularisés constituent des heures déductibles de l'allocation stagiaire.
+
+---
+
+## 7. Performance, Scalabilité & Zéro Latence
 - Toujours initialiser les états React des données de référence de manière **synchrone (`0 ms`)** via le cache mémoire / `localStorage` (`getInitialFormations`, `getInitialSlots`, `getInitialSubjects`, `getInitialHolidays`, `getInitialStaff`, `getUsersByIdsSync`), puis rafraîchir en arrière-plan (pattern *Stale-While-Revalidate*).
 - Conserver la déduplication des requêtes en vol (`inFlight`) dans `lib/data/*` pour éviter les appels Firestore redondants.
 
 ---
 
-## 7. Crédits & Copyright Officiels
+## 8. Crédits & Copyright Officiels
 - Toujours conserver dans le pied de page (`components/AppFooter.tsx`) et les métadonnées (`app/layout.tsx`) la mention officielle :
   **Copyright © 2026 — Application développée par Tibari Zeroual, Ingénieur de développement**.

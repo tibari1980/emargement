@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarCheck, PlusCircle } from "lucide-react";
+import { CalendarCheck, CalendarDays, PlusCircle, UploadCloud } from "lucide-react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Alert, Loading } from "@/components/ui/Alert";
-import { Button } from "@/components/ui/Button";
+import { Button, focusRing } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SelectField, TextField } from "@/components/ui/Field";
 import { eachDay, formatLongDate, isValidIsoDate, isWeekend } from "@/lib/core/dates";
@@ -12,6 +12,7 @@ import type { Actor } from "@/lib/data/audit";
 import { addHolidays, deleteHoliday, listHolidays } from "@/lib/data/holidays";
 import { frenchPublicHolidays } from "@/lib/domain/frenchHolidays";
 import { HOLIDAY_TYPE_LABELS, type Holiday, type HolidayType } from "@/lib/domain/types";
+import { CalendarImporter } from "./CalendarImporter";
 
 const weekdaysCount = (h: Holiday) => eachDay(h.startDate, h.endDate).filter((d: string) => !isWeekend(d)).length;
 
@@ -20,6 +21,7 @@ export function CalendarManager({ actor }: { actor: Actor }) {
   const [holidays, setHolidays] = useState<Holiday[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [year, setYear] = useState(String(new Date().getFullYear()));
+  const [activeTab, setActiveTab] = useState<"manual" | "import">("manual");
   const listHeading = useRef<HTMLHeadingElement>(null);
 
   const reload = useCallback(async () => setHolidays(await listHolidays()), []);
@@ -62,13 +64,52 @@ export function CalendarManager({ actor }: { actor: Actor }) {
 
   return (
     <div className="flex flex-col gap-8">
-      <HolidayForm
-        actor={actor}
-        onAdded={async (title) => {
-          await reload();
-          announce(`${title} ajouté au calendrier.`);
-        }}
-      />
+      {/* Mode Switcher: Saisie manuelle vs Import en lot */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle pb-3">
+        <button
+          type="button"
+          onClick={() => setActiveTab("manual")}
+          aria-pressed={activeTab === "manual"}
+          className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${focusRing} ${
+            activeTab === "manual"
+              ? "bg-primary-container text-on-primary shadow-xs"
+              : "bg-surface-container-low text-on-surface hover:bg-surface-container border border-border-subtle"
+          }`}
+        >
+          <PlusCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>Saisie manuelle</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("import")}
+          aria-pressed={activeTab === "import"}
+          className={`inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-all ${focusRing} ${
+            activeTab === "import"
+              ? "bg-primary-container text-on-primary shadow-xs"
+              : "bg-surface-container-low text-on-surface hover:bg-surface-container border border-border-subtle"
+          }`}
+        >
+          <UploadCloud className="h-4 w-4 shrink-0" aria-hidden="true" />
+          <span>Import en lot (Excel / CSV)</span>
+        </button>
+      </div>
+
+      {activeTab === "manual" ? (
+        <HolidayForm
+          actor={actor}
+          onAdded={async (title) => {
+            await reload();
+            announce(`${title} ajouté au calendrier.`);
+          }}
+        />
+      ) : (
+        <CalendarImporter
+          actor={actor}
+          existingHolidays={holidays}
+          onImported={reload}
+        />
+      )}
 
       <section aria-labelledby="public-heading" className="flex flex-col gap-4 rounded-2xl border border-border-subtle bg-surface-container-lowest p-6 shadow-xs">
         <h2 id="public-heading" className="text-xl font-bold text-primary flex items-center gap-2">
