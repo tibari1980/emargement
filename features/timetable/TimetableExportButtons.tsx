@@ -214,7 +214,13 @@ export function TimetableExportButtons({
           type="button"
           onClick={() => handleExport("pdf")}
           disabled={exporting !== null}
-          aria-label={`Télécharger le planning ${periodReadable} de ${targetTitle} au format PDF`}
+          aria-label={
+            exporting === "pdf"
+              ? "Génération du PDF en cours…"
+              : period === "month"
+              ? `Télécharger Mois (PDF) — Planning mensuel complet de ${targetTitle} (${formatMonth(month)})`
+              : `Télécharger Semaine (PDF) — Emploi du temps hebdomadaire de ${targetTitle}`
+          }
           className={`inline-flex w-full sm:w-auto justify-center min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-lowest px-3.5 py-2 text-xs sm:text-sm font-bold text-primary shadow-xs hover:bg-surface-container transition-colors disabled:opacity-60 cursor-pointer ${focusRing}`}
         >
           <FileText className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
@@ -222,8 +228,8 @@ export function TimetableExportButtons({
             {exporting === "pdf"
               ? "Génération PDF…"
               : period === "month"
-              ? "Mois PDF"
-              : "Télécharger PDF"}
+              ? "Télécharger Mois (PDF)"
+              : "Télécharger Semaine (PDF)"}
           </span>
           <Download className="h-3.5 w-3.5 text-on-surface-variant shrink-0" aria-hidden="true" />
         </button>
@@ -232,7 +238,13 @@ export function TimetableExportButtons({
           type="button"
           onClick={() => handleExport("excel")}
           disabled={exporting !== null}
-          aria-label={`Télécharger le planning ${periodReadable} de ${targetTitle} au format Excel (.xlsx)`}
+          aria-label={
+            exporting === "excel"
+              ? "Génération du fichier Excel en cours…"
+              : period === "month"
+              ? `Télécharger Mois (Excel) — Planning mensuel complet de ${targetTitle} (${formatMonth(month)})`
+              : `Télécharger Semaine (Excel) — Emploi du temps hebdomadaire de ${targetTitle}`
+          }
           className={`inline-flex w-full sm:w-auto justify-center min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-lowest px-3.5 py-2 text-xs sm:text-sm font-bold text-primary shadow-xs hover:bg-surface-container transition-colors disabled:opacity-60 cursor-pointer ${focusRing}`}
         >
           <FileSpreadsheet className="h-4 w-4 text-status-present shrink-0" aria-hidden="true" />
@@ -240,8 +252,8 @@ export function TimetableExportButtons({
             {exporting === "excel"
               ? "Génération Excel…"
               : period === "month"
-              ? "Mois Excel"
-              : "Télécharger Excel"}
+              ? "Télécharger Mois (Excel)"
+              : "Télécharger Semaine (Excel)"}
           </span>
           <Download className="h-3.5 w-3.5 text-on-surface-variant shrink-0" aria-hidden="true" />
         </button>

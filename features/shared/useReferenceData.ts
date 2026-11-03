@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getInitialFormations, listFormations } from "@/lib/data/formations";
 import { getInitialHolidays, listHolidays } from "@/lib/data/holidays";
 import { getInitialSubjects, listSubjects } from "@/lib/data/subjects";
-import { getInitialStaff, listStaff } from "@/lib/data/users";
+import { getInitialStaff, getLocalUsersMap, listStaff } from "@/lib/data/users";
 import { frenchPublicHolidays } from "@/lib/domain/frenchHolidays";
 import { closedDaySet } from "@/lib/domain/hoursCalculator";
 import { SUBJECT_CATALOG } from "@/lib/domain/catalog";
@@ -127,10 +127,10 @@ export function useReferenceData() {
         id === "default_subject" || id === "general"
           ? "Enseignement général & Travaux pratiques"
           : (subject.get(id)?.title ?? "Matière inconnue"),
-      personName: (id: string) => person.get(id)?.fullName ?? "Équipe pédagogique",
+      personName: (id: string) => person.get(id)?.fullName ?? getLocalUsersMap().get(id)?.fullName ?? "Équipe pédagogique",
       trainerName: (id: string) => {
-        const p = person.get(id);
-        if (!p || p.role === "admin" || p.role === "secretary") return "Équipe pédagogique";
+        const p = person.get(id) || getLocalUsersMap().get(id);
+        if (!p) return "Équipe pédagogique";
         return p.fullName;
       },
       closedDays: closed,

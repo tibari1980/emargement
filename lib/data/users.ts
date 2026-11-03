@@ -137,7 +137,7 @@ export async function listUsers(role?: Role): Promise<UserProfile[]> {
     const snap = await getDocs(role ? query(users(), where("role", "==", role)) : users());
     const res = snap.docs.map((d) => withId<UserProfile>(d)).sort(byName);
     if (res.length > 0) {
-      res.forEach((u) => localMap.set(u.id, u));
+      saveLocalUsers(res);
       return res;
     }
   } catch (err) {
@@ -165,11 +165,11 @@ export async function listStaff(roles: Role[]): Promise<UserProfile[]> {
     return cached.list;
   }
   try {
-    const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 800));
+    const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000));
     const snap = await Promise.race([getDocs(query(users(), where("role", "in", roles))), timeout]);
     const res = snap.docs.map((d) => withId<UserProfile>(d)).filter(isActive).sort(byName);
     if (res.length > 0) {
-      res.forEach((u) => memoryUserCache.set(u.id, u));
+      saveLocalUsers(res);
       staffCache.set(key, { at: Date.now(), list: res });
       return res;
     }
@@ -177,7 +177,10 @@ export async function listStaff(roles: Role[]): Promise<UserProfile[]> {
     console.warn("listStaff failed, using demo staff:", err);
   }
   const fallback = getInitialStaff(roles);
-  staffCache.set(key, { at: Date.now(), list: fallback });
+  const isRealData = fallback.some((u) => !DEMO_USERS.some((d) => d.id === u.id));
+  if (isRealData) {
+    staffCache.set(key, { at: Date.now(), list: fallback });
+  }
   return fallback;
 }
 
@@ -206,7 +209,7 @@ export async function listUsersByIds(ids: string[]): Promise<UserProfile[]> {
   }
 
   try {
-    const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 800));
+    const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("Timeout")), 5000));
     const results = await Promise.race([
       Promise.all(
         chunk(missingIds, 30).map((part) => getDocs(query(users(), where(documentId(), "in", part)))),
@@ -215,10 +218,7 @@ export async function listUsersByIds(ids: string[]): Promise<UserProfile[]> {
     ]);
     const fromDb = results.flatMap((s) => s.docs.map((d) => withId<UserProfile>(d)));
     if (fromDb.length > 0) {
-      fromDb.forEach((u) => {
-        localMap.set(u.id, u);
-        memoryUserCache.set(u.id, u);
-      });
+      saveLocalUsers(fromDb);
     }
   } catch (err) {
     console.warn("listUsersByIds failed, using cached trainees:", err);

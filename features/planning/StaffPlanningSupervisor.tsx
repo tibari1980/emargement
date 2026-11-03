@@ -11,10 +11,10 @@ import { addDays, eachDay, formatDayAndMonth, formatHours, getWeekMonday, todayI
 import type { Actor } from "@/lib/data/audit";
 import { deduplicateFormationsList, groupFormations } from "@/lib/data/formations";
 import { getInitialSlots, listSlots } from "@/lib/data/timetable";
-import { isActive } from "@/lib/data/users";
+import { getLocalUsersMap, isActive } from "@/lib/data/users";
 import { can } from "@/lib/domain/permissions";
 import { slotMinutes } from "@/lib/domain/schedule";
-import type { TimetableSlot } from "@/lib/domain/types";
+import type { TimetableSlot, UserProfile } from "@/lib/domain/types";
 import { useReferenceData } from "@/features/shared/useReferenceData";
 import { TimetableExportButtons } from "@/features/timetable/TimetableExportButtons";
 import { WeekView } from "@/features/timetable/WeekView";
@@ -72,8 +72,67 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
     return true;
   });
 
-  // Filtrage strict : uniquement les comptes avec le rôle Formateur
-  const trainers = data.staff.filter((u) => u.role === "trainer" && isActive(u));
+  // 1. Tous les IDs de formateurs présents dans les créneaux d'emploi du temps
+  const trainerIdsFromSlots = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of slots) {
+      if (s.trainerId && s.trainerId.trim()) {
+        set.add(s.trainerId);
+      }
+    }
+    return set;
+  }, [slots]);
+
+  // 2. Map combinant le cache mémoire, data.staff et le localStorage pour ne perdre aucun formateur
+  const allKnownStaff = useMemo(() => {
+    const map = new Map<string, UserProfile>();
+    getLocalUsersMap().forEach((u, id) => map.set(id, u));
+    data.staff.forEach((u) => map.set(u.id, u));
+    return map;
+  }, [data.staff]);
+
+  // 3. Construction de la liste complète des formateurs sélectionnables (avec déduplication et priorisation)
+  const selectableTrainers = useMemo(() => {
+    const candidateIds = new Set<string>();
+
+    // a. Membres du personnel avec rôle "trainer" (actifs)
+    allKnownStaff.forEach((u) => {
+      if (u.role === "trainer" && isActive(u)) {
+        candidateIds.add(u.id);
+      }
+    });
+
+    // b. Responsables pédagogiques (qui peuvent aussi dispenser des cours)
+    allKnownStaff.forEach((u) => {
+      if (u.role === "pedagogical_lead" && (isActive(u) || trainerIdsFromSlots.has(u.id))) {
+        candidateIds.add(u.id);
+      }
+    });
+
+    // c. Tout ID formateur référencé dans un créneau d'emploi du temps
+    trainerIdsFromSlots.forEach((id) => candidateIds.add(id));
+
+    return Array.from(candidateIds)
+      .map((id) => {
+        const user = allKnownStaff.get(id);
+        const fullName = user?.fullName || lookups.trainerName(id) || lookups.personName(id) || id;
+        const count = current.filter((s) => s.trainerId === id).length;
+        return {
+          id,
+          fullName,
+          count,
+          role: user?.role ?? "trainer",
+        };
+      })
+      .sort((a, b) => {
+        // Formateurs avec des cours affectés d'abord
+        if (a.count > 0 && b.count === 0) return -1;
+        if (b.count > 0 && a.count === 0) return 1;
+        // Tri alphabétique
+        return a.fullName.localeCompare(b.fullName, "fr", { sensitivity: "base" });
+      });
+  }, [allKnownStaff, current, lookups, trainerIdsFromSlots]);
+
   const dedupedFormations = deduplicateFormationsList(data.formations);
 
   const formationWithSlots = dedupedFormations.find(
@@ -83,14 +142,24 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
     formationWithSlots?.id ?? (dedupedFormations.find((f) => f.active !== false)?.id ?? "");
   const selectedFormationId = formationId || defaultFormationId;
 
-  const trainerWithSlots = trainers.find((u) => current.some((s) => s.trainerId === u.id));
+  // Présélection automatique : le premier formateur ayant des cours affectés
+  const trainerWithSlots = selectableTrainers.find((t) => t.count > 0);
+  const defaultTrainerId = trainerWithSlots?.id ?? (selectableTrainers[0]?.id || "");
   const selectedTrainerId =
-    trainerId || (trainerWithSlots?.id ?? (trainers.length > 0 ? trainers[0].id : ""));
+    trainerId && selectableTrainers.some((t) => t.id === trainerId)
+      ? trainerId
+      : defaultTrainerId;
 
   const selected =
     view === "trainer"
       ? current.filter((s) => s.trainerId === selectedTrainerId && selectedTrainerId !== "")
       : current.filter((s) => s.formationId === selectedFormationId && selectedFormationId !== "");
+
+  const currentTrainer = selectableTrainers.find((t) => t.id === selectedTrainerId);
+  const currentTargetTitle =
+    view === "trainer"
+      ? (currentTrainer?.fullName || (selectedTrainerId ? lookups.trainerName(selectedTrainerId) : "Formateur"))
+      : lookups.formationTitle(selectedFormationId);
 
   const minutes = selected.reduce((sum, s) => sum + slotMinutes(s), 0);
   const subjectsTaught = [...new Set(selected.map((s) => lookups.subjectTitle(s.subjectId)))];
@@ -125,20 +194,17 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
               label="Formateur"
               value={selectedTrainerId}
               onChange={(e) => setTrainerId(e.target.value)}
-              disabled={trainers.length === 0}
-              hint={trainers.length === 0 ? "Aucun compte avec le rôle Formateur." : undefined}
+              disabled={selectableTrainers.length === 0}
+              hint={selectableTrainers.length === 0 ? "Aucun formateur enregistré." : undefined}
             >
               <option value="">
-                {trainers.length === 0 ? "-- Aucun formateur enregistré --" : "-- Choisir un formateur --"}
+                {selectableTrainers.length === 0 ? "-- Aucun formateur enregistré --" : "-- Choisir un formateur --"}
               </option>
-              {trainers.map((u) => {
-                const count = current.filter((s) => s.trainerId === u.id).length;
-                return (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName} {count > 0 ? `(${count} cours / semaine)` : "(aucun cours affecté)"}
-                  </option>
-                );
-              })}
+              {selectableTrainers.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.fullName} {u.count > 0 ? `(${u.count} cours / semaine)` : "(aucun cours affecté)"}
+                </option>
+              ))}
             </SelectField>
           ) : (
             <SelectField
@@ -163,7 +229,7 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
           )}
         </div>
 
-        {view === "trainer" && trainers.length === 0 && (
+        {view === "trainer" && selectableTrainers.length === 0 && (
           <div className="rounded-xl border border-secondary/30 bg-surface-container-low p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs sm:text-sm">
             <div className="flex items-center gap-2 text-on-surface">
               <Info className="h-5 w-5 text-secondary shrink-0" aria-hidden="true" />
@@ -185,7 +251,7 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
       </div>
 
       {/* 2. AFFICHAGE DE LA GRILLE HEBDOMADAIRE */}
-      {view === "trainer" && trainers.length === 0 ? (
+      {view === "trainer" && selectableTrainers.length === 0 ? (
         <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-8 text-center flex flex-col items-center justify-center gap-3 shadow-xs">
           <div className="h-16 w-16 rounded-2xl bg-surface-container flex items-center justify-center text-secondary">
             <GraduationCap className="h-8 w-8" aria-hidden="true" />
@@ -260,9 +326,7 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle pb-3">
               <div>
                 <h2 id="staff-planning-heading" className="text-2xl font-bold text-primary tracking-tight">
-                  {view === "trainer"
-                    ? (trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "Formateur")
-                    : lookups.formationTitle(selectedFormationId)}
+                  {currentTargetTitle}
                 </h2>
                 <p className="text-sm text-on-surface-variant">
                   Volume hebdomadaire : <span className="font-bold text-primary">{formatHours(minutes / 60)} par semaine</span>
@@ -273,11 +337,7 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
                 <TimetableExportButtons
                   mode={view}
                   targetId={view === "trainer" ? selectedTrainerId : selectedFormationId}
-                  targetTitle={
-                    view === "trainer"
-                      ? (trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "Formateur")
-                      : lookups.formationTitle(selectedFormationId)
-                  }
+                  targetTitle={currentTargetTitle}
                   slots={selected}
                   subjectTitle={lookups.subjectTitle}
                   formationTitle={lookups.formationTitle}
@@ -306,7 +366,7 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
                   <div className="flex flex-col gap-1">
                     <h3 className="font-bold text-base text-primary">
                       {view === "trainer"
-                        ? `Aucun cours n'est encore affecté à ${trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "ce formateur"}`
+                        ? `Aucun cours n'est encore affecté à ${currentTargetTitle}`
                         : `Horaire journalier standard actif (Lundi au Vendredi · 09:00 – 17:00)`}
                     </h3>
                     <p className="text-xs sm:text-sm text-on-surface-variant max-w-2xl">
