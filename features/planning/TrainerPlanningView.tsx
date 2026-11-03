@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight, Info, Sparkles } from "lucide-react";
 import { ApplicationGuide } from "@/components/ApplicationGuide";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { SelectField } from "@/components/ui/Field";
-import { addDays, formatHours, formatShortDate, getWeekMonday, todayIso } from "@/lib/core/dates";
+import { addDays, eachDay, formatDayAndMonth, formatHours, getWeekMonday, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
 import { deduplicateFormationsList } from "@/lib/data/formations";
 import { getInitialSlots, listSlots } from "@/lib/data/timetable";
@@ -32,6 +32,25 @@ export function TrainerPlanningView({ actor }: { actor: Actor }) {
   const currentWeekMonday = getWeekMonday(todayIso());
   const [selectedMonday, setSelectedMonday] = useState(() => currentWeekMonday);
   const isCurrentWeek = selectedMonday === currentWeekMonday;
+
+  const goToPrevWeek = () => setSelectedMonday((prev) => addDays(prev, -7));
+  const goToNextWeek = () => setSelectedMonday((prev) => addDays(prev, 7));
+  const goToCurrentWeek = () => setSelectedMonday(currentWeekMonday);
+
+  const { closedDaysSet, holidayMap } = useMemo(() => {
+    const set = new Set<string>();
+    const map = new Map<string, string>();
+    if (data?.holidays) {
+      for (const h of data.holidays) {
+        if (!h.startDate || !h.endDate) continue;
+        for (const d of eachDay(h.startDate, h.endDate)) {
+          set.add(d);
+          map.set(d, h.title);
+        }
+      }
+    }
+    return { closedDaysSet: set, holidayMap: map };
+  }, [data?.holidays]);
 
   useEffect(() => {
     listSlots()
@@ -151,7 +170,56 @@ export function TrainerPlanningView({ actor }: { actor: Actor }) {
         </div>
       </div>
 
-      {/* 2. GRILLE HEBDOMADAIRE */}
+      {/* 2. BARRE DE NAVIGATION ENTRE LES SEMAINES */}
+      <div
+        role="region"
+        aria-label="Navigation entre les semaines"
+        className="rounded-xl border border-border-subtle bg-surface-container-lowest p-3 sm:px-4 sm:py-3 shadow-xs flex flex-wrap items-center justify-between gap-3"
+      >
+        <Button
+          variant="secondary"
+          onClick={goToPrevWeek}
+          className="!min-h-9 !px-3 text-xs sm:text-sm font-bold inline-flex items-center gap-1.5 rounded-lg"
+          aria-label="Afficher la semaine précédente"
+        >
+          <ChevronLeft className="h-4 w-4 text-secondary" aria-hidden="true" />
+          <span className="hidden xs:inline">Semaine précédente</span>
+          <span className="xs:hidden">Précédente</span>
+        </Button>
+
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <div className="inline-flex items-center gap-2 rounded-lg bg-surface-container px-3 py-1.5 text-xs sm:text-sm font-bold text-primary">
+            <Calendar className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+            <span>
+              Semaine du {formatDayAndMonth(selectedMonday)} au {formatDayAndMonth(addDays(selectedMonday, 4))} {selectedMonday.slice(0, 4)}
+            </span>
+          </div>
+          {!isCurrentWeek && (
+            <Button
+              variant="secondary"
+              onClick={goToCurrentWeek}
+              className="!min-h-8 !px-2.5 !py-1 text-xs font-bold text-secondary rounded-lg inline-flex items-center gap-1"
+              aria-label="Revenir à la semaine en cours"
+            >
+              <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
+              <span>Semaine en cours</span>
+            </Button>
+          )}
+        </div>
+
+        <Button
+          variant="secondary"
+          onClick={goToNextWeek}
+          className="!min-h-9 !px-3 text-xs sm:text-sm font-bold inline-flex items-center gap-1.5 rounded-lg"
+          aria-label="Afficher la semaine suivante"
+        >
+          <span className="hidden xs:inline">Semaine suivante</span>
+          <span className="xs:hidden">Suivante</span>
+          <ChevronRight className="h-4 w-4 text-secondary" aria-hidden="true" />
+        </Button>
+      </div>
+
+      {/* 3. GRILLE HEBDOMADAIRE */}
       <section aria-labelledby="trainer-planning-heading" className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle pb-3">
           <div>
@@ -184,6 +252,8 @@ export function TrainerPlanningView({ actor }: { actor: Actor }) {
             subjectTitle={lookups.subjectTitle}
             formationTitle={lookups.formationTitle}
             trainerName={lookups.trainerName}
+            holidays={data.holidays}
+            selectedMonth={selectedMonday.slice(0, 7)}
           />
         </div>
 
@@ -227,6 +297,9 @@ export function TrainerPlanningView({ actor }: { actor: Actor }) {
             }
             return lookups.trainerName(s.trainerId);
           }}
+          weekMonday={selectedMonday}
+          closedDays={closedDaysSet}
+          closureTitle={(iso) => holidayMap.get(iso) || null}
         />
       </section>
     </div>

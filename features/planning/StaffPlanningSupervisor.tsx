@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight, GraduationCap, Info, Sparkles } from "lucide-react";
 import { ApplicationGuide } from "@/components/ApplicationGuide";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { SelectField } from "@/components/ui/Field";
-import { addDays, formatHours, formatShortDate, getWeekMonday, todayIso } from "@/lib/core/dates";
+import { addDays, eachDay, formatDayAndMonth, formatHours, getWeekMonday, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
 import { deduplicateFormationsList, groupFormations } from "@/lib/data/formations";
 import { getInitialSlots, listSlots } from "@/lib/data/timetable";
@@ -34,6 +34,25 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
   const currentWeekMonday = getWeekMonday(todayIso());
   const [selectedMonday, setSelectedMonday] = useState(() => currentWeekMonday);
   const isCurrentWeek = selectedMonday === currentWeekMonday;
+
+  const goToPrevWeek = () => setSelectedMonday((prev) => addDays(prev, -7));
+  const goToNextWeek = () => setSelectedMonday((prev) => addDays(prev, 7));
+  const goToCurrentWeek = () => setSelectedMonday(currentWeekMonday);
+
+  const { closedDaysSet, holidayMap } = useMemo(() => {
+    const set = new Set<string>();
+    const map = new Map<string, string>();
+    if (data?.holidays) {
+      for (const h of data.holidays) {
+        if (!h.startDate || !h.endDate) continue;
+        for (const d of eachDay(h.startDate, h.endDate)) {
+          set.add(d);
+          map.set(d, h.title);
+        }
+      }
+    }
+    return { closedDaysSet: set, holidayMap: map };
+  }, [data?.holidays]);
 
   useEffect(() => {
     listSlots()
@@ -187,87 +206,143 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
           )}
         </div>
       ) : (view === "trainer" ? selectedTrainerId : selectedFormationId) ? (
-        <section aria-labelledby="staff-planning-heading" className="flex flex-col gap-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle pb-3">
-            <div>
-              <h2 id="staff-planning-heading" className="text-2xl font-bold text-primary tracking-tight">
-                {view === "trainer"
-                  ? (trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "Formateur")
-                  : lookups.formationTitle(selectedFormationId)}
-              </h2>
-              <p className="text-sm text-on-surface-variant">
-                Volume hebdomadaire : <span className="font-bold text-primary">{formatHours(minutes / 60)} par semaine</span>
-                {subjectsTaught.length > 0 && ` — matières : ${subjectsTaught.join(", ")}`}.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <TimetableExportButtons
-                mode={view}
-                targetId={view === "trainer" ? selectedTrainerId : selectedFormationId}
-                targetTitle={
-                  view === "trainer"
-                    ? (trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "Formateur")
-                    : lookups.formationTitle(selectedFormationId)
-                }
-                slots={selected}
-                subjectTitle={lookups.subjectTitle}
-                formationTitle={lookups.formationTitle}
-                trainerName={lookups.trainerName}
-              />
-              {canEditTimetable && (
-                <Link
-                  href="/pedagogical/timetable"
-                  className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-secondary/40 bg-surface-container-low px-3.5 py-2 text-xs sm:text-sm font-bold text-primary hover:bg-surface-container transition-colors shrink-0"
+        <div className="flex flex-col gap-4">
+          {/* BARRE DE NAVIGATION ENTRE LES SEMAINES */}
+          <div
+            role="region"
+            aria-label="Navigation entre les semaines"
+            className="rounded-xl border border-border-subtle bg-surface-container-lowest p-3 sm:px-4 sm:py-3 shadow-xs flex flex-wrap items-center justify-between gap-3"
+          >
+            <Button
+              variant="secondary"
+              onClick={goToPrevWeek}
+              className="!min-h-9 !px-3 text-xs sm:text-sm font-bold inline-flex items-center gap-1.5 rounded-lg"
+              aria-label="Afficher la semaine précédente"
+            >
+              <ChevronLeft className="h-4 w-4 text-secondary" aria-hidden="true" />
+              <span className="hidden xs:inline">Semaine précédente</span>
+              <span className="xs:hidden">Précédente</span>
+            </Button>
+
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <div className="inline-flex items-center gap-2 rounded-lg bg-surface-container px-3 py-1.5 text-xs sm:text-sm font-bold text-primary">
+                <Calendar className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+                <span>
+                  Semaine du {formatDayAndMonth(selectedMonday)} au {formatDayAndMonth(addDays(selectedMonday, 4))} {selectedMonday.slice(0, 4)}
+                </span>
+              </div>
+              {!isCurrentWeek && (
+                <Button
+                  variant="secondary"
+                  onClick={goToCurrentWeek}
+                  className="!min-h-8 !px-2.5 !py-1 text-xs font-bold text-secondary rounded-lg inline-flex items-center gap-1"
+                  aria-label="Revenir à la semaine en cours"
                 >
-                  <Calendar className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
-                  <span>Gérer les emplois du temps</span>
-                </Link>
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />
+                  <span>Semaine en cours</span>
+                </Button>
               )}
             </div>
+
+            <Button
+              variant="secondary"
+              onClick={goToNextWeek}
+              className="!min-h-9 !px-3 text-xs sm:text-sm font-bold inline-flex items-center gap-1.5 rounded-lg"
+              aria-label="Afficher la semaine suivante"
+            >
+              <span className="hidden xs:inline">Semaine suivante</span>
+              <span className="xs:hidden">Suivante</span>
+              <ChevronRight className="h-4 w-4 text-secondary" aria-hidden="true" />
+            </Button>
           </div>
 
-          {selected.length === 0 && (
-            <div className="rounded-2xl border-2 border-secondary/40 bg-surface-container-low p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary shrink-0 mt-0.5">
-                  <Info className="h-5 w-5" aria-hidden="true" />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <h3 className="font-bold text-base text-primary">
-                    {view === "trainer"
-                      ? `Aucun cours n'est encore affecté à ${trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "ce formateur"}`
-                      : `Horaire journalier standard actif (Lundi au Vendredi · 09:00 – 17:00)`}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-on-surface-variant max-w-2xl">
-                    {view === "trainer"
-                      ? "Le compte formateur est bien actif, mais aucun créneau horaire régulier ne lui a encore été attribué. Vous pouvez lui assigner des cours directement dans l'onglet « Emplois du temps »."
-                      : "Cette promotion fonctionne actuellement sur l'horaire réglementaire standard du centre (09:00 – 17:00, 7h/jour, 35h/semaine) pour l'Émargement, les Justificatifs et les Rapports mensuels ASP. Vous pouvez découper sa semaine matière par matière dans l'onglet « Emplois du temps »."}
-                  </p>
-                </div>
+          <section aria-labelledby="staff-planning-heading" className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border-subtle pb-3">
+              <div>
+                <h2 id="staff-planning-heading" className="text-2xl font-bold text-primary tracking-tight">
+                  {view === "trainer"
+                    ? (trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "Formateur")
+                    : lookups.formationTitle(selectedFormationId)}
+                </h2>
+                <p className="text-sm text-on-surface-variant">
+                  Volume hebdomadaire : <span className="font-bold text-primary">{formatHours(minutes / 60)} par semaine</span>
+                  {subjectsTaught.length > 0 && ` — matières : ${subjectsTaught.join(", ")}`}.
+                </p>
               </div>
-              {canEditTimetable && (
-                <Link
-                  href="/pedagogical/timetable"
-                  className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:bg-primary/90 transition-colors shrink-0"
-                >
-                  <span>Affecter des cours</span>
-                  <span aria-hidden="true">&rarr;</span>
-                </Link>
-              )}
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <TimetableExportButtons
+                  mode={view}
+                  targetId={view === "trainer" ? selectedTrainerId : selectedFormationId}
+                  targetTitle={
+                    view === "trainer"
+                      ? (trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "Formateur")
+                      : lookups.formationTitle(selectedFormationId)
+                  }
+                  slots={selected}
+                  subjectTitle={lookups.subjectTitle}
+                  formationTitle={lookups.formationTitle}
+                  trainerName={lookups.trainerName}
+                  holidays={data.holidays}
+                  selectedMonth={selectedMonday.slice(0, 7)}
+                />
+                {canEditTimetable && (
+                  <Link
+                    href="/pedagogical/timetable"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-secondary/40 bg-surface-container-low px-3.5 py-2 text-xs sm:text-sm font-bold text-primary hover:bg-surface-container transition-colors shrink-0"
+                  >
+                    <Calendar className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+                    <span>Gérer les emplois du temps</span>
+                  </Link>
+                )}
+              </div>
             </div>
-          )}
 
-          <WeekView
-            slots={selected}
-            subjectTitle={lookups.subjectTitle}
-            detailHeader={view === "trainer" ? "Formation" : "Formateur"}
-            detail={(s) =>
-              view === "trainer"
-                ? lookups.formationTitle(s.formationId)
-                : lookups.trainerName(s.trainerId)
-            }
-          />
-        </section>
+            {selected.length === 0 && (
+              <div className="rounded-2xl border-2 border-secondary/40 bg-surface-container-low p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary shrink-0 mt-0.5">
+                    <Info className="h-5 w-5" aria-hidden="true" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <h3 className="font-bold text-base text-primary">
+                      {view === "trainer"
+                        ? `Aucun cours n'est encore affecté à ${trainers.find((u) => u.id === selectedTrainerId)?.fullName ?? "ce formateur"}`
+                        : `Horaire journalier standard actif (Lundi au Vendredi · 09:00 – 17:00)`}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-on-surface-variant max-w-2xl">
+                      {view === "trainer"
+                        ? "Le compte formateur est bien actif, mais aucun créneau horaire régulier ne lui a encore été attribué. Vous pouvez lui assigner des cours directement dans l'onglet « Emplois du temps »."
+                        : "Cette promotion fonctionne actuellement sur l'horaire réglementaire standard du centre (09:00 – 17:00, 7h/jour, 35h/semaine) pour l'Émargement, les Justificatifs et les Rapports mensuels ASP. Vous pouvez découper sa semaine matière par matière dans l'onglet « Emplois du temps »."}
+                    </p>
+                  </div>
+                </div>
+                {canEditTimetable && (
+                  <Link
+                    href="/pedagogical/timetable"
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-on-primary hover:bg-primary/90 transition-colors shrink-0"
+                  >
+                    <span>Affecter des cours</span>
+                    <span aria-hidden="true">&rarr;</span>
+                  </Link>
+                )}
+              </div>
+            )}
+
+            <WeekView
+              slots={selected}
+              subjectTitle={lookups.subjectTitle}
+              detailHeader={view === "trainer" ? "Formation" : "Formateur"}
+              detail={(s) =>
+                view === "trainer"
+                  ? lookups.formationTitle(s.formationId)
+                  : lookups.trainerName(s.trainerId)
+              }
+              weekMonday={selectedMonday}
+              closedDays={closedDaysSet}
+              closureTitle={(iso) => holidayMap.get(iso) || null}
+            />
+          </section>
+        </div>
       ) : (
         <div className="rounded-xl border border-border-subtle bg-surface-container-lowest p-8 text-center flex flex-col items-center justify-center gap-3 shadow-xs">
           <p className="text-base font-semibold text-primary">

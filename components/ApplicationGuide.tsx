@@ -172,10 +172,38 @@ const STEPS: GuideStep[] = [
 export function ApplicationGuide({ defaultOpen = false }: { defaultOpen?: boolean }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
+  if (!isOpen) {
+    return (
+      <div className="rounded-xl border border-secondary/30 bg-surface-container-low px-4 py-2.5 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary-container text-white shadow-xs">
+            <BookOpen className="h-4 w-4" aria-hidden="true" />
+          </div>
+          <span className="font-bold text-primary truncate">
+            Guide officiel d&apos;utilisation &amp; Déploiement
+          </span>
+          <span className="hidden sm:inline-flex rounded-full bg-primary-container px-2 py-0.5 text-[11px] font-bold text-on-primary">
+            8 étapes
+          </span>
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => setIsOpen(true)}
+          className="!min-h-9 !py-1 !px-3 text-xs font-bold inline-flex items-center gap-1.5 rounded-lg shrink-0"
+          aria-expanded={false}
+          aria-controls="guide-content"
+        >
+          <ChevronDown className="h-3.5 w-3.5 text-secondary" aria-hidden="true" />
+          <span>Afficher le guide pas-à-pas</span>
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <section
       aria-labelledby="guide-heading"
-      className="rounded-2xl border-2 border-secondary/40 bg-surface-container-lowest p-5 sm:p-6 shadow-sm flex flex-col gap-4"
+      className="rounded-2xl border-2 border-secondary/40 bg-surface-container-lowest p-5 sm:p-6 shadow-sm flex flex-col gap-4 animate-in fade-in duration-200"
     >
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle pb-4">
         <div className="flex items-center gap-3">
@@ -197,22 +225,13 @@ export function ApplicationGuide({ defaultOpen = false }: { defaultOpen?: boolea
 
         <Button
           variant="secondary"
-          onClick={() => setIsOpen((prev) => !prev)}
+          onClick={() => setIsOpen(false)}
           className="!min-h-10 !px-3.5 text-xs sm:text-sm inline-flex items-center gap-2 rounded-xl"
-          aria-expanded={isOpen}
+          aria-expanded={true}
           aria-controls="guide-content"
         >
-          {isOpen ? (
-            <>
-              <ChevronUp className="h-4 w-4" aria-hidden="true" />
-              <span>Masquer le guide</span>
-            </>
-          ) : (
-            <>
-              <ChevronDown className="h-4 w-4" aria-hidden="true" />
-              <span>Afficher le guide pas-à-pas</span>
-            </>
-          )}
+          <ChevronUp className="h-4 w-4" aria-hidden="true" />
+          <span>Plier le guide</span>
         </Button>
       </div>
 

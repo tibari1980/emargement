@@ -106,6 +106,57 @@ describe("exports", () => {
     expect(fileName).toContain("emploi-du-temps-formation-adaptation");
   });
 
+  it("builds a monthly timetable PDF and Excel workbook with public holidays and stats", async () => {
+    const monthlyPayload = {
+      mode: "formation" as const,
+      period: "month" as const,
+      month: "2026-11",
+      targetId: "form_adapt",
+      targetTitle: "Adaptation aux outils et à l'autonomie (1 an)",
+      holidays: [
+        {
+          startDate: "2026-11-11",
+          endDate: "2026-11-11",
+          title: "Armistice 1918",
+          type: "holiday",
+        },
+      ],
+      slots: [
+        {
+          id: "s1",
+          weekday: 1 as const,
+          startTime: "09:00",
+          endTime: "12:30",
+          durationMinutes: 210,
+          subjectTitle: "Braille",
+          formationTitle: "Adaptation aux outils et à l'autonomie (1 an)",
+          trainerName: "Nadia Mansouri",
+          room: "Salle Braille",
+          validFrom: "2026-09-01",
+          validTo: null,
+        },
+      ],
+    };
+
+    const pdfBytes = await buildTimetablePdf(monthlyPayload);
+    const pdf = await PDFDocument.load(pdfBytes);
+    expect(pdf.getPageCount()).toBeGreaterThanOrEqual(1);
+    expect(pdf.getTitle()).toContain("Planning Mensuel");
+    expect(pdf.getTitle()).toContain("novembre 2026");
+
+    const xlsxBuffer = await buildTimetableExcel(monthlyPayload);
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(xlsxBuffer as unknown as ArrayBuffer);
+    const mainSheet = wb.getWorksheet("Planning_Mensuel")!;
+    expect(mainSheet).toBeDefined();
+    const summarySheet = wb.getWorksheet("Synthese_Mensuelle")!;
+    expect(summarySheet).toBeDefined();
+
+    const fileNamePdf = timetableExportFileName(monthlyPayload, "pdf");
+    expect(fileNamePdf).toContain("planning-mensuel-formation-adaptation");
+    expect(fileNamePdf).toContain("2026-11");
+  });
+
   it("builds a users PDF and Excel workbook with role summary", async () => {
     const usersPayload = {
       filterLabel: "Tous les rôles",
