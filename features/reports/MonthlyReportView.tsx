@@ -280,7 +280,7 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary-container px-3 py-1 font-bold text-xs uppercase tracking-wide text-on-primary">
                 <ShieldCheck className="h-4 w-4 text-focus-outer shrink-0" aria-hidden="true" />
-                Homologation DGEFP / France Travail
+                Certification Officielle ASP
               </span>
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-on-surface-variant">
                 <Calendar className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
@@ -301,7 +301,7 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
               Rapports Mensuels d&apos;Assiduité &amp; Calcul d&apos;Heures Certifiées
             </h1>
             <p className="text-sm text-on-surface-variant">
-              Relevé consolidé pour les organismes financeurs (France Travail, Région Île-de-France, AGEFIPH, CPAM).
+              Relevé officiel certifié pour l&apos;ASP (Agence de Services et de Paiement).
               Données sécurisées avec horodatage électronique et conformité d&apos;accessibilité RGAA AAA.
             </p>
           </div>
@@ -490,7 +490,7 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
                 }`}
               >
                 <ShieldCheck className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>Relevé Synthétique (DGEFP / France Travail)</span>
+                <span>Relevé Général d&apos;Assiduité ASP</span>
               </button>
               <button
                 type="button"
@@ -687,7 +687,7 @@ export function MonthlyReportView({ actor }: { actor: Actor }) {
                     {formatHours(report.totals.excusedHours + (report.totals.exemptedHours ?? 0))}
                   </div>
                   <p className="text-[11px] sm:text-xs text-on-surface-variant mt-1 truncate">
-                    {formatHours(report.totals.excusedHours)} CPAM + {formatHours(report.totals.exemptedHours ?? 0)} dispenses
+                    {formatHours(report.totals.excusedHours)} justifiées + {formatHours(report.totals.exemptedHours ?? 0)} dispenses
                   </p>
                 </div>
               </div>

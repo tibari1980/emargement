@@ -52,8 +52,8 @@ export const metadata: Metadata = {
     "formation professionnelle",
     "assiduité",
     "Qualiopi",
-    "France Travail",
-    "AGEFIPH",
+    "ASP",
+    "ASP Rémunération",
   ],
   alternates: {
     canonical: "/",

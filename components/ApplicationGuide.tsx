@@ -139,15 +139,15 @@ const STEPS: GuideStep[] = [
   },
   {
     number: 8,
-    title: "Rapports mensuels & Homologation financeurs",
+    title: "Rapports mensuels & Homologation ASP",
     badge: "Certification",
     role: "Pédagogie / Secrétariat",
     href: "/pedagogical/reports",
     description:
-      "Générez les relevés mensuels officiels d'assiduité conformes aux exigences DGEFP, France Travail, AGEFIPH et Région Île-de-France.",
+      "Générez les relevés mensuels officiels d'assiduité conformes aux exigences de l'ASP (Agence de Services et de Paiement).",
     checklist: [
       "Calcul certifié : Heures théoriques - Absences injustifiées = Heures réalisées finançables.",
-      "Export PDF certifié pour transmission aux organismes tiers payeurs.",
+      "Export PDF certifié pour transmission à l'ASP.",
       "Export Excel (.xlsx) pour traitement administratif et comptabilité.",
     ],
   },

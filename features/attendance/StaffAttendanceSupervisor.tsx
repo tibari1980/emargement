@@ -984,7 +984,7 @@ export function StaffAttendanceSupervisor({ profile }: { profile: Actor }) {
                     Émargement verrouillé — Séance à venir ({formatLongDate(date)} de {slot.startTime} à {slot.endTime})
                   </h3>
                   <p className="text-xs sm:text-sm text-on-surface-variant mt-0.5 leading-relaxed">
-                    Conformément aux règles d&apos;assiduité certifiée (Qualiopi / DGEFP / ASP), <strong>aucun profil</strong> (y compris Administrateur, Responsable pédagogique et Secrétariat) ne peut émarger une séance avant son ouverture effective. Les boutons de présence s&apos;activeront automatiquement le <strong>{formatLongDate(date)} à {slot.startTime}</strong>.
+                    Conformément aux règles d&apos;assiduité certifiée (Qualiopi / ASP), <strong>aucun profil</strong> (y compris Administrateur, Responsable pédagogique et Secrétariat) ne peut émarger une séance avant son ouverture effective. Les boutons de présence s&apos;activeront automatiquement le <strong>{formatLongDate(date)} à {slot.startTime}</strong>.
                   </p>
                 </div>
               </div>

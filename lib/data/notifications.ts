@@ -23,7 +23,7 @@ const initialDemoNotifications: AppNotification[] = [
   {
     id: "notif-welcome",
     title: "Bienvenue sur l'Espace Valentin Haüy",
-    message: "Plateforme certifiée d'émargement et de suivi pédagogique conforme aux exigences ASP et DGEFP.",
+    message: "Plateforme certifiée d'émargement et de suivi pédagogique conforme aux exigences de l'ASP.",
     type: "info",
     createdAt: new Date().toISOString(),
     read: false,

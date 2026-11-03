@@ -240,7 +240,7 @@ export function drawOfficialPdfHeader(opts: OfficialPdfHeaderOptions): number {
     font: bold,
     color: navy,
   });
-  page.drawText(safePdfText("Qualiopi • DGEFP / ASP • RGAA AAA"), {
+  page.drawText(safePdfText("Qualiopi • Conformité ASP • RGAA AAA"), {
     x: stampX + 10,
     y: stampY + 20,
     size: 8,

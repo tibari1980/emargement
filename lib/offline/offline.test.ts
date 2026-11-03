@@ -53,14 +53,14 @@ describe("Offline: Conflict Resolution Engine", () => {
       month: "2026-11",
       status: "excused",
       arrivalTime: null,
-      excuseReason: "Arrêt maladie CPAM",
+      excuseReason: "Arrêt maladie",
       recordedBy: "sec1",
     };
 
     const res = resolveAttendanceConflict(basePending, remoteExcused);
     expect(res.shouldOverwrite).toBe(false);
     expect(res.finalStatus).toBe("excused");
-    expect(res.finalExcuseReason).toBe("Arrêt maladie CPAM");
+    expect(res.finalExcuseReason).toBe("Arrêt maladie");
   });
 
   it("prioritizes physical presence observed in class over prior default absence", () => {

@@ -508,7 +508,7 @@ export function UserProfileManager({ actor }: { actor: Actor }) {
               Finalité &amp; Base Légale
             </h3>
             <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">
-              Vos données sont traitées pour la gestion certifiée des feuilles d&apos;émargement, l&apos;assiduité des stagiaires et les relevés légaux destinés aux financeurs publics (France Travail, Régions, AGEFIPH).
+              Vos données sont traitées pour la gestion certifiée des feuilles d&apos;émargement, l&apos;assiduité des stagiaires et les relevés légaux destinés à l&apos;ASP (Agence de Services et de Paiement).
             </p>
           </div>
 

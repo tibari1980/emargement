@@ -37,7 +37,7 @@ function truncate(text: string, font: PDFFont, size: number, maxWidth: number): 
   return value;
 }
 
-/** Official monthly attendance statement for funders (France Travail, Région, CPAM…). */
+/** Official monthly attendance statement for ASP. */
 export async function buildPdfReport(report: MonthlyReport): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const title = report.formationTitle ?? report.courseTitle ?? "Formation";
@@ -97,7 +97,7 @@ export async function buildPdfReport(report: MonthlyReport): Promise<Uint8Array>
         `Formation : ${title}`,
         `${scheduleInfo}${report.workingDays.length} jours ouvrés — ${formatHours(report.theoreticalHours)} théoriques`,
       ],
-      badgeText: "RELEVÉ CERTIFIÉ DGEFP / ASP",
+      badgeText: "RELEVÉ MENSUEL CERTIFIÉ ASP",
     });
 
     y -= 6;

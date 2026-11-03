@@ -295,7 +295,7 @@ function GuidePageContent() {
             </div>
             <div className="text-sm text-on-surface flex flex-col gap-3 pl-11">
               <p>
-                Pour garantir la sincérité juridique des émargements demandée par les organismes financeurs (DGEFP, France Travail, ASP), l&apos;horloge de l&apos;application est synchronisée avec le serveur officiel (fuseau <code>Europe/Paris</code>) :
+                Pour garantir la sincérité juridique des émargements demandée pour l&apos;ASP, l&apos;horloge de l&apos;application est synchronisée avec le serveur officiel (fuseau <code>Europe/Paris</code>) :
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                 <div className="rounded-xl bg-surface-container-lowest p-3 border border-border-subtle">
@@ -573,7 +573,7 @@ function GuidePageContent() {
             </div>
             <div className="text-sm text-on-surface-variant flex flex-col gap-3 pl-11">
               <p>
-                Lorsqu&apos;un stagiaire vous transmet un arrêt de travail CPAM, un certificat médical ou une convocation administrative :
+                Lorsqu&apos;un stagiaire vous transmet un arrêt de travail, un certificat médical ou une convocation administrative :
               </p>
               <ol className="list-decimal pl-5 flex flex-col gap-1 text-on-surface text-xs">
                 <li>Allez sur l&apos;onglet <strong>« Justificatifs »</strong> (<Link href="/secretary/justifications" className="text-secondary font-bold underline">accéder</Link>).</li>
@@ -831,7 +831,7 @@ function GuidePageContent() {
               <p>
                 Sur l&apos;onglet <strong>« Journal d&apos;activité »</strong> (<Link href="/admin/audit" className="text-secondary font-bold underline">accéder</Link>), chaque action réalisée sur l&apos;application est tracée de manière inaltérable :
                 <em> Qui a émargé ? À quelle seconde ? Quelle adresse IP ? Quelle modification sur un justificatif ?</em>
-                Ce journal certifié constitue la preuve formelle lors des audits financeurs (Qualiopi, France Travail).
+                Ce journal certifié constitue la preuve formelle lors des audits (Qualiopi, ASP).
               </p>
             </div>
           </article>

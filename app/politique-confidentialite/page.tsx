@@ -94,7 +94,7 @@ export default function PolitiqueConfidentialitePage() {
               <li>L&apos;émargement électronique certifié des stagiaires à chaque session de formation ;</li>
               <li>Le suivi régulier de l&apos;assiduité, le décompte des heures de présence et la gestion des absences ;</li>
               <li>La justification des absences au regard des motifs légaux de formation professionnelle ;</li>
-              <li>L&apos;édition des relevés mensuels d&apos;assiduité obligatoires destinés aux financeurs publics (France Travail, Régions, AGEFIPH, CPAM).</li>
+              <li>L&apos;édition des relevés mensuels d&apos;assiduité obligatoires destinés à l&apos;ASP (Agence de Services et de Paiement).</li>
             </ul>
             <div className="rounded-xl border border-border-subtle bg-surface-container p-4">
               <p className="font-bold text-primary mb-1">Base Légale (Article 6.1.c et 6.1.e du RGPD) :</p>

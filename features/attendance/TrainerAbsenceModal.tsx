@@ -388,7 +388,7 @@ export function TrainerAbsenceModal({
                 <Shield className="h-4 w-4 text-secondary" aria-hidden="true" />
                 Garantie Réglementaire &amp; Protection des Stagiaires :
               </p>
-              L&apos;annulation d&apos;une séance pour absence du formateur constitue une <strong>dispense administrative</strong>. Les heures ne sont <strong>pas imputées comme des absences injustifiées</strong> et le taux d&apos;assiduité des stagiaires pour France Travail et la Région reste protégé.
+              L&apos;annulation d&apos;une séance pour absence du formateur constitue une <strong>dispense administrative</strong>. Les heures ne sont <strong>pas imputées comme des absences injustifiées</strong> et la rémunération des stagiaires pour l&apos;ASP reste protégée.
             </div>
 
             <SelectField

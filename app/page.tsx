@@ -135,7 +135,7 @@ export default function LandingPage() {
             <div className="pt-3 border-t border-border-subtle flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-y-2 gap-x-6 text-xs text-on-surface-variant">
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-4 w-4 text-status-present shrink-0" aria-hidden="true" />
-                <span>Horodatage certifié DGEFP &amp; France Travail</span>
+                <span>Horodatage et Suivi Certifiés ASP</span>
               </span>
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-4 w-4 text-status-present shrink-0" aria-hidden="true" />
@@ -219,8 +219,8 @@ export default function LandingPage() {
             <p className="text-sm sm:text-base text-on-surface-variant leading-relaxed">
               Le <strong>CFRP / ESRP Valentin Haüy</strong> accueille des adultes en situation de handicap visuel
               pour des parcours d&apos;évaluation, de pré-orientation et de formation qualifiante.
-              Notre plateforme numérique assure la conformité rigoureuse des présences exigée par les financeurs publics
-              (France Travail, Région Île-de-France, AGEFIPH, CPAM) tout en offrant une interface nativement accessible.
+              Notre plateforme numérique assure la conformité rigoureuse des présences exigée
+              pour l&apos;ASP tout en offrant une interface nativement accessible.
             </p>
 
             <blockquote className="rounded-2xl border-l-4 border-secondary bg-surface-container-high p-4 text-sm sm:text-base italic text-on-surface">
@@ -445,7 +445,7 @@ export default function LandingPage() {
             <h3 className="text-lg font-bold text-primary">Rapports &amp; Télétransmission</h3>
             <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed">
               Génération mensuelle de relevés d&apos;assiduité certifiés (PDF officiels et tableurs XLSX)
-              pour France Travail, la Région et l&apos;AGEFIPH.
+              pour l&apos;ASP (Agence de Services et de Paiement).
             </p>
           </div>
         </div>

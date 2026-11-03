@@ -57,7 +57,7 @@ const ADMIN_SECTIONS = [
     items: [
       {
         title: "Rapports mensuels certifiés",
-        description: "Relevés d'assiduité DGEFP / financeurs et exports PDF/Excel.",
+        description: "Relevés d'assiduité ASP et exports PDF/Excel.",
         href: "/pedagogical/reports",
         icon: FileSpreadsheet,
         color: "bg-status-present-bg text-status-present border-status-present-border/40",

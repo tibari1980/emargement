@@ -84,12 +84,12 @@ Le logo et l'en-tête sont conçus pour garantir une restitution vocale et brail
 1. **Header d'Accès Rapide** : Logo CFRP Valentin Haüy, bouton d'options visuelles `[A± Accessibilité]`, et bouton `[Connexion]` direct.
 2. **Hero Section** :
    - Titre fort : *« L'émargement et le suivi pédagogique certifié, pensé pour l'autonomie de tous. »*
-   - Badges de certification : Homologation DGEFP, France Travail, RGAA 4.1 AAA.
+   - Badges de certification : Certification ASP, Qualiopi, RGAA 4.1 AAA.
    - Capsule « Œil de l'Accessibilité » : indicateur de conformité basse vision.
    - Photo mise en valeur avec bordure douce et contraste soigné.
    - Double appel à l'action : `[ Accéder à mon espace ]` et `[ Découvrir les fonctionnalités ]`.
 3. **Bandeau Institutionnel & Partenaires** :
-   - Présentation conjointe de l'ESRP / CFRP Valentin Haüy, France Travail, AGEFIPH et Région Île-de-France.
+   - Présentation conjointe de l'ESRP / CFRP Valentin Haüy et de la télétransmission ASP.
 4. **Piliers d'Excellence & Fonctionnalités Métier** :
    - 👁️ **Accessibilité Totale & Vision Adaptée** : Conçu avec et pour les personnes aveugles et malvoyantes.
    - 🛡️ **Émargement Numérique & Horodatage Sécurisé** : Feuilles d'émargement infalsifiables.

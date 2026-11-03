@@ -13,7 +13,7 @@ export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
   const title = sanitizeForSpreadsheet(report.formationTitle ?? report.courseTitle ?? "Formation");
 
   /* =========================================================================
-   * FEUILLE 1 : Récapitulatif Général d'Assiduité (DGEFP / Région)
+   * FEUILLE 1 : Récapitulatif Général d'Assiduité ASP
    * ========================================================================= */
   const sheet = workbook.addWorksheet("Récapitulatif", {
     views: [{ state: "frozen", ySplit: 7 }],
@@ -136,7 +136,7 @@ export async function buildExcelReport(report: MonthlyReport): Promise<Buffer> {
     size: 14,
     color: { argb: "FF0D2E5C" },
   };
-  aspSheet.addRow(["Cadre Réglementaire", "Rémunération des Stagiaires de la Formation Professionnelle (RSFP) — ASP / Région Île-de-France"]);
+  aspSheet.addRow(["Cadre Réglementaire", "Rémunération des Stagiaires de la Formation Professionnelle (RSFP) — ASP"]);
   aspSheet.addRow(["Formation", title]);
   aspSheet.addRow(["Mois de Déclaration", formatMonth(report.month)]);
   aspSheet.addRow([

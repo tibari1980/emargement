@@ -8,7 +8,7 @@
 
 ### 1.1 Objective
 
-Build an accessible, robust, and automated attendance management web application for **ESRP Valentin Haüy** (Association Valentin Haüy). The application manages daily trainee attendance, trainer check-ins, holiday/vacation calendars, and generates monthly attendance/absence reports required by funding agencies (e.g., France Travail, Regional Councils, Social Security).
+Build an accessible, robust, and automated attendance management web application for **ESRP Valentin Haüy** (Association Valentin Haüy). The application manages daily trainee attendance, trainer check-ins, holiday/vacation calendars, and generates monthly attendance/absence reports required for ASP remuneration.
 
 ### 1.2 Target Audience \& Accessibility Focus
 

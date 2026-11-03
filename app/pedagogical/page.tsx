@@ -40,10 +40,10 @@ const PEDAGOGICAL_MODULES = [
   },
   {
     title: "Rapports mensuels & Assiduité",
-    description: "Calcul automatisé des heures certifiées d'assiduité et exports PDF / Excel pour les financeurs (DGEFP).",
+    description: "Calcul automatisé des heures certifiées d'assiduité et exports PDF / Excel pour l'ASP.",
     href: "/pedagogical/reports",
     icon: FileSpreadsheet,
-    badge: "Certifié DGEFP",
+    badge: "Certifié ASP",
     color: "bg-status-present-bg text-status-present border-status-present-border/40",
   },
   {
