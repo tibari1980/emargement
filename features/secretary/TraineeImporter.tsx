@@ -31,6 +31,7 @@ import {
 } from "@/lib/data/formations";
 import { parseTraineeFile, type ParsedTrainee, type TraineeParseResult } from "@/lib/domain/csvParser";
 import { downloadTraineeCsvTemplate, downloadTraineeExcelTemplate } from "@/lib/domain/templates";
+import { createNotification } from "@/lib/data/notifications";
 import type { Formation } from "@/lib/domain/types";
 
 export function TraineeImporter({ actor }: { actor: Actor }) {
@@ -180,6 +181,17 @@ export function TraineeImporter({ actor }: { actor: Actor }) {
       const message = `${created + reused} stagiaires inscrits en « ${formation.title} » (${created} nouveau${created > 1 ? "x" : ""}, ${reused} déjà existant${reused > 1 ? "s" : ""}).`;
       setDone(message);
       announce(message);
+
+      void createNotification(
+        {
+          title: "Import de stagiaires réussi",
+          message: `${created + reused} stagiaires inscrits dans « ${formation.title} » par ${actor.fullName}.`,
+          type: "success",
+          targetRole: "pedagogical_lead",
+        },
+        actor
+      );
+
       resetFile();
       setFormations(await listFormations());
     } catch {

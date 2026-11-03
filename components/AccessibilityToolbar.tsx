@@ -38,8 +38,8 @@ export function AccessibilityToolbar() {
         <button
           id="btn-accessibilite"
           type="button"
-          aria-label="Options d'accessibilité visuelle. Raccourcis : Alt + M pour basculer en mode sombre, Alt + A pour ouvrir ce menu"
-          title="Options d'accessibilité (Alt + A) · Mode sombre (Alt + M)"
+          aria-label="Accessibilité : options d'affichage et confort visuel (Alt + A). Raccourci Alt + M pour basculer en mode sombre"
+          title="Accessibilité & Confort visuel (Alt + A) · Mode sombre (Alt + M)"
           className={`inline-flex min-h-10 items-center justify-center gap-1.5 sm:gap-2 rounded-xl border border-border-subtle bg-surface-container-high px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-on-surface transition-colors hover:bg-surface-variant shrink-0 ${focusRing}`}
         >
           <Accessibility className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />

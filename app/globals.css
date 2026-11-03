@@ -292,27 +292,162 @@ html.contrast-high header a[href="/profile"]:focus [class*="bg-primary-container
   color: #000000 !important;
 }
 
-html.contrast-dark body {
-  background-color: #0f172a !important;
-  color: #f8fafc !important;
+html.contrast-dark {
+  color-scheme: dark;
+
+  /* Stitch Design Tokens (ESRP / CFRP Valentin Haüy) — Harmonisation Mode Sombre */
+  --color-primary: #93c5fd;
+  --color-primary-container: #1d4ed8;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #dbeafe;
+  --color-inverse-primary: #1e3a8a;
+
+  --color-secondary: #60a5fa;
+  --color-secondary-container: #2563eb;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #eff6ff;
+
+  --color-tertiary: #fdba74;
+  --color-tertiary-container: #7c2d12;
+  --color-on-tertiary-container: #ffedd5;
+
+  --color-surface: #0b1120;
+  --color-surface-bg: #0b1120;
+  --color-surface-card: #151f32;
+  --color-surface-dim: #0f172a;
+  --color-surface-container-lowest: #0f172a;
+  --color-surface-container-low: #151f32;
+  --color-surface-container: #1e293b;
+  --color-surface-container-high: #273549;
+  --color-surface-container-highest: #334155;
+  --color-surface-variant: #1e293b;
+
+  --color-on-surface: #f8fafc;
+  --color-on-surface-variant: #cbd5e1;
+
+  --color-border-subtle: #334155;
+  --color-border-strong: #475569;
+  --color-outline: #64748b;
+  --color-outline-variant: #334155;
+
+  --color-navy-deep: #0b1120;
+  --color-focus-outer: #f59e0b;
+  --color-focus-inner: #93c5fd;
+
+  --color-status-present: #34d399;
+  --color-status-present-bg: #064e3b;
+  --color-status-present-border: #059669;
+
+  --color-status-absent: #f87171;
+  --color-status-absent-bg: #7f1d1d;
+  --color-status-absent-border: #dc2626;
+
+  --color-status-late: #fbbf24;
+  --color-status-late-bg: #78350f;
+  --color-status-late-border: #d97706;
+
+  --color-status-excused: #c084fc;
+  --color-status-excused-bg: #581c87;
+  --color-status-excused-border: #9333ea;
 }
 
-html.contrast-dark header,
+html.contrast-dark body {
+  background-color: var(--color-surface) !important;
+  color: var(--color-on-surface) !important;
+}
+
+html.contrast-dark header {
+  background-color: rgba(11, 17, 32, 0.95) !important;
+  border-bottom-color: #334155 !important;
+}
+
 html.contrast-dark section,
 html.contrast-dark fieldset,
-html.contrast-dark table,
 html.contrast-dark dialog,
 html.contrast-dark [role="dialog"],
 html.contrast-dark div[class*="bg-white"],
-html.contrast-dark div[class*="bg-surface-container-lowest"] {
+html.contrast-dark div[class*="bg-surface-container-lowest"],
+html.contrast-dark div[class*="bg-surface-container-low"] {
+  background-color: #151f32 !important;
+  color: var(--color-on-surface) !important;
+  border-color: #334155 !important;
+}
+
+/* Champs de formulaire sombres, confortables, sans éblouissement */
+html.contrast-dark input,
+html.contrast-dark select,
+html.contrast-dark textarea {
   background-color: #1e293b !important;
   color: #f8fafc !important;
   border-color: #475569 !important;
+  color-scheme: dark !important;
+}
+
+html.contrast-dark input::placeholder,
+html.contrast-dark textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+html.contrast-dark select option {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html.contrast-dark input:focus,
+html.contrast-dark select:focus,
+html.contrast-dark textarea:focus {
+  border-color: #f59e0b !important;
+  outline: 2px solid #f59e0b !important;
+  outline-offset: 1px !important;
+}
+
+/* Navigation principale et onglets */
+html.contrast-dark nav a[aria-current="page"] {
+  background-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+}
+
+html.contrast-dark nav a:not([aria-current="page"]) {
+  color: #cbd5e1 !important;
+}
+
+html.contrast-dark nav a:not([aria-current="page"]):hover {
+  background-color: #273549 !important;
+  color: #ffffff !important;
+}
+
+/* Contrôles et boutons de l'en-tête */
+html.contrast-dark header button,
+html.contrast-dark header a[href="/login"],
+html.contrast-dark header a[href="/profile"],
+html.contrast-dark header a[href*="/guide"] {
+  border-color: #334155 !important;
+}
+
+html.contrast-dark table {
+  background-color: #151f32 !important;
+  border-color: #334155 !important;
+}
+
+html.contrast-dark thead,
+html.contrast-dark thead tr {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+html.contrast-dark tbody tr {
+  border-color: #334155 !important;
+}
+
+html.contrast-dark tbody tr:hover {
+  background-color: rgba(30, 41, 59, 0.6) !important;
 }
 
 html.contrast-dark td,
 html.contrast-dark th {
   border-color: #334155 !important;
+  color: #f8fafc !important;
 }
 
 html.contrast-dark [class*="bg-status-present-bg"] {

@@ -204,7 +204,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     d.style.backgroundColor = "#000000";
                   } else if (contrast === "dark") {
                     d.classList.add("contrast-dark");
-                    d.style.backgroundColor = "#0f172a";
+                    d.style.backgroundColor = "#0b1120";
                   } else {
                     d.classList.add("contrast-standard");
                   }

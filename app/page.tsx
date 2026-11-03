@@ -116,7 +116,6 @@ export default function LandingPage() {
               <Link
                 href={user && profile ? homeFor(profile.role) : "/login"}
                 className={`inline-flex w-full sm:w-auto justify-center min-h-12 items-center gap-2.5 rounded-xl bg-primary-container px-5 sm:px-6 py-3 text-sm sm:text-base font-bold text-on-primary shadow-md hover:opacity-95 transition-all ${focusRing}`}
-                aria-label={user && profile ? "Accéder à mon espace de travail" : "Se connecter à l'espace certifié"}
               >
                 <LogIn className="h-5 w-5 shrink-0" aria-hidden="true" />
                 <span>{user && profile ? "Accéder à mon espace" : "Connexion à l'espace certifié"}</span>
@@ -518,7 +517,7 @@ export default function LandingPage() {
           className={`inline-flex w-full sm:w-auto justify-center min-h-12 items-center gap-2.5 rounded-xl bg-focus-outer px-6 sm:px-8 py-3.5 text-sm sm:text-base font-extrabold text-navy-deep shadow-lg hover:bg-yellow-300 transition-colors ${focusRing}`}
         >
           <LogIn className="h-5 w-5 shrink-0" aria-hidden="true" />
-          <span>{user && profile ? "Accéder à mon tableau de bord" : "Accéder à l'espace de connexion"}</span>
+          <span>{user && profile ? "Accéder à mon tableau de bord" : "Connexion à l'espace de formation"}</span>
         </Link>
       </section>
     </div>

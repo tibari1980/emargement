@@ -164,7 +164,6 @@ export function AppHeader() {
                 <Link
                   href="/login"
                   className={`inline-flex min-h-10 items-center gap-1.5 sm:gap-2 rounded-xl bg-primary-container px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-bold text-on-primary shadow-xs hover:opacity-95 transition-opacity ${focusRing}`}
-                  aria-label="Accéder à l'espace de connexion sécurisé"
                 >
                   <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
                   <span>Connexion</span>
@@ -199,8 +198,8 @@ export function AppHeader() {
                   <Link
                     href="/profile"
                     className={`inline-flex min-h-10 items-center gap-2 rounded-xl border border-border-subtle bg-surface-container-high px-2.5 lg:px-3 py-1 hover:bg-surface-variant transition-colors ${focusRing}`}
-                    aria-label={`Accéder à votre profil et modifier votre mot de passe (${profile.fullName} — ${ROLE_LABELS[profile.role]})`}
-                    title={`${profile.fullName} (${ROLE_LABELS[profile.role]}) — Cliquez pour accéder à votre profil`}
+                    aria-label={`Mon profil — ${profile.fullName} (${ROLE_LABELS[profile.role]})`}
+                    title={`Mon profil : ${profile.fullName} (${ROLE_LABELS[profile.role]})`}
                   >
                     <div
                       className="flex h-7 w-7 lg:h-8 lg:w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-white font-bold text-xs shadow-xs"
@@ -226,7 +225,7 @@ export function AppHeader() {
                   <Link
                     href={`/guide?role=${profile.role}`}
                     className={`inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-secondary/30 bg-surface-container-high px-2.5 lg:px-3 py-1 text-xs lg:text-sm font-bold text-primary hover:bg-surface-variant transition-colors ${focusRing}`}
-                    aria-label={`Consulter le guide d'utilisation pas-à-pas pour votre espace (${ROLE_LABELS[profile.role]})`}
+                    aria-label={`Guide d'utilisation — Espace ${ROLE_LABELS[profile.role]}`}
                     title="Consulter le guide d'utilisation pas-à-pas"
                   >
                     <BookOpen className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
@@ -237,7 +236,7 @@ export function AppHeader() {
                   <Button
                     variant="secondary"
                     onClick={handleSignOut}
-                    aria-label="Se déconnecter de votre compte"
+                    aria-label="Déconnexion — Se déconnecter de votre compte"
                     title="Se déconnecter"
                     className="inline-flex !min-h-10 !px-2.5 lg:!px-3 !py-1 text-xs lg:text-sm rounded-xl items-center gap-1.5"
                   >
@@ -498,7 +497,7 @@ export function AppHeader() {
                       className={`w-full min-h-11 justify-center inline-flex items-center gap-2 rounded-xl text-sm font-bold bg-primary-container text-on-primary p-3 shadow-xs ${focusRing}`}
                     >
                       <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
-                      <span>Se connecter à la plateforme</span>
+                      <span>Connexion à la plateforme</span>
                     </Link>
                     <Link
                       href="/guide"
@@ -506,7 +505,7 @@ export function AppHeader() {
                       className={`w-full min-h-11 justify-center inline-flex items-center gap-2 rounded-xl text-sm font-bold bg-surface-container-high text-primary border border-border-subtle p-3 ${focusRing}`}
                     >
                       <BookOpen className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
-                      <span>Consulter le guide d&apos;utilisation</span>
+                      <span>Guide d&apos;utilisation</span>
                     </Link>
                   </>
                 )}

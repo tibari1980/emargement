@@ -404,6 +404,37 @@ function GuidePageContent() {
             </div>
           </article>
 
+          {/* Étape 5 bis : Protection des justificatifs d'absence */}
+          <article className="rounded-2xl border-2 border-status-excused/40 bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-status-excused text-white font-bold text-sm">
+                🛡️
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Protection des absences justifiées : que faire si un stagiaire excusé arrive en cours ?
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-3 pl-11">
+              <p>
+                L&apos;application protège automatiquement les démarches médicales et administratives des stagiaires :
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <strong className="text-primary font-bold">1. Verrouillage préventif anti-écrasement</strong>
+                  <p className="text-on-surface-variant">
+                    Lorsqu&apos;une absence a été justifiée par le secrétariat, les boutons <strong>Retard</strong> et <strong>Absent</strong> ainsi que les raccourcis <kbd className="px-1 rounded bg-surface-container">R</kbd> et <kbd className="px-1 rounded bg-surface-container">A</kbd> sont verrouillés pour empêcher toute perte accidentelle du justificatif.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <strong className="text-primary font-bold">2. Confirmation pour présence physique</strong>
+                  <p className="text-on-surface-variant">
+                    Si le stagiaire vient finalement assister au cours, cliquez sur <strong>Présent</strong> (ou touche <kbd className="px-1 rounded bg-surface-container">P</kbd>). Une boîte de dialogue modale s&apos;ouvre pour vous demander confirmation avant d&apos;annuler le justificatif au profit de sa présence physique effective.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
+
           {/* Étape 6 : Que faire en cas d'absence du formateur */}
           <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
             <div className="flex items-center gap-3">
@@ -595,6 +626,43 @@ function GuidePageContent() {
                   <strong className="text-primary block text-sm">4. Exporter les bordereaux officiels</strong>
                   <p className="text-on-surface-variant mt-0.5">
                     Téléchargez l&apos;<strong>Export XLSX</strong> (qui comprend l&apos;onglet spécialisé <em>Bordereau_ASP_Rémunération</em>) ou générez le <strong>Relevé PDF officiel</strong> signé électroniquement.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          {/* Étape 4 : Calendrier des fermetures & Import en lot */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-on-primary font-bold text-sm">
+                4
+              </span>
+              <h3 className="text-lg font-bold text-primary">
+                Gérer le calendrier de fermeture et importer en lot (Excel / CSV)
+              </h3>
+            </div>
+            <div className="text-sm text-on-surface-variant flex flex-col gap-3 pl-11">
+              <p>
+                Sur l&apos;onglet <strong>« Calendrier »</strong> (<Link href="/secretary/calendar" className="text-secondary font-bold underline">accéder</Link>), vous définissez les jours fériés, ponts et congés pédagogiques :
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <strong className="text-primary font-bold">1. Les 11 jours fériés nationaux</strong>
+                  <p className="text-on-surface-variant">
+                    Un bouton permet d&apos;ajouter en 1 clic tous les jours fériés de l&apos;année (Pâques, Ascension, 14 Juillet, 11 Novembre, Noël...).
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <strong className="text-primary font-bold">2. Saisie manuelle rapide</strong>
+                  <p className="text-on-surface-variant">
+                    Formulaire simple pour saisir un pont ou une journée pédagogique avec intitulé, type et dates.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3 flex flex-col gap-1">
+                  <strong className="text-primary font-bold">3. Import en lot (Excel / CSV)</strong>
+                  <p className="text-on-surface-variant">
+                    Téléchargez le modèle Excel officiel avec liste de choix sur le type. Glissez le fichier pour prévisualiser les dates et valider l&apos;import de toute l&apos;année scolaire en 2 secondes.
                   </p>
                 </div>
               </div>
@@ -928,23 +996,62 @@ function GuidePageContent() {
             </div>
           </article>
 
-          {/* Lecteurs d'écran */}
-          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-3">
+          {/* Lecteurs d'écran & Commandes dédiées */}
+          <article className="rounded-2xl border border-border-subtle bg-surface-container-lowest p-5 sm:p-6 shadow-xs flex flex-col gap-4">
             <h3 className="text-lg font-bold text-primary flex items-center gap-2">
               <Keyboard className="h-5 w-5 text-secondary" aria-hidden="true" />
-              <span>Compatibilité avec les lecteurs d&apos;écran (NVDA, JAWS, VoiceOver, Orca)</span>
+              <span>Guide d&apos;utilisation des lecteurs d&apos;écran (NVDA, JAWS, VoiceOver, Orca)</span>
             </h3>
-            <div className="text-sm text-on-surface-variant flex flex-col gap-2">
+            <div className="text-sm text-on-surface-variant flex flex-col gap-3">
               <p>
-                L&apos;ensemble de l&apos;application est structuré selon les standards WAI-ARIA :
+                L&apos;ensemble de l&apos;application est conçu et vérifié pour offrir une expérience fluide, rapide et prédictible avec les lecteurs d&apos;écran majeurs :
               </p>
-              <ul className="list-disc pl-5 flex flex-col gap-1 text-on-surface text-xs">
-                <li><strong>Régions Landmark :</strong> <code>header</code> (bannière), <code>nav</code> (navigation), <code>main</code> (contenu principal), <code>footer</code> (informations de bas de page).</li>
-                <li><strong>Liens d&apos;évitement (Skip links) :</strong> Dès la première tabulation sur la page, des raccourcis visibles permettent d&apos;aller directement au contenu principal, au menu ou aux réglages d&apos;accessibilité.</li>
-                <li><strong>Annonces vocales dynamiques :</strong> Lorsqu&apos;un émargement est validé ou qu&apos;un rapport est calculé, une annonce vocale discrète (<code>aria-live=&quot;polite&quot;</code>) informe l&apos;utilisateur sans interrompre sa lecture.</li>
-                <li><strong>Navigation sans souris :</strong> Toutes les fenêtres modales piègent le focus et se ferment avec la touche <kbd className="px-1.5 py-0.5 rounded bg-surface-container border text-[11px] font-mono">Échap</kbd> en replaçant le curseur sur le bouton déclencheur.</li>
-                <li><strong>Centre de notifications (<kbd className="px-1.5 py-0.5 rounded bg-surface-container border text-[11px] font-mono">Alt + N</kbd>) :</strong> Le raccourci universel <kbd className="px-1.5 py-0.5 rounded bg-surface-container border text-[11px] font-mono">Alt + N</kbd> ouvre directement le centre d&apos;alertes pour consulter séances en attente, justificatifs et rappels ASP sans chercher l&apos;icône.</li>
-              </ul>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3.5 flex flex-col gap-1.5">
+                  <strong className="text-primary font-bold text-sm">NVDA (Windows)</strong>
+                  <ul className="list-disc pl-4 space-y-1 text-on-surface">
+                    <li><kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">NVDA + F7</kbd> : Ouvre la <strong>Liste des éléments</strong> (Liens, Titres, Boutons, Régions).</li>
+                    <li><kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">K</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">Shift + K</kbd> : Sauter directement au lien suivant ou précédent.</li>
+                    <li><kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">B</kbd> : Sauter de bouton en bouton.</li>
+                    <li><kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">H</kbd> : Naviguer de titre en titre pour une vue d&apos;ensemble.</li>
+                    <li><kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">D</kbd> : Passer de région en région (Bannière, Navigation, Principal, Pied de page).</li>
+                  </ul>
+                </div>
+
+                <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3.5 flex flex-col gap-1.5">
+                  <strong className="text-primary font-bold text-sm">JAWS, VoiceOver &amp; Orca</strong>
+                  <ul className="list-disc pl-4 space-y-1 text-on-surface">
+                    <li><strong>JAWS (Windows) :</strong> <kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">Insert + F7</kbd> liste tous les liens de la page.</li>
+                    <li><strong>VoiceOver (macOS / iOS) :</strong> Utilisez le rotor (<kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">VO + U</kbd> ou geste rotatif sur iPhone/iPad) pour naviguer par liens, boutons ou titres.</li>
+                    <li><strong>Orca (Linux) :</strong> Navigation par touches de saut rapide ou affichage de la liste d&apos;éléments (<kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">Alt + Maj + L</kbd>).</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Règle d'or WCAG 2.5.3 : Label in Name */}
+              <div className="rounded-xl border-2 border-secondary/40 bg-surface-container-low p-3.5 text-xs text-on-surface flex flex-col gap-1">
+                <strong className="text-primary font-bold text-sm">Conformité WCAG 2.5.3 (Label in Name / Étiquette dans le nom) :</strong>
+                <p className="leading-relaxed">
+                  Tous les liens et boutons de l&apos;application ont été audités pour que leur <strong>intitulé accessible commence exactement par leur texte visible</strong>.
+                  Dans la boîte <kbd className="px-1 rounded bg-surface-container font-mono">NVDA + F7</kbd>, vous pouvez ainsi appuyer directement sur la touche <kbd className="px-1 rounded bg-surface-container font-mono">C</kbd> pour atteindre <strong>« Connexion »</strong>, sur <kbd className="px-1 rounded bg-surface-container font-mono">G</kbd> pour <strong>« Guide »</strong>, ou sur <kbd className="px-1 rounded bg-surface-container font-mono">D</kbd> pour <strong>« Déconnexion »</strong> sans aucun décalage alphabétique.
+                </p>
+              </div>
+
+              {/* Notifications et Centre d'alertes */}
+              <div className="rounded-xl border border-border-subtle bg-surface-container-low p-3.5 text-xs text-on-surface flex flex-col gap-2">
+                <strong className="text-primary font-bold text-sm flex items-center gap-2">
+                  <span>Centre de notifications en temps réel (<kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">Alt + N</kbd>)</span>
+                </strong>
+                <p className="leading-relaxed">
+                  L&apos;icône cloche située dans le bandeau supérieur affiche en permanence le nombre d&apos;alertes non lues. Appuyez sur <kbd className="px-1.5 py-0.5 rounded bg-surface-container border font-mono">Alt + N</kbd> depuis n&apos;importe quelle page pour ouvrir le tiroir des notifications :
+                </p>
+                <ul className="list-disc pl-4 space-y-1 text-on-surface-variant">
+                  <li><strong>Formateurs :</strong> alertés en direct dès qu&apos;un arrêt maladie ou justificatif est déposé pour un stagiaire de leur cours, ou en cas d&apos;annulation de cours.</li>
+                  <li><strong>Secrétariat &amp; Responsables pédagogiques :</strong> informés lors de la finalisation des émargements, des imports de stagiaires ou de modifications de calendrier.</li>
+                  <li><strong>Tous profils :</strong> alertes d&apos;information institutionnelle, mises à jour de planning et rappels réglementaires ASP / DGEFP.</li>
+                </ul>
+              </div>
             </div>
           </article>
 
