@@ -1,7 +1,7 @@
 "use client";
 
 import * as Dialog from "@radix-ui/react-dialog";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AlertCircle,
   Check,
@@ -11,7 +11,10 @@ import {
   FileCheck,
   Loader2,
   XCircle,
+  MessageSquare,
+  Trash2,
 } from "lucide-react";
+import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Button, focusRing } from "@/components/ui/Button";
 import { nowTime, timeToMinutes, todayIso } from "@/lib/core/dates";
 import {
@@ -120,6 +123,171 @@ function ExcusedOverrideDialog({
   );
 }
 
+/**
+ * Boîte de dialogue accessible de saisie et consultation d'une observation pédagogique
+ * laissée par le formateur pour une séance donnée.
+ */
+function TraineeNoteDialog({
+  open,
+  onOpenChange,
+  traineeName,
+  slotTitle,
+  slotTime,
+  initialNote,
+  readOnly = false,
+  onSave,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  traineeName: string;
+  slotTitle: string;
+  slotTime: string;
+  initialNote?: string | null;
+  readOnly?: boolean;
+  onSave: (note: string | null) => Promise<unknown> | void;
+}) {
+  const announce = useAnnounce();
+  const [text, setText] = useState(initialNote ?? "");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setText(initialNote ?? "");
+    }
+  }, [open, initialNote]);
+
+  const handleSave = async () => {
+    if (readOnly || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      const trimmed = text.trim();
+      await onSave(trimmed ? trimmed : null);
+      if (trimmed) {
+        announce(`Observation enregistrée pour ${traineeName}.`);
+      } else {
+        announce(`Observation supprimée pour ${traineeName}.`);
+      }
+      onOpenChange(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClear = async () => {
+    if (readOnly || isSubmitting) return;
+    setIsSubmitting(true);
+    try {
+      await onSave(null);
+      setText("");
+      announce(`Observation supprimée pour ${traineeName}.`);
+      onOpenChange(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-xs animate-in fade-in duration-150" />
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 z-[121] max-h-[90dvh] w-[min(94vw,34rem)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border-2 border-border-strong bg-surface-container-lowest p-5 sm:p-6 text-on-surface shadow-2xl focus:outline-none animate-in fade-in zoom-in-95 duration-150"
+          aria-describedby={`trainee-note-desc-${traineeName}`}
+        >
+          <div className="flex items-start gap-3 border-b border-border-subtle pb-4">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 shadow-xs">
+              <MessageSquare className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <div className="min-w-0">
+              <Dialog.Title className="text-lg sm:text-xl font-bold text-primary">
+                Observation pédagogique
+              </Dialog.Title>
+              <p className="text-xs font-semibold text-secondary mt-0.5 truncate">
+                {traineeName} &middot; {slotTitle} ({slotTime})
+              </p>
+            </div>
+          </div>
+
+          <div id={`trainee-note-desc-${traineeName}`} className="mt-4 space-y-3 text-sm text-on-surface">
+            <p className="text-xs text-on-surface-variant">
+              Cette observation est confidentielle et strictement réservée à l&apos;équipe pédagogique (formateurs, responsable pédagogique et direction).
+            </p>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor={`note-text-${traineeName}`} className="text-xs font-bold text-primary flex items-center justify-between">
+                <span>Remarque ou observation pour cette séance :</span>
+                <span className="text-[11px] font-normal text-on-surface-variant font-mono">
+                  {text.length} / 600 caractères
+                </span>
+              </label>
+              <textarea
+                id={`note-text-${traineeName}`}
+                rows={4}
+                maxLength={600}
+                value={text}
+                disabled={readOnly}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    void handleSave();
+                  }
+                }}
+                placeholder={
+                  readOnly
+                    ? "Aucune observation enregistrée pour cette séance."
+                    : "Ex. : Difficulté constatée sur la synthèse vocale JAWS, départ anticipé convenu à 11h30 pour rendez-vous médical, excellente progression sur le maniement du bloc-notes braille…"
+                }
+                className={`w-full rounded-xl border border-secondary/40 bg-surface-container-low p-3 text-sm text-primary placeholder:text-outline focus:outline-none focus:ring-4 focus:ring-focus-outer ${
+                  readOnly ? "cursor-not-allowed opacity-75" : ""
+                }`}
+              />
+              <span className="text-[11px] text-on-surface-variant">
+                Raccourci : <strong>Ctrl + Entrée</strong> pour enregistrer directement.
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2 border-t border-border-subtle pt-4">
+            <div>
+              {initialNote && !readOnly && (
+                <button
+                  type="button"
+                  onClick={handleClear}
+                  disabled={isSubmitting}
+                  className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-bold text-status-absent hover:bg-status-absent/10 transition-colors cursor-pointer ${focusRing}`}
+                >
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>Supprimer la note</span>
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                variant="secondary"
+                onClick={() => onOpenChange(false)}
+                disabled={isSubmitting}
+              >
+                {readOnly ? "Fermer" : "Annuler"}
+              </Button>
+              {!readOnly && (
+                <Button
+                  variant="primary"
+                  onClick={handleSave}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? "Enregistrement…" : "Enregistrer l'observation"}
+                </Button>
+              )}
+            </div>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}
+
 export function TraineeRow({
   trainee,
   slot,
@@ -134,13 +302,14 @@ export function TraineeRow({
   date: string;
   record: Attendance | undefined;
   state: RowState;
-  onSave: (trainee: UserProfile, status: AttendanceStatus, arrivalTime: string | null) => Promise<unknown>;
+  onSave: (trainee: UserProfile, status: AttendanceStatus, arrivalTime: string | null, note?: string | null) => Promise<unknown>;
   readOnly?: boolean;
 }) {
   const [time, setTime] = useState(record?.arrivalTime ?? "");
   const [timeError, setTimeError] = useState<string | null>(null);
   const [savedArrival, setSavedArrival] = useState(record?.arrivalTime);
   const [confirmOverrideOpen, setConfirmOverrideOpen] = useState(false);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
 
   if (record?.arrivalTime !== savedArrival) {
     setSavedArrival(record?.arrivalTime);
@@ -164,15 +333,15 @@ export function TraineeRow({
     if (status === "late") {
       const arrival = record?.arrivalTime ?? defaultArrival();
       setTime(arrival);
-      void onSave(trainee, "late", arrival);
+      void onSave(trainee, "late", arrival, record?.note);
     } else {
-      void onSave(trainee, status, null);
+      void onSave(trainee, status, null, record?.note);
     }
   };
 
   const handleConfirmOverride = () => {
     setTimeError(null);
-    void onSave(trainee, "present", null);
+    void onSave(trainee, "present", null, record?.note);
   };
 
   const commitTime = () => {
@@ -185,7 +354,16 @@ export function TraineeRow({
       return setTimeError(`L'heure doit être entre ${slot.startTime} et ${slot.endTime}.`);
     }
     setTimeError(null);
-    void onSave(trainee, "late", time);
+    void onSave(trainee, "late", time, record?.note);
+  };
+
+  const handleSaveNote = (newNote: string | null) => {
+    return onSave(
+      trainee,
+      record?.status ?? "present",
+      record?.arrivalTime ?? null,
+      newNote,
+    );
   };
 
   const handleRowKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
@@ -206,6 +384,9 @@ export function TraineeRow({
       if (record?.status === "excused") return;
       e.preventDefault();
       choose("absent");
+    } else if (key === "n") {
+      e.preventDefault();
+      setNoteDialogOpen(true);
     }
   };
 
@@ -436,7 +617,54 @@ export function TraineeRow({
         )}
       </td>
 
-      {/* 4. Enregistrement & Horodatage */}
+      {/* 4. Observation / Note pédagogique */}
+      <td className="p-3 sm:p-4">
+        {record?.note ? (
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setNoteDialogOpen(true)}
+              aria-label={`Note pour ${trainee.fullName} : ${record.note}`}
+              title={`Consulter ou modifier la note pour ${trainee.fullName} (Raccourci N)`}
+              className={`group max-w-[220px] inline-flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1.5 text-xs text-amber-900 dark:text-amber-200 transition-colors text-left cursor-pointer ${focusRing}`}
+            >
+              <MessageSquare className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" aria-hidden="true" />
+              <span className="font-semibold shrink-0">Note :</span>
+              <span className="truncate italic">« {record.note} »</span>
+            </button>
+          </div>
+        ) : (
+          !readOnly ? (
+            <button
+              type="button"
+              onClick={() => setNoteDialogOpen(true)}
+              aria-label={`Ajouter une note pour ${trainee.fullName}`}
+              title={`Ajouter une note pour ${trainee.fullName} (Raccourci N)`}
+              className={`inline-flex items-center gap-1.5 rounded-xl border border-border-subtle bg-surface-container hover:bg-surface-variant px-2.5 py-1.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer ${focusRing}`}
+            >
+              <MessageSquare className="h-3.5 w-3.5 text-secondary" aria-hidden="true" />
+              <span>+ Note</span>
+            </button>
+          ) : (
+            <span className="text-outline text-sm" aria-label="Aucune observation">
+              —
+            </span>
+          )
+        )}
+
+        <TraineeNoteDialog
+          open={noteDialogOpen}
+          onOpenChange={setNoteDialogOpen}
+          traineeName={trainee.fullName}
+          slotTitle={slot.room ? `Salle ${slot.room}` : "Séance"}
+          slotTime={`${slot.startTime} – ${slot.endTime}`}
+          initialNote={record?.note}
+          readOnly={readOnly}
+          onSave={handleSaveNote}
+        />
+      </td>
+
+      {/* 5. Enregistrement & Horodatage */}
       <td className="p-3 sm:p-4 text-right whitespace-nowrap">
         <RowStatus state={state} hasRecord={Boolean(record)} status={status} />
       </td>
@@ -507,13 +735,14 @@ export function TraineeCard({
   date: string;
   record: Attendance | undefined;
   state: RowState;
-  onSave: (trainee: UserProfile, status: AttendanceStatus, arrivalTime: string | null) => Promise<unknown>;
+  onSave: (trainee: UserProfile, status: AttendanceStatus, arrivalTime: string | null, note?: string | null) => Promise<unknown>;
   readOnly?: boolean;
 }) {
   const [time, setTime] = useState(record?.arrivalTime ?? "");
   const [timeError, setTimeError] = useState<string | null>(null);
   const [savedArrival, setSavedArrival] = useState(record?.arrivalTime);
   const [confirmOverrideOpen, setConfirmOverrideOpen] = useState(false);
+  const [noteDialogOpen, setNoteDialogOpen] = useState(false);
 
   if (record?.arrivalTime !== savedArrival) {
     setSavedArrival(record?.arrivalTime);
@@ -537,15 +766,15 @@ export function TraineeCard({
     if (status === "late") {
       const arrival = record?.arrivalTime ?? defaultArrival();
       setTime(arrival);
-      void onSave(trainee, "late", arrival);
+      void onSave(trainee, "late", arrival, record?.note);
     } else {
-      void onSave(trainee, status, null);
+      void onSave(trainee, status, null, record?.note);
     }
   };
 
   const handleConfirmOverride = () => {
     setTimeError(null);
-    void onSave(trainee, "present", null);
+    void onSave(trainee, "present", null, record?.note);
   };
 
   const commitTime = () => {
@@ -558,7 +787,16 @@ export function TraineeCard({
       return setTimeError(`Entre ${slot.startTime} et ${slot.endTime}`);
     }
     setTimeError(null);
-    void onSave(trainee, "late", time);
+    void onSave(trainee, "late", time, record?.note);
+  };
+
+  const handleSaveNote = (newNote: string | null) => {
+    return onSave(
+      trainee,
+      record?.status ?? "present",
+      record?.arrivalTime ?? null,
+      newNote,
+    );
   };
 
   const handleCardKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
@@ -579,6 +817,9 @@ export function TraineeCard({
       if (record?.status === "excused") return;
       e.preventDefault();
       choose("absent");
+    } else if (key === "n") {
+      e.preventDefault();
+      setNoteDialogOpen(true);
     }
   };
 
@@ -776,6 +1017,52 @@ export function TraineeCard({
           <span>Excusé{record?.excuseReason ? ` : ${record.excuseReason}` : " (justificatif secrétariat)"}</span>
         </div>
       )}
+
+      {/* Observation / Note pédagogique mobile */}
+      {record?.note ? (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-950 dark:text-amber-100 flex items-start justify-between gap-2.5">
+          <div className="flex items-start gap-2 min-w-0">
+            <MessageSquare className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
+            <div className="min-w-0">
+              <span className="font-bold text-amber-900 dark:text-amber-200">Observation :</span>
+              <p className="mt-0.5 italic text-on-surface line-clamp-3">« {record.note} »</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setNoteDialogOpen(true)}
+            aria-label={`Modifier la note pour ${trainee.fullName}`}
+            className={`shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold text-primary bg-surface-container hover:bg-surface-variant border border-border-subtle cursor-pointer ${focusRing}`}
+          >
+            Modifier
+          </button>
+        </div>
+      ) : (
+        !readOnly && (
+          <div className="flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => setNoteDialogOpen(true)}
+              aria-label={`Ajouter une note pour ${trainee.fullName}`}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-secondary hover:text-primary hover:bg-surface-container transition-colors cursor-pointer ${focusRing}`}
+            >
+              <MessageSquare className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>+ Note</span>
+            </button>
+          </div>
+        )
+      )}
+
+      <TraineeNoteDialog
+        open={noteDialogOpen}
+        onOpenChange={setNoteDialogOpen}
+        traineeName={trainee.fullName}
+        slotTitle={slot.room ? `Salle ${slot.room}` : "Séance"}
+        slotTime={`${slot.startTime} – ${slot.endTime}`}
+        initialNote={record?.note}
+        readOnly={readOnly}
+        onSave={handleSaveNote}
+      />
 
       <ExcusedOverrideDialog
         open={confirmOverrideOpen}

@@ -149,6 +149,10 @@ export interface Attendance extends Audited {
   status: AttendanceStatus;
   arrivalTime: string | null;
   excuseReason: string | null;
+  /** Observation pédagogique ou remarque laissée par le formateur pour cette séance */
+  note?: string | null;
+  /** Horodatage ISO de la dernière modification de l'observation */
+  noteUpdatedAt?: string | null;
   recordedBy: string;
   updatedAt?: unknown;
 }

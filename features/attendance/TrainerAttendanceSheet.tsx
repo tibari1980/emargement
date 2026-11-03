@@ -320,20 +320,25 @@ export function TrainerAttendanceSheet({ profile }: { profile: Actor }) {
       }
 
       const previous = { ...records };
-      const optimisticRecords: Attendance[] = entries.map((e) => ({
-        id: `${slot.id}_${date}_${e.trainee.id}`,
-        formationId: slot.formationId,
-        slotId: slot.id,
-        subjectId: slot.subjectId,
-        trainerId: effectiveTrainerId || slot.trainerId,
-        traineeId: e.trainee.id,
-        date,
-        month: date.slice(0, 7),
-        status: e.status,
-        arrivalTime: e.status === "late" ? (e.arrivalTime ?? null) : null,
-        excuseReason: null,
-        recordedBy: profile.id,
-      }));
+      const optimisticRecords: Attendance[] = entries.map((e) => {
+        const existing = records[e.trainee.id];
+        return {
+          id: `${slot.id}_${date}_${e.trainee.id}`,
+          formationId: slot.formationId,
+          slotId: slot.id,
+          subjectId: slot.subjectId,
+          trainerId: effectiveTrainerId || slot.trainerId,
+          traineeId: e.trainee.id,
+          date,
+          month: date.slice(0, 7),
+          status: e.status,
+          arrivalTime: e.status === "late" ? (e.arrivalTime ?? null) : null,
+          excuseReason: existing?.excuseReason ?? null,
+          note: e.note !== undefined ? e.note : (existing?.note ?? null),
+          noteUpdatedAt: e.note ? new Date().toISOString() : (existing?.noteUpdatedAt ?? null),
+          recordedBy: profile.id,
+        };
+      });
 
       setRecords((r) => {
         const next = { ...r };
@@ -1075,7 +1080,7 @@ export function TrainerAttendanceSheet({ profile }: { profile: Actor }) {
             onSearchChange={setSearchQuery}
             canModify={canModify}
             onMarkAllPresent={markAllPresent}
-            onSaveSingle={(t, status, arrivalTime) => save([{ trainee: t, status, arrivalTime }])}
+            onSaveSingle={(t, status, arrivalTime, note) => save([{ trainee: t, status, arrivalTime, note }])}
           />
         </>
       )}

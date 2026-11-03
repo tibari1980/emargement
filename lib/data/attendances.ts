@@ -180,10 +180,21 @@ export interface AttendanceEntry {
   status: AttendanceStatus;
   arrivalTime?: string | null;
   excuseReason?: string | null;
+  note?: string | null;
 }
 
-function record(actor: Actor, session: SessionRef, entry: AttendanceEntry, lastAuditId: string) {
+function record(
+  actor: Actor,
+  session: SessionRef,
+  entry: AttendanceEntry,
+  lastAuditId: string,
+  localMap?: Map<string, Attendance>,
+) {
   const { slot, date } = session;
+  const id = attendanceId(slot.id, entry.trainee.id, date);
+  const existing = localMap?.get(id);
+  const note = entry.note !== undefined ? (entry.note ? entry.note.trim() : null) : (existing?.note ?? null);
+  const noteUpdatedAt = entry.note ? new Date().toISOString() : (existing?.noteUpdatedAt ?? null);
   return {
     formationId: slot.formationId,
     slotId: slot.id,
@@ -195,6 +206,8 @@ function record(actor: Actor, session: SessionRef, entry: AttendanceEntry, lastA
     status: entry.status,
     arrivalTime: entry.status === "late" ? (entry.arrivalTime ?? null) : null,
     excuseReason: entry.status === "excused" ? (entry.excuseReason ?? null) : null,
+    note,
+    noteUpdatedAt,
     recordedBy: actor.id,
     updatedAt: serverTimestamp(),
     lastAuditId,
@@ -218,6 +231,7 @@ export async function saveAttendances(actor: Actor, session: SessionRef, entries
   // Persistance immédiate dans la file d'attente offline IndexedDB (résilience réseau & horodatage certifié)
   const clientTimestamp = new Date().toISOString();
   const deviceSignature = getOrCreateDeviceSignature();
+  const localMap = loadPersistedAttendances();
 
   for (const entry of entries) {
     const id = attendanceId(session.slot.id, entry.trainee.id, session.date);
@@ -234,6 +248,8 @@ export async function saveAttendances(actor: Actor, session: SessionRef, entries
       status: entry.status,
       arrivalTime: entry.status === "late" ? (entry.arrivalTime ?? null) : null,
       excuseReason: entry.status === "excused" ? (entry.excuseReason ?? null) : null,
+      note: entry.note !== undefined ? (entry.note ? entry.note.trim() : null) : (localMap.get(id)?.note ?? null),
+      noteUpdatedAt: entry.note ? new Date().toISOString() : (localMap.get(id)?.noteUpdatedAt ?? null),
       recordedBy: actor.id,
       recordedByRole: actor.role,
       recordedByName: actor.fullName,
@@ -247,7 +263,6 @@ export async function saveAttendances(actor: Actor, session: SessionRef, entries
     });
   }
 
-  const localMap = loadPersistedAttendances();
   for (const entry of entries) {
     const id = attendanceId(session.slot.id, entry.trainee.id, session.date);
     const r = {
@@ -261,6 +276,8 @@ export async function saveAttendances(actor: Actor, session: SessionRef, entries
       status: entry.status,
       arrivalTime: entry.status === "late" ? (entry.arrivalTime ?? null) : null,
       excuseReason: entry.status === "excused" ? (entry.excuseReason ?? null) : null,
+      note: entry.note !== undefined ? (entry.note ? entry.note.trim() : null) : (localMap.get(id)?.note ?? null),
+      noteUpdatedAt: entry.note ? new Date().toISOString() : (localMap.get(id)?.noteUpdatedAt ?? null),
       recordedBy: actor.id,
       updatedAt: new Date().toISOString(),
       lastAuditId: "local",
@@ -276,7 +293,7 @@ export async function saveAttendances(actor: Actor, session: SessionRef, entries
     const summary =
       entries.length === 1
         ? `Émargement ${session.label} (${when}) : ${entries[0].trainee.fullName} — ${ATTENDANCE_STATUS_LABELS[entries[0].status]}${
-            entries[0].status === "late" && entries[0].arrivalTime ? ` à ${entries[0].arrivalTime}` : ""
+            entries[0].status === "late" && entries[0].arrivalTime ? ` à ${entries[0].arrivalTime}` : ""}${entries[0].note ? ` [Note : ${entries[0].note.slice(0, 30)}]` : ""
           }`
         : `Émargement ${session.label} (${when}) : ${entries.length} stagiaires — ${ATTENDANCE_STATUS_LABELS[entries[0].status]}`;
     await auditedBatch(
@@ -290,8 +307,13 @@ export async function saveAttendances(actor: Actor, session: SessionRef, entries
       (batch, lastAuditId) => {
         for (const entry of entries) {
           const id = attendanceId(session.slot.id, entry.trainee.id, session.date);
-          const r = record(actor, session, entry, lastAuditId);
-          batch.set(doc(attendances(), id), r);
+          const existing = localMap.get(id);
+          const effectiveEntry: AttendanceEntry = {
+            ...entry,
+            note: entry.note !== undefined ? (entry.note ? entry.note.trim() : null) : (existing?.note ?? null),
+          };
+          const r = record(actor, session, effectiveEntry, lastAuditId);
+          batch.set(doc(attendances(), id), r, { merge: true });
         }
       },
     );
@@ -355,7 +377,7 @@ export async function justifySessions(
             const id = attendanceId(slot.id, input.trainee.id, date);
             const entry: AttendanceEntry = { trainee: input.trainee, status: "excused", excuseReason: input.reason };
             const r = record(actor, { slot, date, label: "" }, entry, lastAuditId);
-            batch.set(doc(attendances(), id), r);
+            batch.set(doc(attendances(), id), r, { merge: true });
           }
         },
       );

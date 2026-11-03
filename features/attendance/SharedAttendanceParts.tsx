@@ -389,7 +389,7 @@ export function AttendanceRosterSection({
   onSearchChange: (q: string) => void;
   canModify: boolean;
   onMarkAllPresent: () => Promise<void>;
-  onSaveSingle: (trainee: UserProfile, status: AttendanceStatus, arrivalTime: string | null) => Promise<unknown>;
+  onSaveSingle: (trainee: UserProfile, status: AttendanceStatus, arrivalTime: string | null, note?: string | null) => Promise<unknown>;
 }) {
   return (
     <>
@@ -413,7 +413,8 @@ export function AttendanceRosterSection({
               Sur une ligne stagiaire :{" "}
               <kbd className="rounded bg-surface-container-lowest px-1.5 py-0.5 font-mono shadow-xs">P</kbd> Présent,{" "}
               <kbd className="rounded bg-surface-container-lowest px-1.5 py-0.5 font-mono shadow-xs">R</kbd> Retard,{" "}
-              <kbd className="rounded bg-surface-container-lowest px-1.5 py-0.5 font-mono shadow-xs">A</kbd> Absent.
+              <kbd className="rounded bg-surface-container-lowest px-1.5 py-0.5 font-mono shadow-xs">A</kbd> Absent,{" "}
+              <kbd className="rounded bg-surface-container-lowest px-1.5 py-0.5 font-mono shadow-xs">N</kbd> Note.
             </span>
           </div>
         </div>
@@ -567,6 +568,9 @@ export function AttendanceRosterSection({
                 <th scope="col" className="p-3 sm:p-4">
                   Arrivée / Retard
                 </th>
+                <th scope="col" className="p-3 sm:p-4">
+                  Observation / Note
+                </th>
                 <th scope="col" className="p-3 sm:p-4 text-right">
                   Horodatage &amp; État
                 </th>
@@ -587,7 +591,7 @@ export function AttendanceRosterSection({
               ))}
               {filteredTrainees.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-sm font-semibold text-on-surface-variant">
+                  <td colSpan={5} className="p-8 text-center text-sm font-semibold text-on-surface-variant">
                     {searchQuery
                       ? `Aucun stagiaire ne correspond à « ${searchQuery} ». N'hésitez pas à vérifier l'orthographe ou à réinitialiser le filtre.`
                       : "Aucun stagiaire à afficher dans cette catégorie pour le moment. Tout est en ordre !"}

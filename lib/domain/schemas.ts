@@ -17,6 +17,7 @@ export const AttendanceEntrySchema = z.object({
   status: z.enum(ATTENDANCE_STATUSES),
   arrivalTime: z.string().regex(timeRegex).nullable().optional(),
   excuseReason: z.string().nullable().optional(),
+  note: z.string().nullable().optional(),
 });
 
 export const SlotInputSchema = z

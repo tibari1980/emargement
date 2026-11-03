@@ -17,6 +17,8 @@ export interface PendingAttendanceRecord {
   status: AttendanceStatus;
   arrivalTime: string | null;
   excuseReason: string | null;
+  note?: string | null;
+  noteUpdatedAt?: string | null;
   recordedBy: string;
   recordedByRole: string;
   recordedByName: string;
