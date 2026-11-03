@@ -147,3 +147,21 @@ export function formatHours(hours: number): string {
   const m = abs % 60;
   return m === 0 ? `${sign}${h} h` : `${sign}${h} h ${pad(m)}`;
 }
+
+/** Returns the Monday ("YYYY-MM-DD") of the week containing `iso`. */
+export function getWeekMonday(iso: string): string {
+  const d = parseIsoDate(iso);
+  const day = d.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+  const diff = day === 0 ? -6 : 1 - day;
+  return addDays(iso, diff);
+}
+
+const dayMonthFormatter = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "short",
+});
+
+/** "2026-11-03" → "3 nov." */
+export function formatDayAndMonth(iso: string): string {
+  return dayMonthFormatter.format(parseIsoDate(iso));
+}

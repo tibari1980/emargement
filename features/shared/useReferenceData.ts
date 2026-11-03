@@ -7,6 +7,8 @@ import { getInitialSubjects, listSubjects } from "@/lib/data/subjects";
 import { getInitialStaff, listStaff } from "@/lib/data/users";
 import { frenchPublicHolidays } from "@/lib/domain/frenchHolidays";
 import { closedDaySet } from "@/lib/domain/hoursCalculator";
+import { SUBJECT_CATALOG } from "@/lib/domain/catalog";
+import { DEMO_USERS } from "@/lib/data/users";
 import { STAFF_ROLES, type Formation, type Holiday, type Subject, type UserProfile } from "@/lib/domain/types";
 
 export interface ReferenceData {

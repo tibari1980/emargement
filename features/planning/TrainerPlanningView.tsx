@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Calendar, Info } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, Info, Sparkles } from "lucide-react";
 import { ApplicationGuide } from "@/components/ApplicationGuide";
 import { Alert, Loading } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 import { SelectField } from "@/components/ui/Field";
-import { formatHours, todayIso } from "@/lib/core/dates";
+import { addDays, formatHours, formatShortDate, getWeekMonday, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
 import { deduplicateFormationsList } from "@/lib/data/formations";
 import { getInitialSlots, listSlots } from "@/lib/data/timetable";
@@ -28,6 +29,9 @@ export function TrainerPlanningView({ actor }: { actor: Actor }) {
   const [slots, setSlots] = useState<TimetableSlot[]>(() => getInitialSlots());
   const [view, setView] = useState<View>("trainer");
   const [formationId, setFormationId] = useState("");
+  const currentWeekMonday = getWeekMonday(todayIso());
+  const [selectedMonday, setSelectedMonday] = useState(() => currentWeekMonday);
+  const isCurrentWeek = selectedMonday === currentWeekMonday;
 
   useEffect(() => {
     listSlots()

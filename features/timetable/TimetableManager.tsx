@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Calendar, Copy, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Calendar, CalendarRange, ChevronLeft, ChevronRight, Copy, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SelectField, TextField } from "@/components/ui/Field";
-import { formatHours, formatShortDate, isValidIsoDate, timeToMinutes, todayIso } from "@/lib/core/dates";
+import { addDays, formatHours, formatShortDate, getWeekMonday, isValidIsoDate, timeToMinutes, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
 import { groupFormations } from "@/lib/data/formations";
 import {
@@ -25,6 +25,7 @@ import { isActive } from "@/lib/data/users";
 import { findConflicts, slotMinutes } from "@/lib/domain/schedule";
 import { WEEKDAYS, WEEKDAY_LABELS, type TimetableSlot, type Weekday } from "@/lib/domain/types";
 import { useReferenceData } from "@/features/shared/useReferenceData";
+import { ApplyMonthModal } from "./ApplyMonthModal";
 import { DuplicateWeekModal } from "./DuplicateWeekModal";
 import { GenerateStandardWeekModal } from "./GenerateStandardWeekModal";
 import { TimetableExportButtons } from "./TimetableExportButtons";
@@ -37,9 +38,13 @@ export function TimetableManager({ actor }: { actor: Actor }) {
   const [allSlots, setAllSlots] = useState<TimetableSlot[] | null>(null);
   const [editing, setEditing] = useState<TimetableSlot | "new" | null>(null);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [showApplyMonthModal, setShowApplyMonthModal] = useState(false);
   const [showStandardWeekModal, setShowStandardWeekModal] = useState(false);
   const [cleaning, setCleaning] = useState(false);
   const weekHeading = useRef<HTMLHeadingElement>(null);
+  const currentWeekMonday = getWeekMonday(todayIso());
+  const [selectedMonday, setSelectedMonday] = useState(() => currentWeekMonday);
+  const isCurrentWeek = selectedMonday === currentWeekMonday;
 
   useEffect(() => {
     listSlots()
@@ -190,6 +195,17 @@ export function TimetableManager({ actor }: { actor: Actor }) {
 
                 <Button
                   variant="secondary"
+                  onClick={() => setShowApplyMonthModal(true)}
+                  disabled={slots.length === 0}
+                  className="inline-flex items-center gap-2"
+                  title="Appliquer cette semaine à tout le mois en cours (prise d'effet au 1er du mois)"
+                >
+                  <CalendarRange className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <span>Appliquer au mois en cours</span>
+                </Button>
+
+                <Button
+                  variant="secondary"
                   onClick={() => setShowDuplicateModal(true)}
                   disabled={slots.length === 0}
                   className="inline-flex items-center gap-2"
@@ -251,10 +267,61 @@ export function TimetableManager({ actor }: { actor: Actor }) {
                 trainerName={lookups.trainerName}
               />
             </div>
+            {/* Barre de navigation de la semaine dans le calendrier */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-container-low p-3.5 rounded-2xl border border-border-subtle">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => setSelectedMonday(addDays(selectedMonday, -7))}
+                  aria-label="Afficher la semaine précédente"
+                  className="gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                >
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Semaine précédente</span>
+                </Button>
+
+                <Button
+                  variant={isCurrentWeek ? "primary" : "secondary"}
+                  onClick={() => setSelectedMonday(currentWeekMonday)}
+                  className="px-3 py-1.5 text-xs font-bold"
+                  aria-label="Revenir à la semaine actuelle"
+                >
+                  Semaine en cours
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => setSelectedMonday(addDays(selectedMonday, 7))}
+                  aria-label="Afficher la semaine suivante"
+                  className="gap-1.5 px-3 py-1.5 text-xs font-semibold"
+                >
+                  <span className="hidden sm:inline">Semaine suivante</span>
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+
+              <div className="flex items-center gap-2 text-sm font-bold text-primary">
+                <Calendar className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
+                <span>
+                  Semaine du {formatShortDate(selectedMonday)} au {formatShortDate(addDays(selectedMonday, 4))}
+                </span>
+              </div>
+
+              <div className="text-xs text-on-surface-variant font-medium">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-surface-container font-semibold text-primary">
+                  <Sparkles className="h-3.5 w-3.5 text-secondary shrink-0" aria-hidden="true" />
+                  <span>Récurrence permanente : créneaux appliqués automatiquement</span>
+                </span>
+              </div>
+            </div>
+
             <WeekView
               slots={slots}
               subjectTitle={lookups.subjectTitle}
               detail={(s) => lookups.personName(s.trainerId)}
+              weekMonday={selectedMonday}
+              closedDays={lookups.closedDays}
+              closureTitle={lookups.closureTitle}
               actions={(s) => (
                 <div className="flex flex-wrap gap-2">
                   <Button variant="secondary" onClick={() => setEditing(s)} aria-label={`Modifier le créneau ${labelOf(s)}`}>
@@ -281,6 +348,20 @@ export function TimetableManager({ actor }: { actor: Actor }) {
               )}
             />
           </section>
+
+          {/* Modal d'application au mois en cours */}
+          {showApplyMonthModal && (
+            <ApplyMonthModal
+              actor={actor}
+              currentFormation={formation}
+              slots={slots}
+              onSuccess={async () => {
+                await reloadSlots();
+                await reload();
+              }}
+              onClose={() => setShowApplyMonthModal(false)}
+            />
+          )}
 
           {/* Modal de duplication de semaine vers une autre formation */}
           {showDuplicateModal && (
@@ -323,7 +404,7 @@ const EMPTY_SLOT = (formationId: string): SlotInput => ({
   startTime: "09:00",
   endTime: "10:30",
   room: "",
-  validFrom: todayIso(),
+  validFrom: `${todayIso().slice(0, 7)}-01`,
   validTo: null,
 });
 
@@ -484,6 +565,11 @@ function SlotForm({
                 {s.title}
               </option>
             ))}
+            {form.subjectId && !subjects.some((s) => s.id === form.subjectId) && (
+              <option value={form.subjectId}>
+                {reference.subjects.find((s) => s.id === form.subjectId)?.title || form.subjectId}
+              </option>
+            )}
           </SelectField>
           <SelectField
             label="Formateur"
@@ -520,6 +606,11 @@ function SlotForm({
                   {u.fullName}
                 </option>
               ))
+            )}
+            {form.trainerId && !allEligibleTrainers.some((u) => u.id === form.trainerId) && (
+              <option value={form.trainerId}>
+                {reference.staff.find((u) => u.id === form.trainerId)?.fullName || form.trainerId}
+              </option>
             )}
           </SelectField>
           <TextField label="Salle" value={form.room} onChange={(e) => set("room", e.target.value)} hint="Facultatif." />

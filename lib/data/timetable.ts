@@ -286,6 +286,47 @@ export async function duplicateWeekToFormation(
 }
 
 /**
+ * Updates the validity period (validFrom and optionally validTo) for all slots of a formation.
+ * For example: apply to the entire current month (sets validFrom to the 1st of current month).
+ */
+export async function applyWeekValidityPeriod(
+  actor: Actor,
+  formationId: string,
+  validFrom: string,
+  validTo: string | null = null,
+  options: { formationTitle?: string } = {},
+): Promise<number> {
+  const localMap = loadPersistedSlots();
+  const formationSlots = Array.from(localMap.values()).filter((s) => s.formationId === formationId);
+  if (!formationSlots.length) return 0;
+
+  for (const s of formationSlots) {
+    const updated: TimetableSlot = { ...s, validFrom, validTo };
+    localMap.set(s.id, updated);
+    localSlotsMap.set(s.id, updated);
+  }
+  savePersistedSlots(localMap);
+
+  await auditedBatch(
+    actor,
+    {
+      action: "timetable.batch_validity_update",
+      entityType: "timetableSlot",
+      entityId: formationId,
+      summary: `Application de la validité (${validFrom} à ${validTo ?? "permanent"}) sur ${formationSlots.length} créneau(x) de ${options.formationTitle || formationId}`,
+    },
+    (batch, lastAuditId) => {
+      for (const s of formationSlots) {
+        batch.update(doc(slots(), s.id), { validFrom, validTo, lastAuditId });
+      }
+    },
+  );
+
+  invalidateSlotsCache();
+  return formationSlots.length;
+}
+
+/**
  * Clones/applies an existing week structure to a specific month or date range.
  * Perfect for monthly module planning!
  */

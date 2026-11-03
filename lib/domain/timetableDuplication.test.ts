@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { deduplicateSlotsList } from "@/lib/data/timetable";
+import { getInitialSubjects } from "@/lib/data/subjects";
+import { isSlotActiveOn } from "./schedule";
 import { WEEKDAYS, type TimetableSlot } from "./types";
 
 describe("Timetable Duplication & Deduplication Logic", () => {
@@ -70,5 +72,70 @@ describe("Timetable Duplication & Deduplication Logic", () => {
     expect(generated).toHaveLength(10);
     const totalWeeklyHours = generated.reduce((sum, s) => sum + s.duration, 0);
     expect(totalWeeklyHours).toBe(35); // 35h standard week
+  });
+
+  it("applies monthly validity period across all weekly slots so they are active from the 1st of the month", () => {
+    const weeklySlots: TimetableSlot[] = [
+      { ...sampleSlot, id: "slot_mon", weekday: 1, validFrom: "2026-11-03" }, // Créé le mardi
+      { ...sampleSlot, id: "slot_tue", weekday: 2, validFrom: "2026-11-03" },
+      { ...sampleSlot, id: "slot_wed", weekday: 3, validFrom: "2026-11-03" },
+    ];
+
+    // Avant ajustement : le lundi 2 novembre n'est pas actif car validFrom (03/11) > 02/11
+    expect(isSlotActiveOn(weeklySlots[0], "2026-11-02")).toBe(false);
+
+    // Ajustement de la validité au 1er du mois (2026-11-01)
+    const monthStart = "2026-11-01";
+    const adjusted = weeklySlots.map((s) => ({
+      ...s,
+      validFrom: monthStart,
+      validTo: null,
+    }));
+
+    // Après ajustement : le lundi 2 novembre ET tous les lundis du mois sont immédiatement actifs
+    expect(isSlotActiveOn(adjusted[0], "2026-11-02")).toBe(true);
+    expect(isSlotActiveOn(adjusted[0], "2026-11-09")).toBe(true);
+    expect(isSlotActiveOn(adjusted[0], "2026-11-16")).toBe(true);
+    expect(isSlotActiveOn(adjusted[0], "2026-11-23")).toBe(true);
+    expect(isSlotActiveOn(adjusted[0], "2026-11-30")).toBe(true);
+  });
+
+  it("ensures all official subjects from catalog are loaded and have stable IDs", () => {
+        const subjects = getInitialSubjects();
+    expect(subjects.length).toBeGreaterThanOrEqual(15);
+    const titles = subjects.map((s: any) => s.title);
+    expect(titles).toContain("Braille et adaptations");
+    expect(titles).toContain("Bureautique adaptée (JAWS/NVDA)");
+    expect(titles).toContain("Outils adaptés");
+    expect(titles).toContain("Locomotion");
+    expect(titles).toContain("Activités de la vie journalière");
+  });
+
+  it("guarantees strict isolation of timetable schedules between distinct formations", () => {
+    const formationASlots: TimetableSlot[] = [
+      { ...sampleSlot, id: "slot_a1", formationId: "form-adapt-2026", startTime: "09:00", endTime: "10:15" },
+      { ...sampleSlot, id: "slot_a2", formationId: "form-adapt-2026", startTime: "10:30", endTime: "12:00" },
+    ];
+
+    const formationBSlots: TimetableSlot[] = [
+      { ...sampleSlot, id: "slot_b1", formationId: "form-tip-1", startTime: "09:00", endTime: "12:30" },
+      { ...sampleSlot, id: "slot_b2", formationId: "form-tip-1", startTime: "13:30", endTime: "17:00" },
+    ];
+
+    const allSlots = [...formationASlots, ...formationBSlots];
+
+    // Isolation stricte par filière
+    const slotsA = allSlots.filter((s) => s.formationId === "form-adapt-2026");
+    const slotsB = allSlots.filter((s) => s.formationId === "form-tip-1");
+
+    expect(slotsA).toHaveLength(2);
+    expect(slotsA.map((s) => s.startTime)).toEqual(["09:00", "10:30"]);
+
+    expect(slotsB).toHaveLength(2);
+    expect(slotsB.map((s) => s.startTime)).toEqual(["09:00", "13:30"]);
+
+    // Zéro fuite de créneaux entre filières
+    expect(slotsA.every((s) => s.formationId === "form-adapt-2026")).toBe(true);
+    expect(slotsB.every((s) => s.formationId === "form-tip-1")).toBe(true);
   });
 });

@@ -33,7 +33,7 @@ export function GenerateStandardWeekModal({
   const trainers = staff.filter((u) => u.role === "trainer" || u.role === "pedagogical_lead");
   const [defaultTrainerId, setDefaultTrainerId] = useState(trainers[0]?.id || "");
   const [room, setRoom] = useState("");
-  const [validFrom, setValidFrom] = useState(todayIso());
+  const [validFrom, setValidFrom] = useState(`${todayIso().slice(0, 7)}-01`);
   const [busy, setBusy] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 

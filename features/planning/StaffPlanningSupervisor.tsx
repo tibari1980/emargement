@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Calendar, GraduationCap, Info } from "lucide-react";
+import { Calendar, ChevronLeft, ChevronRight, GraduationCap, Info, Sparkles } from "lucide-react";
 import { ApplicationGuide } from "@/components/ApplicationGuide";
 import { Alert, Loading } from "@/components/ui/Alert";
+import { Button } from "@/components/ui/Button";
 import { SelectField } from "@/components/ui/Field";
-import { formatHours, todayIso } from "@/lib/core/dates";
+import { addDays, formatHours, formatShortDate, getWeekMonday, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
 import { deduplicateFormationsList, groupFormations } from "@/lib/data/formations";
 import { getInitialSlots, listSlots } from "@/lib/data/timetable";
@@ -30,6 +31,9 @@ export function StaffPlanningSupervisor({ actor }: { actor: Actor }) {
   const [view, setView] = useState<View>("formation");
   const [trainerId, setTrainerId] = useState("");
   const [formationId, setFormationId] = useState("");
+  const currentWeekMonday = getWeekMonday(todayIso());
+  const [selectedMonday, setSelectedMonday] = useState(() => currentWeekMonday);
+  const isCurrentWeek = selectedMonday === currentWeekMonday;
 
   useEffect(() => {
     listSlots()

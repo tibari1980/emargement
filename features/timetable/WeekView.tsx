@@ -1,12 +1,13 @@
 import { Calendar, Clock, MapPin } from "lucide-react";
-import { formatShortDate, todayIso } from "@/lib/core/dates";
-import { byStartTime } from "@/lib/domain/schedule";
+import { addDays, formatDayAndMonth, formatShortDate, todayIso } from "@/lib/core/dates";
+import { byStartTime, isSlotActiveOn } from "@/lib/domain/schedule";
 import { WEEKDAYS, WEEKDAY_LABELS, type TimetableSlot } from "@/lib/domain/types";
 
 /**
  * Weekly timetable as one section per weekday:
  * - On mobile (< 768px): ergonomic stacked cards per slot (zero horizontal scroll).
  * - On tablet & desktop (>= 768px): structured accessible table per weekday.
+ * - Supports calendar week view (with actual dates and public holiday indicators).
  */
 export function WeekView({
   slots,
@@ -14,18 +15,35 @@ export function WeekView({
   detail,
   detailHeader = "Formateur",
   actions,
+  weekMonday,
+  closedDays,
+  closureTitle,
 }: {
   slots: TimetableSlot[];
   subjectTitle: (id: string) => string;
   detail: (slot: TimetableSlot) => React.ReactNode;
   detailHeader?: string;
   actions?: (slot: TimetableSlot) => React.ReactNode;
+  weekMonday?: string;
+  closedDays?: Set<string>;
+  closureTitle?: (iso: string) => string | null;
 }) {
   const today = todayIso();
   return (
     <div className="grid gap-4 xl:grid-cols-2">
       {WEEKDAYS.map((day) => {
-        const daySlots = slots.filter((s) => s.weekday === day).sort(byStartTime);
+        const dayDate = weekMonday ? addDays(weekMonday, day - 1) : null;
+        const isClosed = Boolean(dayDate && closedDays?.has(dayDate));
+        const holidayTitle = isClosed && closureTitle && dayDate ? closureTitle(dayDate) : null;
+        const dayLabel = dayDate
+          ? `${WEEKDAY_LABELS[day]} (${formatDayAndMonth(dayDate)})`
+          : WEEKDAY_LABELS[day];
+
+        const daySlots = (dayDate
+          ? slots.filter((s) => isSlotActiveOn(s, dayDate))
+          : slots.filter((s) => s.weekday === day)
+        ).sort(byStartTime);
+
         return (
           <section
             key={day}
@@ -38,16 +56,28 @@ export function WeekView({
             >
               <span className="inline-flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-secondary shrink-0" aria-hidden="true" />
-                <span>{WEEKDAY_LABELS[day]}</span>
+                <span>{dayLabel}</span>
               </span>
-              {daySlots.length > 0 && (
+              {isClosed ? (
+                <span className="inline-flex items-center rounded-md bg-amber-500/20 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+                  Férié
+                </span>
+              ) : daySlots.length > 0 ? (
                 <span className="text-xs font-semibold text-on-surface-variant">
                   {daySlots.length} créneau{daySlots.length > 1 ? "x" : ""}
                 </span>
-              )}
+              ) : null}
             </h3>
+
+            {isClosed && (
+              <div className="p-3.5 bg-amber-500/10 border-b border-amber-500/20 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-amber-800 dark:text-amber-300">
+                <span>Jour férié / Fermeture : {holidayTitle || "Jour férié"}</span>
+                <span className="text-[11px] opacity-80">(aucun cours tenu ce jour)</span>
+              </div>
+            )}
+
             {daySlots.length === 0 ? (
-              <p className="p-4 text-sm text-on-surface-variant">Aucun cours programmé ce jour.</p>
+              !isClosed && <p className="p-4 text-sm text-on-surface-variant">Aucun cours programmé ce jour.</p>
             ) : (
               <>
                 {/* Vue Cartes sur Smartphone (< 768px) */}
