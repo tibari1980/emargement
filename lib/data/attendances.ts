@@ -12,6 +12,11 @@ import {
 } from "@/lib/domain/types";
 import { auditedBatch, type Actor } from "./audit";
 import { chunk, COLLECTIONS, withId } from "./db";
+import {
+  enqueuePendingAttendance,
+  getOrCreateDeviceSignature,
+  removePendingAttendance,
+} from "@/lib/offline/db";
 
 const attendances = () => collection(getDb(), COLLECTIONS.attendances);
 
@@ -210,6 +215,38 @@ export async function saveAttendances(actor: Actor, session: SessionRef, entries
     throw new Error(temporal.message);
   }
 
+  // Persistance immédiate dans la file d'attente offline IndexedDB (résilience réseau & horodatage certifié)
+  const clientTimestamp = new Date().toISOString();
+  const deviceSignature = getOrCreateDeviceSignature();
+
+  for (const entry of entries) {
+    const id = attendanceId(session.slot.id, entry.trainee.id, session.date);
+    await enqueuePendingAttendance({
+      id,
+      slotId: session.slot.id,
+      formationId: session.slot.formationId,
+      subjectId: session.slot.subjectId,
+      trainerId: session.slot.trainerId,
+      traineeId: entry.trainee.id,
+      traineeFullName: entry.trainee.fullName,
+      date: session.date,
+      month: session.date.slice(0, 7),
+      status: entry.status,
+      arrivalTime: entry.status === "late" ? (entry.arrivalTime ?? null) : null,
+      excuseReason: entry.status === "excused" ? (entry.excuseReason ?? null) : null,
+      recordedBy: actor.id,
+      recordedByRole: actor.role,
+      recordedByName: actor.fullName,
+      clientTimestamp,
+      deviceSignature,
+      sessionLabel: session.label,
+      slotStartTime: session.slot.startTime,
+      slotEndTime: session.slot.endTime,
+      syncStatus: "pending",
+      attempts: 0,
+    });
+  }
+
   const localMap = loadPersistedAttendances();
   for (const entry of entries) {
     const id = attendanceId(session.slot.id, entry.trainee.id, session.date);
@@ -258,6 +295,12 @@ export async function saveAttendances(actor: Actor, session: SessionRef, entries
         }
       },
     );
+
+    // Synchronisation Firestore réussie -> libération de la file d'attente locale
+    for (const entry of entries) {
+      const id = attendanceId(session.slot.id, entry.trainee.id, session.date);
+      await removePendingAttendance(id);
+    }
   } catch (err) {
     console.warn("Firestore saveAttendances failed, persisted in local cache:", err);
   }

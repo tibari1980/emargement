@@ -6,6 +6,7 @@ import { AccessibilityProvider } from "@/components/AccessibilityProvider";
 import { AppFooter } from "@/components/AppFooter";
 import { AppHeader } from "@/components/AppHeader";
 import { AuthProvider } from "@/components/AuthProvider";
+import { ServiceWorkerRegister } from "@/components/offline/ServiceWorkerRegister";
 import "./globals.css";
 
 // Typeface designed by the Braille Institute for low-vision readers.
@@ -236,6 +237,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <AccessibleAnnouncer>
           <AccessibilityProvider>
             <AuthProvider>
+              <ServiceWorkerRegister />
               <AppHeader />
               <main id="contenu" tabIndex={-1} className="mx-auto w-full max-w-[1440px] flex-1 px-3 sm:px-6 lg:px-8 py-4 sm:py-6 outline-none overflow-x-hidden">
                 {children}

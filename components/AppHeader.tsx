@@ -23,6 +23,7 @@ import { useAuth } from "./AuthProvider";
 import { BrandLogoEye } from "./BrandLogoEye";
 import { Button, focusRing } from "./ui/Button";
 import { NotificationBell } from "./notifications/NotificationBell";
+import { OfflineStatusBadge } from "./offline/OfflineStatusBadge";
 
 const CATEGORY_LABELS: Record<ModuleCategory, string> = {
   trainer: "Espace Formateur",
@@ -149,6 +150,7 @@ export function AppHeader() {
           {/* Quick Controls & Profile */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <AccessibilityToolbar />
+            <OfflineStatusBadge />
 
             {!profile && (
               <>
