@@ -371,32 +371,41 @@ export async function generateStandardWeekSlots(
     validFrom?: string;
     validTo?: string | null;
     room?: string;
+    morningStart?: string;
+    morningEnd?: string;
+    afternoonStart?: string;
+    afternoonEnd?: string;
   } = {},
 ): Promise<number> {
   const weekdays = [1, 2, 3, 4, 5] as const;
   const slotsToCreate: SlotInput[] = [];
 
+  const morningStart = options.morningStart || "09:00";
+  const morningEnd = options.morningEnd || "12:30";
+  const afternoonStart = options.afternoonStart || "13:30";
+  const afternoonEnd = options.afternoonEnd || "17:00";
+
   for (const weekday of weekdays) {
-    // Matin : 09:00 - 12:30 (3h30)
+    // Matin : entrée et sortie personnalisées
     slotsToCreate.push({
       formationId,
       subjectId: defaultSubjectId,
       trainerId: defaultTrainerId,
       weekday,
-      startTime: "09:00",
-      endTime: "12:30",
+      startTime: morningStart,
+      endTime: morningEnd,
       room: options.room || "",
       validFrom: options.validFrom || new Date().toISOString().slice(0, 10),
       validTo: options.validTo ?? null,
     });
-    // Après-midi : 13:30 - 17:00 (3h30) -> Total 7h/jour = 35h/semaine
+    // Après-midi : entrée et sortie personnalisées
     slotsToCreate.push({
       formationId,
       subjectId: defaultSubjectId,
       trainerId: defaultTrainerId,
       weekday,
-      startTime: "13:30",
-      endTime: "17:00",
+      startTime: afternoonStart,
+      endTime: afternoonEnd,
       room: options.room || "",
       validFrom: options.validFrom || new Date().toISOString().slice(0, 10),
       validTo: options.validTo ?? null,
@@ -404,7 +413,7 @@ export async function generateStandardWeekSlots(
   }
 
   const name = options.formationTitle || formationId;
-  const summary = `Génération de la grille standard 35h réglementaire (10 créneaux) pour ${name}`;
+  const summary = `Génération de la grille hebdomadaire (${morningStart}–${morningEnd} et ${afternoonStart}–${afternoonEnd}) pour ${name}`;
 
   const created = await createSlotsBatch(actor, slotsToCreate, summary);
   return created.length;

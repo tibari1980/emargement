@@ -204,10 +204,10 @@ export function TimetableManager({ actor }: { actor: Actor }) {
                   variant="secondary"
                   onClick={() => setShowStandardWeekModal(true)}
                   className="inline-flex items-center gap-2"
-                  title="Générer automatiquement la grille de 35h réglementaire (09:00-17:00)"
+                  title="Générer automatiquement les 10 créneaux de la semaine avec vos horaires personnalisés"
                 >
                   <Sparkles className="h-4 w-4 text-amber-500" aria-hidden="true" />
-                  <span>Générer grille 35h</span>
+                  <span>Générer la grille</span>
                 </Button>
 
               </div>

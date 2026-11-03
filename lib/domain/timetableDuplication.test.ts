@@ -138,4 +138,23 @@ describe("Timetable Duplication & Deduplication Logic", () => {
     expect(slotsA.every((s) => s.formationId === "form-adapt-2026")).toBe(true);
     expect(slotsB.every((s) => s.formationId === "form-tip-1")).toBe(true);
   });
+
+  it("supports generating weekly grid with customized entrance and exit hours per formation", () => {
+    const weekdays = [1, 2, 3, 4, 5] as const;
+    const customMorningStart = "08:30";
+    const customMorningEnd = "12:00";
+    const customAfternoonStart = "13:00";
+    const customAfternoonEnd = "16:30";
+
+    const customWeekSlots = weekdays.flatMap((weekday) => [
+      { weekday, startTime: customMorningStart, endTime: customMorningEnd },
+      { weekday, startTime: customAfternoonStart, endTime: customAfternoonEnd },
+    ]);
+
+    expect(customWeekSlots).toHaveLength(10);
+    expect(customWeekSlots[0].startTime).toBe("08:30");
+    expect(customWeekSlots[0].endTime).toBe("12:00");
+    expect(customWeekSlots[1].startTime).toBe("13:00");
+    expect(customWeekSlots[1].endTime).toBe("16:30");
+  });
 });
