@@ -51,17 +51,37 @@ function savePersistedSlots(map: Map<string, TimetableSlot>): void {
   } catch {}
 }
 
+/**
+ * Deduplicates slots on the same weekly schedule (formationId + weekday + startTime + endTime).
+ * Prevents identical double slots from being displayed or processed.
+ */
+export function deduplicateSlotsList(list: TimetableSlot[]): TimetableSlot[] {
+  const seen = new Map<string, TimetableSlot>();
+  for (const slot of list) {
+    const key = `${slot.formationId}_${slot.weekday}_${slot.startTime}_${slot.endTime}`;
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, slot);
+    } else {
+      // Prioritize the slot with open validity (validTo === null)
+      if (!slot.validTo && existing.validTo) {
+        seen.set(key, slot);
+      }
+    }
+  }
+  return Array.from(seen.values());
+}
+
 function filterSlots(
   all: TimetableSlot[],
   filter: { formationId?: string; trainerId?: string } = {},
 ): TimetableSlot[] {
-  return sortSlots(
-    all.filter((s) => {
-      if (filter.formationId && s.formationId !== filter.formationId) return false;
-      if (filter.trainerId && s.trainerId !== filter.trainerId) return false;
-      return true;
-    }),
-  );
+  const filtered = all.filter((s) => {
+    if (filter.formationId && s.formationId !== filter.formationId) return false;
+    if (filter.trainerId && s.trainerId !== filter.trainerId) return false;
+    return true;
+  });
+  return sortSlots(deduplicateSlotsList(filtered));
 }
 
 /**
@@ -347,4 +367,56 @@ export async function generateStandardWeekSlots(
 
   const created = await createSlotsBatch(actor, slotsToCreate, summary);
   return created.length;
+}
+
+/**
+ * Detects and purges duplicate timetable slots in Firestore and local storage.
+ */
+export async function cleanupDuplicateSlots(
+  actor: Actor,
+  formationId?: string,
+): Promise<number> {
+  const localMap = loadPersistedSlots();
+  const allRaw = Array.from(localMap.values()).filter((s) => !formationId || s.formationId === formationId);
+  const seenKeys = new Set<string>();
+  const duplicateSlotsToDelete: TimetableSlot[] = [];
+
+  const sorted = sortSlots([...allRaw]);
+  for (const s of sorted) {
+    const key = `${s.formationId}_${s.weekday}_${s.startTime}_${s.endTime}`;
+    if (seenKeys.has(key)) {
+      duplicateSlotsToDelete.push(s);
+    } else {
+      seenKeys.add(key);
+    }
+  }
+
+  if (!duplicateSlotsToDelete.length) return 0;
+
+  for (const dup of duplicateSlotsToDelete) {
+    localMap.delete(dup.id);
+    localSlotsMap.delete(dup.id);
+  }
+  savePersistedSlots(localMap);
+
+  for (const dup of duplicateSlotsToDelete) {
+    try {
+      await auditedBatch(
+        actor,
+        {
+          action: "timetable.delete_duplicate",
+          entityType: "timetableSlot",
+          entityId: dup.id,
+          summary: `Purge du doublon horaire ${describe(dup)} (${dup.id})`,
+        },
+        (batch) => batch.delete(doc(slots(), dup.id)),
+        { entryId: `del_dup_${dup.id}` },
+      );
+    } catch (err) {
+      console.warn("Failed to delete remote duplicate slot:", dup.id, err);
+    }
+  }
+
+  invalidateSlotsCache();
+  return duplicateSlotsToDelete.length;
 }

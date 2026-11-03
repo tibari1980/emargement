@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Calendar, Copy, Plus, Sparkles } from "lucide-react";
+import { Calendar, Copy, Plus, Sparkles, Trash2 } from "lucide-react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +12,7 @@ import { formatHours, formatShortDate, isValidIsoDate, timeToMinutes, todayIso }
 import type { Actor } from "@/lib/data/audit";
 import { groupFormations } from "@/lib/data/formations";
 import {
+  cleanupDuplicateSlots,
   createSlot,
   deleteSlot,
   duplicateSlotToDays,
@@ -37,6 +38,7 @@ export function TimetableManager({ actor }: { actor: Actor }) {
   const [editing, setEditing] = useState<TimetableSlot | "new" | null>(null);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showStandardWeekModal, setShowStandardWeekModal] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
   const weekHeading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -60,6 +62,20 @@ export function TimetableManager({ actor }: { actor: Actor }) {
   const closeEditor = () => {
     setEditing(null);
     setTimeout(() => weekHeading.current?.focus(), 0);
+  };
+
+  const handleCleanDuplicates = async () => {
+    setCleaning(true);
+    try {
+      const deleted = await cleanupDuplicateSlots(actor, selectedFormationId);
+      await reloadSlots();
+      await reload();
+      announce(`${deleted} doublon(s) supprimé(s) avec succès.`);
+    } catch {
+      announce("La purge des doublons a échoué.", "assertive");
+    } finally {
+      setCleaning(false);
+    }
   };
 
   const weeklyMinutes = slots
@@ -177,10 +193,10 @@ export function TimetableManager({ actor }: { actor: Actor }) {
                   onClick={() => setShowDuplicateModal(true)}
                   disabled={slots.length === 0}
                   className="inline-flex items-center gap-2"
-                  title={slots.length === 0 ? "Aucun créneau à dupliquer" : "Dupliquer cette semaine vers un autre mois ou formation"}
+                  title={slots.length === 0 ? "Aucun créneau à dupliquer" : "Dupliquer cette semaine vers une autre promotion"}
                 >
                   <Copy className="h-4 w-4 text-primary" aria-hidden="true" />
-                  <span>Dupliquer cette semaine</span>
+                  <span>Dupliquer vers une autre formation</span>
                 </Button>
 
                 <Button
@@ -192,11 +208,22 @@ export function TimetableManager({ actor }: { actor: Actor }) {
                   <Sparkles className="h-4 w-4 text-amber-500" aria-hidden="true" />
                   <span>Générer grille 35h</span>
                 </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={handleCleanDuplicates}
+                  disabled={cleaning}
+                  className="inline-flex items-center gap-2 text-status-absent hover:bg-status-absent-bg"
+                  title="Nettoyer et purger les créneaux en double sur les mêmes horaires"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  <span>{cleaning ? "Purge…" : "Purger les doublons"}</span>
+                </Button>
               </div>
 
               <div className="text-xs text-on-surface-variant font-medium">
                 {slots.length > 0 ? (
-                  <span>{slots.length} créneau{slots.length > 1 ? "x" : ""} configuré{slots.length > 1 ? "s" : ""}</span>
+                  <span>{slots.length} créneau{slots.length > 1 ? "x" : ""} unique{slots.length > 1 ? "s" : ""}</span>
                 ) : (
                   <span className="text-amber-600 dark:text-amber-400 font-semibold">Aucun créneau configuré</span>
                 )}
@@ -255,7 +282,7 @@ export function TimetableManager({ actor }: { actor: Actor }) {
             />
           </section>
 
-          {/* Modal de duplication de semaine (vers un mois précis ou une autre formation) */}
+          {/* Modal de duplication de semaine vers une autre formation */}
           {showDuplicateModal && (
             <DuplicateWeekModal
               actor={actor}

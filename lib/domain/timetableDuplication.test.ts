@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { deduplicateSlotsList } from "@/lib/data/timetable";
 import { WEEKDAYS, type TimetableSlot } from "./types";
 
-describe("Timetable Duplication Logic", () => {
+describe("Timetable Duplication & Deduplication Logic", () => {
   const sampleSlot: TimetableSlot = {
     id: "slot_1",
     formationId: "form_kin1",
@@ -46,19 +47,17 @@ describe("Timetable Duplication Logic", () => {
     expect(cloned.every((s) => s.formationId === "form_kin2")).toBe(true);
   });
 
-  it("bounds duplicated week to a specific monthly date range", () => {
-    const weekSlots: TimetableSlot[] = [sampleSlot];
-    const targetMonthStart = "2026-12-01";
-    const targetMonthEnd = "2026-12-31";
+  it("deduplicates identical slots created accidentally on same schedule", () => {
+    const duplicateSlot: TimetableSlot = {
+      ...sampleSlot,
+      id: "slot_duplicate_cloned",
+    };
 
-    const bounded = weekSlots.map((s) => ({
-      ...s,
-      validFrom: targetMonthStart,
-      validTo: targetMonthEnd,
-    }));
+    const rawList = [sampleSlot, duplicateSlot];
+    const cleaned = deduplicateSlotsList(rawList);
 
-    expect(bounded[0].validFrom).toBe("2026-12-01");
-    expect(bounded[0].validTo).toBe("2026-12-31");
+    expect(cleaned).toHaveLength(1);
+    expect(cleaned[0].id).toBe("slot_1");
   });
 
   it("generates 35h standard weekly grid structure correctly", () => {
