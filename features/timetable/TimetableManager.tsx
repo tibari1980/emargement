@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Calendar, CalendarRange, ChevronLeft, ChevronRight, Copy, Plus, Sparkles, Trash2 } from "lucide-react";
+import { Calendar, CalendarRange, ChevronLeft, ChevronRight, Copy, Plus, Sparkles } from "lucide-react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -12,7 +12,6 @@ import { addDays, formatHours, formatShortDate, getWeekMonday, isValidIsoDate, t
 import type { Actor } from "@/lib/data/audit";
 import { groupFormations } from "@/lib/data/formations";
 import {
-  cleanupDuplicateSlots,
   createSlot,
   deleteSlot,
   duplicateSlotToDays,
@@ -40,7 +39,6 @@ export function TimetableManager({ actor }: { actor: Actor }) {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [showApplyMonthModal, setShowApplyMonthModal] = useState(false);
   const [showStandardWeekModal, setShowStandardWeekModal] = useState(false);
-  const [cleaning, setCleaning] = useState(false);
   const weekHeading = useRef<HTMLHeadingElement>(null);
   const currentWeekMonday = getWeekMonday(todayIso());
   const [selectedMonday, setSelectedMonday] = useState(() => currentWeekMonday);
@@ -69,19 +67,6 @@ export function TimetableManager({ actor }: { actor: Actor }) {
     setTimeout(() => weekHeading.current?.focus(), 0);
   };
 
-  const handleCleanDuplicates = async () => {
-    setCleaning(true);
-    try {
-      const deleted = await cleanupDuplicateSlots(actor, selectedFormationId);
-      await reloadSlots();
-      await reload();
-      announce(`${deleted} doublon(s) supprimé(s) avec succès.`);
-    } catch {
-      announce("La purge des doublons a échoué.", "assertive");
-    } finally {
-      setCleaning(false);
-    }
-  };
 
   const weeklyMinutes = slots
     .filter((s) => !s.validTo || s.validTo >= todayIso())
@@ -225,16 +210,6 @@ export function TimetableManager({ actor }: { actor: Actor }) {
                   <span>Générer grille 35h</span>
                 </Button>
 
-                <Button
-                  variant="secondary"
-                  onClick={handleCleanDuplicates}
-                  disabled={cleaning}
-                  className="inline-flex items-center gap-2 text-status-absent hover:bg-status-absent-bg"
-                  title="Nettoyer et purger les créneaux en double sur les mêmes horaires"
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                  <span>{cleaning ? "Purge…" : "Purger les doublons"}</span>
-                </Button>
               </div>
 
               <div className="text-xs text-on-surface-variant font-medium">
