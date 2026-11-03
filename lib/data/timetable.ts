@@ -166,3 +166,185 @@ export async function deleteSlot(actor: Actor, slot: TimetableSlot, label: strin
     { entryId: `del_${slot.id}` },
   );
 }
+
+/**
+ * Creates multiple timetable slots in a single audited batch operation.
+ */
+export async function createSlotsBatch(
+  actor: Actor,
+  slotsList: SlotInput[],
+  summary: string,
+): Promise<string[]> {
+  if (!slotsList.length) return [];
+  const localMap = loadPersistedSlots();
+  const createdIds: string[] = [];
+  const entriesToSet: { ref: any; data: SlotInput }[] = [];
+
+  for (const s of slotsList) {
+    const ref = doc(slots());
+    const newSlot: TimetableSlot = { id: ref.id, ...s };
+    localMap.set(ref.id, newSlot);
+    localSlotsMap.set(ref.id, newSlot);
+    createdIds.push(ref.id);
+    entriesToSet.push({ ref, data: s });
+  }
+  savePersistedSlots(localMap);
+
+  await auditedBatch(
+    actor,
+    {
+      action: "timetable.batch_create",
+      entityType: "timetableSlot",
+      entityId: createdIds[0] || "batch",
+      summary,
+    },
+    (batch, lastAuditId) => {
+      for (const entry of entriesToSet) {
+        batch.set(entry.ref, { ...entry.data, lastAuditId });
+      }
+    },
+  );
+
+  return createdIds;
+}
+
+/**
+ * Duplicates a single slot to multiple other weekdays in one operation.
+ */
+export async function duplicateSlotToDays(
+  actor: Actor,
+  baseSlot: SlotInput,
+  additionalDays: number[],
+  label: string,
+): Promise<string[]> {
+  const uniqueDays = [...new Set(additionalDays)].filter((d) => d !== baseSlot.weekday && d >= 1 && d <= 5);
+  if (!uniqueDays.length) return [];
+
+  const slotsToCreate: SlotInput[] = uniqueDays.map((weekday) => ({
+    ...baseSlot,
+    weekday: weekday as any,
+  }));
+
+  const daysLabel = uniqueDays.map((d) => WEEKDAY_LABELS[d as keyof typeof WEEKDAY_LABELS]).join(", ");
+  const summary = `Duplication du créneau ${baseSlot.startTime}–${baseSlot.endTime} vers ${daysLabel} : ${label}`;
+
+  return createSlotsBatch(actor, slotsToCreate, summary);
+}
+
+/**
+ * Duplicates every slot of a source formation towards a target formation.
+ */
+export async function duplicateWeekToFormation(
+  actor: Actor,
+  sourceSlots: TimetableSlot[],
+  targetFormationId: string,
+  options: {
+    targetFormationTitle?: string;
+    validFrom?: string;
+    validTo?: string | null;
+  } = {},
+): Promise<number> {
+  if (!sourceSlots.length) return 0;
+
+  const slotsToCreate: SlotInput[] = sourceSlots.map((s) => ({
+    formationId: targetFormationId,
+    subjectId: s.subjectId,
+    trainerId: s.trainerId,
+    weekday: s.weekday,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    room: s.room || "",
+    validFrom: options.validFrom || s.validFrom,
+    validTo: options.validTo !== undefined ? options.validTo : s.validTo,
+  }));
+
+  const targetName = options.targetFormationTitle || targetFormationId;
+  const summary = `Duplication de la semaine type (${slotsToCreate.length} créneaux) vers la formation ${targetName}`;
+
+  const created = await createSlotsBatch(actor, slotsToCreate, summary);
+  return created.length;
+}
+
+/**
+ * Clones/applies an existing week structure to a specific month or date range.
+ * Perfect for monthly module planning!
+ */
+export async function cloneWeekForPeriod(
+  actor: Actor,
+  sourceSlots: TimetableSlot[],
+  validFrom: string,
+  validTo: string,
+  options: { formationTitle?: string } = {},
+): Promise<number> {
+  if (!sourceSlots.length) return 0;
+
+  const slotsToCreate: SlotInput[] = sourceSlots.map((s) => ({
+    formationId: s.formationId,
+    subjectId: s.subjectId,
+    trainerId: s.trainerId,
+    weekday: s.weekday,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    room: s.room || "",
+    validFrom,
+    validTo,
+  }));
+
+  const name = options.formationTitle || "formation";
+  const summary = `Clonage de l'emploi du temps (${slotsToCreate.length} créneaux) du ${validFrom} au ${validTo} pour ${name}`;
+
+  const created = await createSlotsBatch(actor, slotsToCreate, summary);
+  return created.length;
+}
+
+/**
+ * Generates the official CFRP 35h standard weekly grid (09:00–12:30 & 13:30–17:00, Mon–Fri).
+ */
+export async function generateStandardWeekSlots(
+  actor: Actor,
+  formationId: string,
+  defaultSubjectId: string,
+  defaultTrainerId: string,
+  options: {
+    formationTitle?: string;
+    validFrom?: string;
+    validTo?: string | null;
+    room?: string;
+  } = {},
+): Promise<number> {
+  const weekdays = [1, 2, 3, 4, 5] as const;
+  const slotsToCreate: SlotInput[] = [];
+
+  for (const weekday of weekdays) {
+    // Matin : 09:00 - 12:30 (3h30)
+    slotsToCreate.push({
+      formationId,
+      subjectId: defaultSubjectId,
+      trainerId: defaultTrainerId,
+      weekday,
+      startTime: "09:00",
+      endTime: "12:30",
+      room: options.room || "",
+      validFrom: options.validFrom || new Date().toISOString().slice(0, 10),
+      validTo: options.validTo ?? null,
+    });
+    // Après-midi : 13:30 - 17:00 (3h30) -> Total 7h/jour = 35h/semaine
+    slotsToCreate.push({
+      formationId,
+      subjectId: defaultSubjectId,
+      trainerId: defaultTrainerId,
+      weekday,
+      startTime: "13:30",
+      endTime: "17:00",
+      room: options.room || "",
+      validFrom: options.validFrom || new Date().toISOString().slice(0, 10),
+      validTo: options.validTo ?? null,
+    });
+  }
+
+  const name = options.formationTitle || formationId;
+  const summary = `Génération de la grille standard 35h réglementaire (10 créneaux) pour ${name}`;
+
+  const created = await createSlotsBatch(actor, slotsToCreate, summary);
+  return created.length;
+}

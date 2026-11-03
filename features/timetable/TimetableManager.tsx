@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Calendar, Plus, Sparkles } from "lucide-react";
+import { Calendar, Copy, Plus, Sparkles } from "lucide-react";
 import { useAnnounce } from "@/components/AccessibleAnnouncer";
 import { Alert, Loading } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -11,12 +11,21 @@ import { SelectField, TextField } from "@/components/ui/Field";
 import { formatHours, formatShortDate, isValidIsoDate, timeToMinutes, todayIso } from "@/lib/core/dates";
 import type { Actor } from "@/lib/data/audit";
 import { groupFormations } from "@/lib/data/formations";
-import { createSlot, deleteSlot, listSlots, updateSlot, type SlotInput } from "@/lib/data/timetable";
+import {
+  createSlot,
+  deleteSlot,
+  duplicateSlotToDays,
+  listSlots,
+  updateSlot,
+  type SlotInput,
+} from "@/lib/data/timetable";
 import { updateSubject } from "@/lib/data/subjects";
 import { isActive } from "@/lib/data/users";
 import { findConflicts, slotMinutes } from "@/lib/domain/schedule";
 import { WEEKDAYS, WEEKDAY_LABELS, type TimetableSlot, type Weekday } from "@/lib/domain/types";
 import { useReferenceData } from "@/features/shared/useReferenceData";
+import { DuplicateWeekModal } from "./DuplicateWeekModal";
+import { GenerateStandardWeekModal } from "./GenerateStandardWeekModal";
 import { TimetableExportButtons } from "./TimetableExportButtons";
 import { WeekView } from "./WeekView";
 
@@ -26,6 +35,8 @@ export function TimetableManager({ actor }: { actor: Actor }) {
   const [formationId, setFormationId] = useState("");
   const [allSlots, setAllSlots] = useState<TimetableSlot[] | null>(null);
   const [editing, setEditing] = useState<TimetableSlot | "new" | null>(null);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [showStandardWeekModal, setShowStandardWeekModal] = useState(false);
   const weekHeading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
@@ -115,10 +126,17 @@ export function TimetableManager({ actor }: { actor: Actor }) {
               existing={allSlots}
               reference={data}
               labelFor={(s) => `${lookups.subjectTitle(s.subjectId)} — ${lookups.formationTitle(s.formationId)} (${lookups.personName(s.trainerId)})`}
-              onSubmit={async (input) => {
+              onSubmit={async (input, additionalDays) => {
                 try {
-                  if (editing === "new") await createSlot(actor, input, labelOf(input));
-                  else await updateSlot(actor, editing, input, labelOf(input));
+                  if (editing === "new") {
+                    await createSlot(actor, input, labelOf(input));
+                    // Duplication multi-jours optionnelle
+                    if (additionalDays && additionalDays.length > 0) {
+                      await duplicateSlotToDays(actor, input, additionalDays, labelOf(input));
+                    }
+                  } else {
+                    await updateSlot(actor, editing, input, labelOf(input));
+                  }
 
                   // Si la matière avait une liste restreinte de formateurs, on y intègre automatiquement ce formateur
                   const currentSubject = data.subjects.find((s) => s.id === input.subjectId);
@@ -135,7 +153,10 @@ export function TimetableManager({ actor }: { actor: Actor }) {
 
                   await reloadSlots();
                   await reload();
-                  announce(`Créneau du ${WEEKDAY_LABELS[input.weekday].toLowerCase()} ${input.startTime} enregistré.`);
+                  const extraMsg = additionalDays?.length
+                    ? ` et dupliqué sur ${additionalDays.length} autre(s) jour(s)`
+                    : "";
+                  announce(`Créneau du ${WEEKDAY_LABELS[input.weekday].toLowerCase()} ${input.startTime} enregistré${extraMsg}.`);
                   closeEditor();
                 } catch {
                   announce("L'enregistrement du créneau a échoué.", "assertive");
@@ -144,11 +165,42 @@ export function TimetableManager({ actor }: { actor: Actor }) {
               onCancel={closeEditor}
             />
           ) : (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Button onClick={() => setEditing("new")} className="inline-flex items-center gap-2">
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                <span>Ajouter un créneau</span>
-              </Button>
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-container-low p-3.5 rounded-2xl border border-border-subtle">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Button onClick={() => setEditing("new")} className="inline-flex items-center gap-2">
+                  <Plus className="h-4 w-4" aria-hidden="true" />
+                  <span>Ajouter un créneau</span>
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowDuplicateModal(true)}
+                  disabled={slots.length === 0}
+                  className="inline-flex items-center gap-2"
+                  title={slots.length === 0 ? "Aucun créneau à dupliquer" : "Dupliquer cette semaine vers un autre mois ou formation"}
+                >
+                  <Copy className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <span>Dupliquer cette semaine</span>
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowStandardWeekModal(true)}
+                  className="inline-flex items-center gap-2"
+                  title="Générer automatiquement la grille de 35h réglementaire (09:00-17:00)"
+                >
+                  <Sparkles className="h-4 w-4 text-amber-500" aria-hidden="true" />
+                  <span>Générer grille 35h</span>
+                </Button>
+              </div>
+
+              <div className="text-xs text-on-surface-variant font-medium">
+                {slots.length > 0 ? (
+                  <span>{slots.length} créneau{slots.length > 1 ? "x" : ""} configuré{slots.length > 1 ? "s" : ""}</span>
+                ) : (
+                  <span className="text-amber-600 dark:text-amber-400 font-semibold">Aucun créneau configuré</span>
+                )}
+              </div>
             </div>
           )}
 
@@ -202,6 +254,34 @@ export function TimetableManager({ actor }: { actor: Actor }) {
               )}
             />
           </section>
+
+          {/* Modal de duplication de semaine (vers un mois précis ou une autre formation) */}
+          {showDuplicateModal && (
+            <DuplicateWeekModal
+              actor={actor}
+              currentFormation={formation}
+              slots={slots}
+              allFormations={formations}
+              onSuccess={async () => {
+                await reloadSlots();
+              }}
+              onClose={() => setShowDuplicateModal(false)}
+            />
+          )}
+
+          {/* Modal de génération rapide grille standard 35h */}
+          {showStandardWeekModal && (
+            <GenerateStandardWeekModal
+              actor={actor}
+              currentFormation={formation}
+              subjects={data.subjects}
+              staff={data.staff}
+              onSuccess={async () => {
+                await reloadSlots();
+              }}
+              onClose={() => setShowStandardWeekModal(false)}
+            />
+          )}
         </>
       )}
     </div>
@@ -234,10 +314,11 @@ function SlotForm({
   existing: TimetableSlot[];
   reference: NonNullable<ReturnType<typeof useReferenceData>["data"]>;
   labelFor: (s: TimetableSlot) => string;
-  onSubmit: (input: SlotInput) => Promise<void>;
+  onSubmit: (input: SlotInput, additionalDays?: number[]) => Promise<void>;
   onCancel: () => void;
 }) {
   const [form, setForm] = useState<SlotInput>(slot ? { ...EMPTY_SLOT(formationId), ...slot } : EMPTY_SLOT(formationId));
+  const [extraDays, setExtraDays] = useState<number[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [conflicts, setConflicts] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -294,7 +375,10 @@ function SlotForm({
     if (found.length) return;
 
     setBusy(true);
-    await onSubmit({ ...form, room: form.room.trim(), validTo: form.validTo || null });
+    await onSubmit(
+      { ...form, room: form.room.trim(), validTo: form.validTo || null },
+      !slot ? extraDays : undefined,
+    );
     setBusy(false);
   };
 
@@ -318,7 +402,7 @@ function SlotForm({
           </Alert>
         )}
         <div className="grid gap-4 md:grid-cols-3">
-          <SelectField label="Jour" value={form.weekday} onChange={(e) => set("weekday", Number(e.target.value) as Weekday)}>
+          <SelectField label="Jour principal" value={form.weekday} onChange={(e) => set("weekday", Number(e.target.value) as Weekday)}>
             {WEEKDAYS.map((d) => (
               <option key={d} value={d}>
                 {WEEKDAY_LABELS[d]}
@@ -327,6 +411,45 @@ function SlotForm({
           </SelectField>
           <TextField label="Début" type="time" value={form.startTime} onChange={(e) => set("startTime", e.target.value)} error={errors.startTime} />
           <TextField label="Fin" type="time" value={form.endTime} onChange={(e) => set("endTime", e.target.value)} error={errors.endTime} />
+
+          {/* Duplication multi-jours en 1 clic (nouveau créneau uniquement) */}
+          {!slot && (
+            <div className="md:col-span-3 rounded-xl border border-border-subtle bg-surface-container p-3.5 space-y-2">
+              <span className="text-xs font-bold text-on-surface">
+                Répéter également ce cours sur d&apos;autres jours de la semaine (gain de temps) :
+              </span>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {WEEKDAYS.filter((d) => d !== form.weekday).map((d) => {
+                  const isChecked = extraDays.includes(d);
+                  return (
+                    <label
+                      key={d}
+                      className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+                        isChecked
+                          ? "border-primary bg-primary text-on-primary"
+                          : "border-border-subtle bg-surface-container-lowest text-on-surface hover:bg-surface-variant"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          if (e.target.checked) setExtraDays([...extraDays, d]);
+                          else setExtraDays(extraDays.filter((x) => x !== d));
+                        }}
+                        className="sr-only"
+                      />
+                      <span>{WEEKDAY_LABELS[d]}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-on-surface-variant">
+                Cochez les jours supplémentaires pour créer simultanément ces créneaux identiques sans avoir à les retaper.
+              </p>
+            </div>
+          )}
+
           <SelectField label="Matière" value={form.subjectId} onChange={(e) => set("subjectId", e.target.value)} error={errors.subjectId}>
             <option value="">Choisir une matière</option>
             {subjects.map((s) => (
@@ -391,7 +514,7 @@ function SlotForm({
         </div>
         <div className="flex flex-wrap gap-3">
           <Button type="submit" disabled={busy}>
-            {busy ? "Enregistrement…" : "Enregistrer le créneau"}
+            {busy ? "Enregistrement…" : extraDays.length > 0 ? `Enregistrer (${extraDays.length + 1} créneaux)` : "Enregistrer le créneau"}
           </Button>
           <Button variant="secondary" onClick={onCancel}>
             Annuler
